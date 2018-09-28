@@ -1,0 +1,62 @@
+extern crate libc;
+extern crate image;
+extern crate num_complex;
+
+use num_complex::Complex;
+use std::slice;
+
+fn generate_julia_fractal() {
+    let max_iterations = 256u16;
+
+    let imgx = 800;
+    let imgy = 800;
+
+    let scalex = 4.0 / imgx as f32;
+    let scaley = 4.0 / imgy as f32;
+
+    // Create a new ImgBuf with width: imgx and height: imgy
+    let mut imgbuf = image::GrayImage::new(imgx, imgy);
+
+    // Iterate over the coordinates and pixels of the image
+    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+        let cy = y as f32 * scaley - 2.0;
+        let cx = x as f32 * scalex - 2.0;
+
+        let mut z = Complex::new(cx, cy);
+        let c = Complex::new(-0.4, 0.6);
+
+        let mut i = 0;
+
+        for t in 0..max_iterations {
+            if z.norm() > 2.0 {
+                break;
+            }
+            z = z * z + c;
+            i = t;
+        }
+        // Create an 8bit pixel of type Luma and value i
+        // and assign in to the pixel at position (x, y)
+
+        // println!("{:?}", i);
+        *pixel = image::Luma([i as u8]);
+    }
+
+    // imgbuf.save("fractal.png").unwrap();
+    // imgbuf.save("/sdcard/Download/fractal.png").unwrap();
+    // return Box::into_raw(Box::new(imgbuf));
+
+    println!("{:?}", imgbuf.into_raw());
+
+
+    /*for x in 0..(800 * 800) {
+        unsafe {
+            let b = imgbuf.get_mut(x).unwrap();
+            println!("{:?}, {:?}", b, x);
+        }
+    }*/
+
+}
+
+fn main() {
+    generate_julia_fractal()
+}

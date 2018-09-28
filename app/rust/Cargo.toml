@@ -1,0 +1,23 @@
+[package]
+name = "rust"
+version = "0.1.0"
+authors = ["Hoang Phan <pquochoang2007@gmail.com>"]
+
+[lib]
+name = "rust"
+crate-type = ["staticlib"]
+
+[target.'cfg(target_os="android")'.dependencies]
+jni = { version = "0.10.2", default-features = false }
+image = "*"
+num-complex = "0.2"
+libc = "0.2"
+
+[dependencies]
+image = "*"
+num-complex = "0.2"
+libc = "0.2"
+
+[[example]]
+name = "main"
+path = "examples/main.rs"
