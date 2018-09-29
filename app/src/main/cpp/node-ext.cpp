@@ -1,6 +1,7 @@
 #include "v8.h"
 #include "node.h"
-#include "node_ext.h"
+#include "node-ext.h"
+#include "java-vm.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -10,6 +11,12 @@
 #include <cstdlib>
 #include <pthread.h>
 #include <unistd.h>
+#include <android/log.h>
+
+static const char *kTAG = "Nodejs Runtime";
+
+#define LOGI(...) \
+  ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
 
 typedef struct node_context {
     JavaVM *javaVM;
@@ -31,7 +38,10 @@ namespace node {
     using v8::HandleScope;
     using v8::ObjectTemplate;
     using v8::FunctionTemplate;
+    using v8::EscapableHandleScope;
     using v8::FunctionCallbackInfo;
+    using v8::MaybeLocal;
+    using v8::JSON;
 
     namespace loader {
 
@@ -40,7 +50,7 @@ namespace node {
             return *value ? *value : "<string conversion failed>";
         }
 
-        static void Toast(const FunctionCallbackInfo<Value> &args) {
+        static void AndroidToast(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate = args.GetIsolate();
             JNIEnv *env;
             jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
@@ -63,6 +73,17 @@ namespace node {
             args.GetReturnValue().Set(str);
         }
 
+        void AndroidLog(const FunctionCallbackInfo<Value> &args) {
+            Isolate *isolate = args.GetIsolate();
+            Local<Context> context = isolate->GetCurrentContext();
+
+            EscapableHandleScope handle_scope(isolate);
+            Local<String> result = JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked();
+            const char *jsonString = ToCString(result);
+            LOGI("%s", jsonString);
+        }
+
+        // Override header
         class ModuleWrap {
         public:
             static void Initialize(v8::Local<v8::Object> target,
@@ -81,8 +102,13 @@ namespace node {
                 // define function in global context
                 v8::Isolate *isolate = target->GetIsolate();
                 Local<Object> global = context->Global();
-                global->Set(String::NewFromUtf8(isolate, "$toast"),
-                            FunctionTemplate::New(isolate, loader::Toast)->GetFunction());
+
+                auto toastFn = FunctionTemplate::New(isolate, loader::AndroidToast)->GetFunction();
+                global->Set(String::NewFromUtf8(isolate, "$toast"), toastFn);
+
+                auto logFn = FunctionTemplate::New(isolate, loader::AndroidLog)->GetFunction();
+                global->Set(String::NewFromUtf8(isolate, "$log"), logFn);
+
             }
 
         };
@@ -130,4 +156,4 @@ Java_com_node_sample_MainActivity_releaseVM(
     g_ctx.mainActivityClz = NULL;
 }
 
-NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap, node::loader::AndroidModuleWrap::Initialize)
+NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap, node::loader::AndroidModuleWrap::Initialize);

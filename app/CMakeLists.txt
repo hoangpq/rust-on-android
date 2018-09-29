@@ -13,7 +13,6 @@ project(android_nodejs)
 
 #Includes node's header files.
 include_directories(libnode/include/node/)
-include_directories(rust/src/include/)
 
 # add imported target
 add_library( imp_lib_rust STATIC IMPORTED )
@@ -28,6 +27,7 @@ add_library( # Sets the name of the library.
              SHARED
              # Provides a relative path to your source file(s).
              src/main/cpp/native-lib.cpp
+             src/main/cpp/java-vm.cpp
              src/main/cpp/node-ext.cpp )
 
 add_library( libnode
