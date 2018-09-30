@@ -78,7 +78,9 @@ namespace node {
             Local<Context> context = isolate->GetCurrentContext();
 
             EscapableHandleScope handle_scope(isolate);
-            Local<String> result = JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked();
+            Local<String> result =
+                    handle_scope.Escape(
+                            JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
             const char *jsonString = ToCString(result);
             LOGI("%s", jsonString);
         }
