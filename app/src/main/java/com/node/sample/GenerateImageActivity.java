@@ -43,6 +43,7 @@ public class GenerateImageActivity extends AppCompatActivity {
                                     imageView.setImageBitmap(bitmap);
                                 });
                             }
+
                         });
                     }
                 }));

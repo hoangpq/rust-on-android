@@ -23,9 +23,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 
-import static android.widget.Toast.makeText;
-
-public class MainActivity extends AppCompatActivity implements NodeJsToast {
+public class MainActivity extends AppCompatActivity {
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -35,38 +33,17 @@ public class MainActivity extends AppCompatActivity implements NodeJsToast {
 
     public native int startNodeWithArguments(String[] arguments);
 
-    public native void initVM();
+    public native void initVM(Observable callbackObj);
 
     public native void releaseVM();
 
-    public native void asyncComputation(MainActivity callback);
+    public native void connectWS(Observable callbackObj);
+
+    public native void asyncComputation(Observable callbackObj);
 
     //We just want one instance of node running in the background.
     public static boolean _startedNodeAlready = false;
     private TextView txtCounter;
-
-    @Override
-    public void toast(final String msg) {
-        runOnUiThread(new Thread() {
-            @Override
-            public void run() {
-                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-    public void onToastShow(final String msg) {
-        runOnUiThread(new Thread() {
-            @Override
-            public void run() {
-                makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-    public void asyncCallback(final int count) {
-        runOnUiThread(() -> txtCounter.setText(String.valueOf(count)));
-    }
 
     @SuppressLint("StaticFieldLeak")
     @Override
@@ -74,8 +51,23 @@ public class MainActivity extends AppCompatActivity implements NodeJsToast {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         txtCounter = findViewById(R.id.txtCounter);
-        initVM();
-        asyncComputation(this);
+
+        // toast watcher
+        initVM(new Observable() {
+            @Override
+            public void subscribe(String arg) {
+                runOnUiThread(() -> Toast.makeText(getApplicationContext(), arg, Toast.LENGTH_LONG).show());
+            }
+        });
+
+        // async counter watcher
+        asyncComputation(new Observable() {
+            @Override
+            public void subscribe(int arg) {
+                runOnUiThread(() -> txtCounter.setText(String.valueOf(arg)));
+            }
+        });
+
         if (!_startedNodeAlready) {
             _startedNodeAlready = true;
             new Thread(() -> {
@@ -104,7 +96,25 @@ public class MainActivity extends AppCompatActivity implements NodeJsToast {
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
+        final Button btnWebSocket = findViewById(R.id.btnWebSocket);
         final TextView textViewVersions = findViewById(R.id.tvVersions);
+
+        btnWebSocket.setOnClickListener(view -> {
+            btnWebSocket.setEnabled(false);
+            // watch message from `WebSocket`
+            connectWS(new Observable() {
+                @Override
+                public void subscribe() {
+                    runOnUiThread(() -> btnWebSocket.setEnabled(true));
+                }
+
+                @Override
+                public void subscribe(String arg) {
+                    runOnUiThread(() -> Toast.makeText(
+                            getApplicationContext(), arg, Toast.LENGTH_SHORT).show());
+                }
+            });
+        });
 
         btnImageProcessing.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, GenerateImageActivity.class)));
 

@@ -64,8 +64,8 @@ namespace node {
             Local<String> str = args[0]->ToString();
             const char *msg = ToCString(str);
 
-            jmethodID methodId = env->GetMethodID(g_ctx.mainActivityClz, "toast",
-                                                  "(Ljava/lang/String;)V");
+            jmethodID methodId = env->GetMethodID(
+                    g_ctx.mainActivityClz, "subscribe", "(Ljava/lang/String;)V");
 
             jstring javaMsg = env->NewStringUTF(msg);
             env->CallVoidMethod(g_ctx.mainActivityObj, methodId, javaMsg);
@@ -138,12 +138,13 @@ JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *reserved) {
 extern "C" void JNICALL
 Java_com_node_sample_MainActivity_initVM(
         JNIEnv *env,
-        jobject instance) {
+        jobject klass,
+        jobject callback) {
 
     // init objects
-    jclass clz = env->GetObjectClass(instance);
+    jclass clz = env->GetObjectClass(callback);
     g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
-    g_ctx.mainActivityObj = env->NewGlobalRef(instance);
+    g_ctx.mainActivityObj = env->NewGlobalRef(callback);
 }
 
 extern "C" void JNICALL
@@ -152,8 +153,8 @@ Java_com_node_sample_MainActivity_releaseVM(
         jobject /* this */) {
 
     // release allocated objects
-    env->DeleteGlobalRef(g_ctx.mainActivityClz);
     env->DeleteGlobalRef(g_ctx.mainActivityObj);
+    env->DeleteGlobalRef(g_ctx.mainActivityClz);
     g_ctx.mainActivityObj = NULL;
     g_ctx.mainActivityClz = NULL;
 }
