@@ -2,24 +2,40 @@ extern crate ws;
 extern crate jni;
 extern crate libc;
 extern crate image;
+extern crate imageproc;
 extern crate num_complex;
 
-extern crate serde;
-extern crate serde_json;
 #[macro_use]
-extern crate serde_derive;
+extern crate itertools;
 
-use num_complex::Complex;
-use std::ffi::CStr;
-
+use std::cmp;
 use std::thread;
-use std::time::Duration;
+use std::ffi::CStr;
 use std::sync::mpsc;
-use std::{slice, mem};
+use std::os::raw::{c_int, c_void, c_uint};
+use std::time::Duration;
+use num_complex::Complex;
+use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JString, JValue};
-use jni::sys::jint;
+use jni::sys::{jint, jlong, jobject, jstring, jbyteArray};
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct AndroidBitmapInfo {
+    pub width: c_uint,
+    pub height: c_uint,
+    pub stride: c_uint,
+    pub format: c_int,
+    pub flags: c_uint, // 0 for now
+}
+
+pub struct Color {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+}
 
 #[no_mangle]
 pub extern "C" fn init_module() {}
@@ -31,38 +47,137 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_asyncComputation
     _class: JClass,
     callback: JObject,
 ) {
-    // `JNIEnv` cannot be sent across thread boundaries. To be able to use JNI
-    // functions in other threads, we must first obtain the `JavaVM` interface
-    // which, unlike `JNIEnv` is `Send`.
     let jvm = env.get_java_vm().unwrap();
-    // We need to obtain global reference to the `callback` object before sending
-    // it to the thread, to prevent it from being collected by the GC.
     let callback = env.new_global_ref(callback).unwrap();
-    // Use channel to prevent the Java program to finish before the thread
-    // has chance to start.
     let (tx, rx) = mpsc::channel();
     let _ = thread::spawn(move || {
-        // Signal that the thread has started.
         tx.send(()).unwrap();
-
-        // Use the `JavaVM` interface to attach a `JNIEnv` to the current thread.
         let env = jvm.attach_current_thread().unwrap();
-        // Then use the `callback` with this newly obtained `JNIEnv`.
         let callback = callback.as_obj();
-
         for i in 0..100 {
             let progress = i as jint;
-            // Now we can use all available `JNIEnv` functionality normally.
             env.call_method(
                 callback, "subscribe",
                 "(I)V", &[progress.into()])
                 .unwrap();
             thread::sleep(Duration::from_millis(1000));
         }
-        // The current thread is detached automatically when `env` goes out of scope.
     });
-    // Wait until the thread has started.
     rx.recv().unwrap();
+}
+
+
+#[allow(non_snake_case)]
+extern "C" {
+    pub fn AndroidBitmap_getInfo(env: *mut JNIEnv, jbitmap: jobject, info: *mut AndroidBitmapInfo) -> c_int;
+    pub fn AndroidBitmap_lockPixels(env: *mut JNIEnv, jbitmap: jobject, addrPtr: *mut *mut c_void) -> c_int;
+    pub fn AndroidBitmap_unlockPixels(env: *mut JNIEnv, jbitmap: jobject) -> c_int;
+}
+
+fn generate_palette() -> Vec<Color> {
+    let mut palette: Vec<Color> = vec![];
+    let mut roffset = 24;
+    let mut goffset = 16;
+    let mut boffset = 0;
+    for i in 0..256 {
+        palette.push(Color { red: roffset, green: goffset, blue: boffset });
+        if i < 64 {
+            roffset += 3;
+        } else if i < 128 {
+            goffset += 3;
+        } else if i < 192 {
+            boffset += 3;
+        }
+    }
+    return palette;
+}
+
+pub fn draw_mandelbrot(
+    buffer: &mut [u8], width: i64, height: i64,
+    pixel_size: f64, x0: f64, y0: f64,
+) {
+    let palette: Vec<Color> = generate_palette();
+    iproduct!((0..width), (0..height)).foreach(|(i, j)| {
+        let cr = x0 + pixel_size * (i as f64);
+        let ci = y0 + pixel_size * (j as f64);
+        let (mut zr, mut zi) = (0.0, 0.0);
+
+        let k = (0..256)
+            .take_while(|_| {
+                let (zrzi, zr2, zi2) = (zr * zi, zr * zr, zi * zi);
+                zr = zr2 - zi2 + cr;
+                zi = zrzi + zrzi + ci;
+                zi2 + zr2 < 2.0
+            })
+            .count();
+        let k = cmp::min(255, k) as u8;
+        let idx = (4 * (j * width + i)) as usize;
+
+        let result = palette.get(k as usize);
+        match result {
+            Some(color) => {
+                buffer[idx] = color.red;
+                buffer[idx + 1] = color.green;
+                buffer[idx + 2] = color.blue;
+                buffer[idx + 3] = 255;
+            }
+            None => {}
+        }
+    });
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
+    env: *mut JNIEnv,
+    _class: JClass,
+    bitmap: jobject,
+) {
+    let mut info = AndroidBitmapInfo {
+        width: 0,
+        height: 0,
+        stride: 0,
+        format: 0,
+        flags: 0,
+    };
+    let ret = unsafe {
+        AndroidBitmap_getInfo(env, bitmap, &mut info)
+    };
+
+
+    let mut pixels = 0 as *mut c_void;
+    let ret = unsafe {
+        AndroidBitmap_lockPixels(env, bitmap, &mut pixels)
+    };
+
+    let mut pixels = unsafe {
+        ::std::slice::from_raw_parts_mut(
+            pixels as *mut u8,
+            (info.stride * info.height) as usize,
+        )
+    };
+
+    draw_mandelbrot(pixels, info.width as i64,
+                    info.height as i64,
+                    0.005, -2.0, -1.5);
+
+    /*for pixel in pixels.chunks_mut(4) {
+        let threshold = 127.5;
+        let (r, g, b) = (pixel[0], pixel[1], pixel[2]);
+        if 0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32 >= threshold {
+            pixel[0] = 255;
+            pixel[1] = 255;
+            pixel[2] = 255;
+        } else {
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+        }
+    }*/
+
+    unsafe {
+        AndroidBitmap_unlockPixels(env, bitmap);
+    }
 }
 
 #[no_mangle]
@@ -75,7 +190,6 @@ pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_generat
 ) {
     let jvm = env.get_java_vm().unwrap();
     let callback = env.new_global_ref(callback).unwrap();
-
     let pattern = env.get_string(path).expect("invalid pattern string").as_ptr();
     let c_str = unsafe { CStr::from_ptr(pattern) };
     let raw_path = c_str.to_str().unwrap();
@@ -101,35 +215,15 @@ pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_generat
                 z = z * z + c;
                 i = t;
             }
-            // Create an 8bit pixel of type Luma and value i
-            // and assign in to the pixel at position (x, y)
             *pixel = image::Luma([i as u8]);
         }
-        // let v = imgbuf.into_raw();
-        // copy(v.as_ptr(), pixels as *mut u8, v.len());
         imgbuf.save(raw_path).unwrap();
-        // Use the `JavaVM` interface to attach a `JNIEnv` to the current thread.
         let env = jvm.attach_current_thread().unwrap();
         let callback = callback.as_obj();
-
         env.call_method(callback, "subscribe", "()V",
                         &[]).unwrap();
     });
     handle.join().unwrap();
-}
-
-
-#[derive(Serialize, Deserialize)]
-struct Product {
-    name: String,
-    list_price: f32,
-}
-
-#[derive(Serialize, Deserialize)]
-struct PGAction {
-    table: String,
-    action: String,
-    data: Product,
 }
 
 #[no_mangle]
@@ -141,18 +235,12 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_connectWS(
 ) {
     let jvm = env.get_java_vm().unwrap();
     let callback = env.new_global_ref(callback).unwrap();
-
     let t = thread::spawn(move || {
-
-        // Use the `JavaVM` interface to attach a `JNIEnv` to the current thread.
         let env = jvm.attach_current_thread().unwrap();
         let callback = callback.as_obj();
-
         ws::connect("ws://echo.websocket.org", |out| {
             println!("Connected...");
             let watcher = |msg: ws::Message| {
-                // let action: PGAction = serde_json::from_str(msg.as_text().unwrap()).unwrap();
-                // println!("Name: {}, Price: {}", action.data.name, action.data.list_price);
                 if msg.as_text().unwrap() == "Stopped!" {
                     env.call_method(callback, "subscribe", "()V", &[]).unwrap();
                 }

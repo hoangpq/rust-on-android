@@ -10,11 +10,13 @@ crate-type = ["staticlib"]
 [target.'cfg(target_os="android")'.dependencies]
 ws = "0.7.9"
 libc = "0.2"
-image = "*"
 serde = "1.0.60"
 serde_json = "1.0"
 serde_derive = "1.0"
 num-complex = "0.2"
+image = "0.20.0"
+imageproc = "0.16.0"
+itertools = "*"
 jni = { version = "0.10.2", default-features = false }
 
 [dependencies]
