@@ -3,26 +3,23 @@ extern crate jni;
 extern crate libc;
 extern crate image;
 extern crate imageproc;
-extern crate num_complex;
 
 #[macro_use]
 extern crate itertools;
 
 use std::cmp;
 use std::thread;
-use std::ffi::CStr;
 use std::sync::mpsc;
 use std::os::raw::{c_int, c_void, c_uint};
 use std::time::Duration;
-use num_complex::Complex;
 use itertools::Itertools;
 
 use jni::JNIEnv;
-use jni::objects::{JClass, JObject, JString, JValue};
-use jni::sys::{jint, jlong, jobject, jstring, jbyteArray};
+use jni::objects::{JClass, JObject, JValue};
+use jni::sys::{jint, jobject};
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AndroidBitmapInfo {
     pub width: c_uint,
     pub height: c_uint,
@@ -96,6 +93,7 @@ pub fn draw_mandelbrot(
     buffer: &mut [u8], width: i64, height: i64,
     pixel_size: f64, x0: f64, y0: f64,
 ) {
+    println!("Pixel size: {:?} - x0: {:?} - y0: {:?}", pixel_size, x0, y0);
     let palette: Vec<Color> = generate_palette();
     iproduct!((0..width), (0..height)).foreach(|(i, j)| {
         let cr = x0 + pixel_size * (i as f64);
@@ -129,101 +127,21 @@ pub fn draw_mandelbrot(
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
-    env: *mut JNIEnv,
-    _class: JClass,
-    bitmap: jobject,
+    env: *mut JNIEnv, _class: JClass, bitmap: jobject, pixel_size: f64, x0: f64, y0: f64,
 ) {
-    let mut info = AndroidBitmapInfo {
-        width: 0,
-        height: 0,
-        stride: 0,
-        format: 0,
-        flags: 0,
-    };
-    let ret = unsafe {
-        AndroidBitmap_getInfo(env, bitmap, &mut info)
-    };
-
+    let mut info = AndroidBitmapInfo { ..Default::default() };
+    AndroidBitmap_getInfo(env, bitmap, &mut info);
 
     let mut pixels = 0 as *mut c_void;
-    let ret = unsafe {
-        AndroidBitmap_lockPixels(env, bitmap, &mut pixels)
-    };
+    AndroidBitmap_lockPixels(env, bitmap, &mut pixels);
 
-    let mut pixels = unsafe {
-        ::std::slice::from_raw_parts_mut(
-            pixels as *mut u8,
-            (info.stride * info.height) as usize,
-        )
-    };
+    let pixels = ::std::slice::from_raw_parts_mut(
+        pixels as *mut u8, (info.stride * info.height) as usize);
 
-    draw_mandelbrot(pixels, info.width as i64,
-                    info.height as i64,
-                    0.005, -2.0, -1.5);
+    draw_mandelbrot(
+        pixels, info.width as i64, info.height as i64, pixel_size, x0, y0);
 
-    /*for pixel in pixels.chunks_mut(4) {
-        let threshold = 127.5;
-        let (r, g, b) = (pixel[0], pixel[1], pixel[2]);
-        if 0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32 >= threshold {
-            pixel[0] = 255;
-            pixel[1] = 255;
-            pixel[2] = 255;
-        } else {
-            pixel[0] = 0;
-            pixel[1] = 0;
-            pixel[2] = 0;
-        }
-    }*/
-
-    unsafe {
-        AndroidBitmap_unlockPixels(env, bitmap);
-    }
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_generateJuliaFractal(
-    env: JNIEnv,
-    _class: JClass,
-    path: JString,
-    callback: JObject,
-) {
-    let jvm = env.get_java_vm().unwrap();
-    let callback = env.new_global_ref(callback).unwrap();
-    let pattern = env.get_string(path).expect("invalid pattern string").as_ptr();
-    let c_str = unsafe { CStr::from_ptr(pattern) };
-    let raw_path = c_str.to_str().unwrap();
-    let handle = thread::spawn(move || {
-        let max_iterations = 256u16;
-        let imgx = 800;
-        let imgy = 800;
-        let scalex = 4.0 / imgx as f32;
-        let scaley = 4.0 / imgy as f32;
-        // Create a new ImgBuf with width: imgx and height: imgy
-        let mut imgbuf = image::GrayImage::new(imgx, imgy);
-        // Iterate over the coordinates and pixels of the image
-        for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-            let cy = y as f32 * scaley - 2.0;
-            let cx = x as f32 * scalex - 2.0;
-            let mut z = Complex::new(cx, cy);
-            let c = Complex::new(-0.4, 0.6);
-            let mut i = 0;
-            for t in 0..max_iterations {
-                if z.norm() > 2.0 {
-                    break;
-                }
-                z = z * z + c;
-                i = t;
-            }
-            *pixel = image::Luma([i as u8]);
-        }
-        imgbuf.save(raw_path).unwrap();
-        let env = jvm.attach_current_thread().unwrap();
-        let callback = callback.as_obj();
-        env.call_method(callback, "subscribe", "()V",
-                        &[]).unwrap();
-    });
-    handle.join().unwrap();
+    AndroidBitmap_unlockPixels(env, bitmap);
 }
 
 #[no_mangle]
@@ -235,7 +153,7 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_connectWS(
 ) {
     let jvm = env.get_java_vm().unwrap();
     let callback = env.new_global_ref(callback).unwrap();
-    let t = thread::spawn(move || {
+    thread::spawn(move || {
         let env = jvm.attach_current_thread().unwrap();
         let callback = callback.as_obj();
         ws::connect("ws://echo.websocket.org", |out| {
@@ -255,7 +173,7 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_connectWS(
                 loop {
                     if i > 10 {
                         out.send("Stopped!").unwrap();
-                        out.close(ws::CloseCode::Normal);
+                        out.close(ws::CloseCode::Normal).unwrap();
                         return;
                     }
                     let formatted_msg = format!("Send message to WebSocket {} times", i);

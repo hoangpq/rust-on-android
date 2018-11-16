@@ -1,8 +1,5 @@
 #include <jni.h>
 #include <android/bitmap.h>
 
-extern "C" void JNICALL Java_com_node_sample_GenerateImageActivity_generateJuliaFractal
-        (JNIEnv *, jobject, jstring, jobject);
-
 extern "C" void JNICALL Java_com_node_sample_GenerateImageActivity_blendBitmap
-        (JNIEnv *, jobject, jobject bmp);
+        (JNIEnv *, jobject, jobject bmp, jdouble pixel_size, jdouble x0, jdouble y0);
