@@ -66,9 +66,9 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_asyncComputation
 
 #[allow(non_snake_case)]
 extern "C" {
-    pub fn AndroidBitmap_getInfo(env: *mut JNIEnv, jbitmap: jobject, info: *mut AndroidBitmapInfo) -> c_int;
-    pub fn AndroidBitmap_lockPixels(env: *mut JNIEnv, jbitmap: jobject, addrPtr: *mut *mut c_void) -> c_int;
-    pub fn AndroidBitmap_unlockPixels(env: *mut JNIEnv, jbitmap: jobject) -> c_int;
+    pub fn AndroidBitmap_getInfo(env: *mut jni::sys::JNIEnv, jbitmap: jobject, info: *mut AndroidBitmapInfo) -> c_int;
+    pub fn AndroidBitmap_lockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject, addrPtr: *mut *mut c_void) -> c_int;
+    pub fn AndroidBitmap_unlockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject) -> c_int;
 }
 
 fn generate_palette() -> Vec<Color> {
@@ -126,22 +126,34 @@ pub fn draw_mandelbrot(
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
-    env: *mut JNIEnv, _class: JClass, bitmap: jobject, pixel_size: f64, x0: f64, y0: f64,
+pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
+    env: JNIEnv<'b>, _class: JClass, bitmap: JObject, pixel_size: f64, x0: f64, y0: f64, callback: JObject,
 ) {
-    let mut info = AndroidBitmapInfo { ..Default::default() };
-    AndroidBitmap_getInfo(env, bitmap, &mut info);
+    let jvm = env.get_java_vm().unwrap();
+    let bitmap = env.new_global_ref(bitmap).unwrap();
 
-    let mut pixels = 0 as *mut c_void;
-    AndroidBitmap_lockPixels(env, bitmap, &mut pixels);
+    let _callback = env.new_global_ref(callback).unwrap();
 
-    let pixels = ::std::slice::from_raw_parts_mut(
-        pixels as *mut u8, (info.stride * info.height) as usize);
+    thread::spawn(move || {
+        let env = jvm.attach_current_thread().unwrap();
+        let jenv = env.get_native_interface();
+        let bitmap = bitmap.as_obj().into_inner();
+        let callback = _callback.as_obj();
 
-    draw_mandelbrot(
-        pixels, info.width as i64, info.height as i64, pixel_size, x0, y0);
+        let mut info = AndroidBitmapInfo { ..Default::default() };
+        AndroidBitmap_getInfo(jenv, bitmap, &mut info);
 
-    AndroidBitmap_unlockPixels(env, bitmap);
+        let mut pixels = 0 as *mut c_void;
+        AndroidBitmap_lockPixels(jenv, bitmap, &mut pixels);
+
+        let pixels = ::std::slice::from_raw_parts_mut(
+            pixels as *mut u8, (info.stride * info.height) as usize);
+
+        draw_mandelbrot(pixels, info.width as i64, info.height as i64, pixel_size, x0, y0);
+        AndroidBitmap_unlockPixels(jenv, bitmap);
+
+        env.call_method(callback, "subscribe", "()V", &[]).unwrap();
+    });
 }
 
 #[no_mangle]
