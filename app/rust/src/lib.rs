@@ -51,13 +51,13 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_asyncComputation
         tx.send(()).unwrap();
         let env = jvm.attach_current_thread().unwrap();
         let callback = callback.as_obj();
-        for i in 0..100 {
+        for i in 0..10_000 {
             let progress = i as jint;
             env.call_method(
                 callback, "subscribe",
                 "(I)V", &[progress.into()])
                 .unwrap();
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(300));
         }
     });
     rx.recv().unwrap();
@@ -153,48 +153,5 @@ pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBi
         AndroidBitmap_unlockPixels(jenv, bitmap);
 
         env.call_method(callback, "subscribe", "()V", &[]).unwrap();
-    });
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_connectWS(
-    env: JNIEnv,
-    _class: JClass,
-    callback: JObject,
-) {
-    let jvm = env.get_java_vm().unwrap();
-    let callback = env.new_global_ref(callback).unwrap();
-    thread::spawn(move || {
-        let env = jvm.attach_current_thread().unwrap();
-        let callback = callback.as_obj();
-        ws::connect("ws://echo.websocket.org", |out| {
-            println!("Connected...");
-            let watcher = |msg: ws::Message| {
-                if msg.as_text().unwrap() == "Stopped!" {
-                    env.call_method(callback, "subscribe", "()V", &[]).unwrap();
-                }
-                let jmsg: JObject = JObject::from(env.new_string(msg.as_text().unwrap()).unwrap());
-                env.call_method(callback, "subscribe", "(Ljava/lang/String;)V",
-                                &[JValue::from(jmsg)]).unwrap();
-                Ok(())
-            };
-
-            thread::spawn(move || {
-                let mut i = 1;
-                loop {
-                    if i > 10 {
-                        out.send("Stopped!").unwrap();
-                        out.close(ws::CloseCode::Normal).unwrap();
-                        return;
-                    }
-                    let formatted_msg = format!("Send message to WebSocket {} times", i);
-                    out.send(formatted_msg).unwrap();
-                    thread::sleep(Duration::from_millis(3000));
-                    i += 1;
-                }
-            });
-            watcher
-        }).unwrap()
     });
 }

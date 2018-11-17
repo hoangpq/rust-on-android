@@ -96,28 +96,9 @@ public class MainActivity extends AppCompatActivity {
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
-        final Button btnWebSocket = findViewById(R.id.btnWebSocket);
         final TextView textViewVersions = findViewById(R.id.tvVersions);
 
-        btnWebSocket.setOnClickListener(view -> {
-            btnWebSocket.setEnabled(false);
-            // watch message from `WebSocket`
-            connectWS(new Observable() {
-                @Override
-                public void subscribe() {
-                    runOnUiThread(() -> btnWebSocket.setEnabled(true));
-                }
-
-                @Override
-                public void subscribe(String arg) {
-                    runOnUiThread(() -> Toast.makeText(
-                            getApplicationContext(), arg, Toast.LENGTH_SHORT).show());
-                }
-            });
-        });
-
         btnImageProcessing.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, GenerateImageActivity.class)));
-
         buttonVersions.setOnClickListener(v -> {
             //Network operations should be done in the background.
             new AsyncTask<Void, Void, String>() {

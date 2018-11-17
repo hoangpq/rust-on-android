@@ -11,14 +11,6 @@ $log(obj.plusOne());
 $log(obj.plusOne());
 // Prints: 13
 
-var obj2 = createObject(20);
-$log(obj2.plusOne());
-// Prints: 21
-$log(obj2.plusOne());
-// Prints: 22
-$log(obj2.plusOne());
-// Prints: 23
-
 var server = http.createServer( (request, response) => {
   var msg = ` \nUser-Agent: ${request.headers['user-agent']}\n`;
   $toast(msg);

@@ -41,7 +41,6 @@ public class GenerateImageActivity extends AppCompatActivity {
         Button btnGenImage = findViewById(R.id.btnGenImage);
         ImageView imageView = findViewById(R.id.imageView);
 
-        // Bitmap bmp = BitmapFactory.decodeResource(getResources(), R.drawable.macro_cover);
         Bitmap bmp = createImage(800, 800, Color.BLACK);
         imageView.setImageBitmap(bmp);
 
@@ -54,10 +53,5 @@ public class GenerateImageActivity extends AppCompatActivity {
                 }
             });
         });
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
     }
 }

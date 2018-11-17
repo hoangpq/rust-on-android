@@ -18,11 +18,13 @@ image = "0.20.0"
 itertools = "*"
 ws = "0.7.9"
 libc = "0.2"
+num = "0.2.0"
 
 [dependencies]
 image = "*"
 num-complex = "0.2"
 libc = "0.2"
+num = "0.2.0"
 
 [[example]]
 name = "main"
