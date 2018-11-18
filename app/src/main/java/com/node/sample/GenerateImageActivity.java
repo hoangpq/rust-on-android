@@ -51,6 +51,11 @@ public class GenerateImageActivity extends AppCompatActivity {
                     runOnUiThread(() -> Toast.makeText(getApplicationContext(),
                             "Render successfully!", Toast.LENGTH_SHORT).show());
                 }
+
+                @Override
+                public void subscribe(Object arg) {
+                    imageView.setImageBitmap((Bitmap) arg);
+                }
             });
         });
     }

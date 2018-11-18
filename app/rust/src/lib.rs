@@ -89,10 +89,7 @@ fn generate_palette() -> Vec<Color> {
     return palette;
 }
 
-pub fn draw_mandelbrot(
-    buffer: &mut [u8], width: i64, height: i64,
-    pixel_size: f64, x0: f64, y0: f64,
-) {
+pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f64, x0: f64, y0: f64) {
     println!("Pixel size: {:?} - x0: {:?} - y0: {:?}", pixel_size, x0, y0);
     let palette: Vec<Color> = generate_palette();
     iproduct!((0..width), (0..height)).foreach(|(i, j)| {
@@ -124,34 +121,44 @@ pub fn draw_mandelbrot(
     });
 }
 
+unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_uint) -> JValue<'b> {
+    let config = env.call_static_method(
+        "android/graphics/Bitmap$Config", "nativeToConfig",
+        "(I)Landroid/graphics/Bitmap$Config;", &[JValue::from(5)]).unwrap();
+    let jbitmap = env.call_static_method(
+        "android/graphics/Bitmap", "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
+        &[JValue::from(width as jint), JValue::from(height as jint), config]).unwrap();
+    return jbitmap;
+}
+
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
     env: JNIEnv<'b>, _class: JClass, bitmap: JObject, pixel_size: f64, x0: f64, y0: f64, callback: JObject,
 ) {
     let jvm = env.get_java_vm().unwrap();
-    let bitmap = env.new_global_ref(bitmap).unwrap();
-
+    // let bitmap = env.new_global_ref(bitmap).unwrap();
     let _callback = env.new_global_ref(callback).unwrap();
 
     thread::spawn(move || {
         let env = jvm.attach_current_thread().unwrap();
         let jenv = env.get_native_interface();
-        let bitmap = bitmap.as_obj().into_inner();
+        // let bitmap = bitmap.as_obj().into_inner();
         let callback = _callback.as_obj();
 
         let mut info = AndroidBitmapInfo { ..Default::default() };
-        AndroidBitmap_getInfo(jenv, bitmap, &mut info);
 
+        let jbitmap = create_bitmap(&env, 800, 800);
+        let bitmap = jbitmap.l().unwrap().into_inner();
+
+        AndroidBitmap_getInfo(jenv, bitmap, &mut info);
         let mut pixels = 0 as *mut c_void;
         AndroidBitmap_lockPixels(jenv, bitmap, &mut pixels);
-
         let pixels = ::std::slice::from_raw_parts_mut(
             pixels as *mut u8, (info.stride * info.height) as usize);
-
         draw_mandelbrot(pixels, info.width as i64, info.height as i64, pixel_size, x0, y0);
         AndroidBitmap_unlockPixels(jenv, bitmap);
 
-        env.call_method(callback, "subscribe", "()V", &[]).unwrap();
+        env.call_method(callback, "subscribe", "(Ljava/lang/Object;)V", &[JValue::from(JObject::from(bitmap))]).unwrap();
     });
 }
