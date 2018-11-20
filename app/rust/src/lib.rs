@@ -10,29 +10,22 @@ extern crate itertools;
 use std::cmp;
 use std::thread;
 use std::sync::mpsc;
-use std::os::raw::{c_int, c_void, c_uint};
+use std::os::raw::c_void;
 use std::time::Duration;
 use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::{jint, jobject};
+use jni::sys::jint;
 
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct AndroidBitmapInfo {
-    pub width: c_uint,
-    pub height: c_uint,
-    pub stride: c_uint,
-    pub format: c_int,
-    pub flags: c_uint, // 0 for now
-}
+mod jni_graphics;
 
-pub struct Color {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
-}
+use jni_graphics::create_bitmap;
+use jni_graphics::{Color, AndroidBitmapInfo};
+use jni_graphics::{AndroidBitmap_getInfo,
+                   AndroidBitmap_lockPixels,
+                   AndroidBitmap_unlockPixels};
+use std::os::raw::c_void;
 
 #[no_mangle]
 pub extern "C" fn init_module() {}
@@ -61,14 +54,6 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_asyncComputation
         }
     });
     rx.recv().unwrap();
-}
-
-
-#[allow(non_snake_case)]
-extern "C" {
-    pub fn AndroidBitmap_getInfo(env: *mut jni::sys::JNIEnv, jbitmap: jobject, info: *mut AndroidBitmapInfo) -> c_int;
-    pub fn AndroidBitmap_lockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject, addrPtr: *mut *mut c_void) -> c_int;
-    pub fn AndroidBitmap_unlockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject) -> c_int;
 }
 
 fn generate_palette() -> Vec<Color> {
@@ -121,15 +106,6 @@ pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f
     });
 }
 
-unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_uint) -> JValue<'b> {
-    let config = env.call_static_method(
-        "android/graphics/Bitmap$Config", "nativeToConfig",
-        "(I)Landroid/graphics/Bitmap$Config;", &[JValue::from(5)]).unwrap();
-    let jbitmap = env.call_static_method(
-        "android/graphics/Bitmap", "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
-        &[JValue::from(width as jint), JValue::from(height as jint), config]).unwrap();
-    return jbitmap;
-}
 
 #[no_mangle]
 #[allow(non_snake_case)]
