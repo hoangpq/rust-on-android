@@ -37,8 +37,6 @@ public class MainActivity extends AppCompatActivity {
 
     public native void releaseVM();
 
-    public native void connectWS(Observable callbackObj);
-
     public native void asyncComputation(Observable callbackObj);
 
     //We just want one instance of node running in the background.
