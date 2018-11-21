@@ -18,8 +18,7 @@ public class GenerateImageActivity extends AppCompatActivity {
         System.loadLibrary("image-gen");
     }
 
-    public native void blendBitmap(
-            Bitmap bmp, double pixel_size, double x0, double y0, Observable callback);
+    public native void blendBitmap(ImageView imageView, double pixel_size, double x0, double y0);
 
     public static Bitmap createImage(int width, int height, int color) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -28,6 +27,12 @@ public class GenerateImageActivity extends AppCompatActivity {
         paint.setColor(color);
         canvas.drawRect(0F, 0F, (float) width, (float) height, paint);
         return bitmap;
+    }
+
+    private void showToast() {
+        runOnUiThread(() ->
+                Toast.makeText(getApplicationContext(),
+                        "Render successfully!", Toast.LENGTH_SHORT).show());
     }
 
     @Override
@@ -45,18 +50,7 @@ public class GenerateImageActivity extends AppCompatActivity {
         imageView.setImageBitmap(bmp);
 
         btnGenImage.setOnClickListener(view -> {
-            blendBitmap(bmp, 0.004, -2.1, -1.5, new Observable() {
-                @Override
-                public void subscribe() {
-                    runOnUiThread(() -> Toast.makeText(getApplicationContext(),
-                            "Render successfully!", Toast.LENGTH_SHORT).show());
-                }
-
-                @Override
-                public void subscribe(Object arg) {
-                    imageView.setImageBitmap((Bitmap) arg);
-                }
-            });
+            blendBitmap(imageView, 0.004, -2.1, -1.5);
         });
     }
 }

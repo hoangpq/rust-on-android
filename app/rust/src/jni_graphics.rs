@@ -1,14 +1,11 @@
-extern crate ws;
 extern crate jni;
 extern crate libc;
-extern crate image;
-extern crate imageproc;
-
-use std::os::raw::{c_int, c_void, c_uint};
 
 use jni::JNIEnv;
-use jni::objects::{JValue};
+use jni::objects::JValue;
 use jni::sys::{jint, jobject};
+
+use std::os::raw::{c_int, c_void, c_uint};
 
 #[repr(C)]
 #[derive(Debug, Default)]
