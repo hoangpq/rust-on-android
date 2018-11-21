@@ -25,7 +25,6 @@ use jni_graphics::{Color, AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo,
                    AndroidBitmap_lockPixels,
                    AndroidBitmap_unlockPixels};
-use std::os::raw::c_void;
 
 #[no_mangle]
 pub extern "C" fn init_module() {}
