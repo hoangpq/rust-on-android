@@ -14,8 +14,7 @@ use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::jint;
-
+use jni::sys::{jint, jlong};
 
 
 use jni_graphics::create_bitmap;
@@ -105,45 +104,55 @@ pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f
 
 #[no_mangle]
 #[allow(non_snake_case)]
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getPointer(
+    env: JNIEnv, _class: JClass,
+) -> jlong {
+    let info = AndroidBitmapInfo { ..Default::default() };
+    Box::into_raw(Box::new(info)) as jlong
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_loadPointer(
+    env: JNIEnv, _class: JClass, info_ptr: jlong,
+) -> jint {
+    let mut info = info_ptr as *mut AndroidBitmapInfo;
+    (*info).stride = 1000;
+    (*info).stride as jint
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
     env: JNIEnv<'b>, _class: JObject, imageView: JObject, pixel_size: f64, x0: f64, y0: f64,
 ) {
     let jvm = env.get_java_vm().unwrap();
     let imageViewRef = env.new_global_ref(imageView).unwrap();
     let _classRef = env.new_global_ref(_class).unwrap();
-
+    let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
         // attach current thread
         let env = jvm.attach_current_thread().unwrap();
-
         let jenv = env.get_native_interface();
         let imageView = imageViewRef.as_obj();
-
         // create new bitmap
         let jbitmap = create_bitmap(&env, 800, 800);
         let bitmap = jbitmap.l().unwrap().into_inner();
-
         let mut info = AndroidBitmapInfo { ..Default::default() };
-
         // Read bitmap info
         AndroidBitmap_getInfo(jenv, bitmap, &mut info);
-
         let mut pixels = 0 as *mut c_void;
         // Lock pixel for draw
         AndroidBitmap_lockPixels(jenv, bitmap, &mut pixels);
-
         let pixels = ::std::slice::from_raw_parts_mut(
             pixels as *mut u8, (info.stride * info.height) as usize);
-
         draw_mandelbrot(pixels, info.width as i64, info.height as i64, pixel_size, x0, y0);
         AndroidBitmap_unlockPixels(jenv, bitmap);
-
         // detach current thread
         env.call_method(imageView, "setImageBitmap", "(Landroid/graphics/Bitmap;)V",
                         &[JValue::from(JObject::from(bitmap))]).unwrap();
-
-        let _class = _classRef.as_obj();
-        env.call_method(_class, "showToast", "()V", &[]).unwrap();
-        env.
+        tx.send(()).unwrap();
     });
+    rx.recv().unwrap();
+    env.call_method(_class, "showToast", "()V", &[]).unwrap();
 }

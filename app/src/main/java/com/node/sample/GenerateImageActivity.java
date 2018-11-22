@@ -30,9 +30,8 @@ public class GenerateImageActivity extends AppCompatActivity {
     }
 
     private void showToast() {
-        runOnUiThread(() ->
-                Toast.makeText(getApplicationContext(),
-                        "Render successfully!", Toast.LENGTH_SHORT).show());
+        Toast.makeText(getApplicationContext(),
+                "Render successfully!", Toast.LENGTH_SHORT).show();
     }
 
     @Override
