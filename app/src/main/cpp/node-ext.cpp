@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <jni.h>
 #include <string>
 #include <cstdlib>
 #include <pthread.h>

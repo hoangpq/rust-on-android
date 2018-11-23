@@ -39,6 +39,10 @@ public class MainActivity extends AppCompatActivity {
 
     public native void asyncComputation(Observable callbackObj);
 
+    public native long createPointer();
+
+    public native void dropPointer(long ptr);
+
     //We just want one instance of node running in the background.
     public static boolean _startedNodeAlready = false;
     private TextView txtCounter;
@@ -49,6 +53,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         txtCounter = findViewById(R.id.txtCounter);
+
+        long ptr = createPointer();
+        // dropPointer(ptr);
 
         // toast watcher
         initVM(new Observable() {

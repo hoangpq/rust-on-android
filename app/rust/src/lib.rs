@@ -4,6 +4,7 @@ extern crate jni;
 extern crate libc;
 
 mod jni_graphics;
+mod jni_log;
 
 use std::cmp;
 use std::thread;
@@ -104,7 +105,7 @@ pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getPointer(
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_createPointer(
     env: JNIEnv, _class: JClass,
 ) -> jlong {
     let info = AndroidBitmapInfo { ..Default::default() };
@@ -113,12 +114,11 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getPointer(
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_loadPointer(
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_dropPointer(
     env: JNIEnv, _class: JClass, info_ptr: jlong,
-) -> jint {
+) {
     let mut info = info_ptr as *mut AndroidBitmapInfo;
-    (*info).stride = 1000;
-    (*info).stride as jint
+    drop(Box::from_raw(info));
 }
 
 #[no_mangle]
