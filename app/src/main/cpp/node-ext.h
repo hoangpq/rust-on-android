@@ -14,4 +14,8 @@ extern "C" jlong JNICALL Java_com_node_sample_MainActivity_createPointer(JNIEnv 
 
 extern "C" void JNICALL Java_com_node_sample_MainActivity_dropPointer(JNIEnv *, jobject, jlong);
 
+extern "C" jstring JNICALL Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
+
+extern "C" jobject JNICALL Java_com_node_sample_MainActivity_getNativeObject(JNIEnv *, jobject);
+
 #endif  // SRC_NODE_EXTENSION_H_

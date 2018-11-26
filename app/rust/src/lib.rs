@@ -15,8 +15,9 @@ use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::{jint, jlong};
+use jni::sys::{jint, jlong, jobject, jstring};
 
+use std::ffi::CString;
 
 use jni_graphics::create_bitmap;
 use jni_graphics::{Color, AndroidBitmapInfo};
@@ -121,6 +122,29 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_dropPointer(
     drop(Box::from_raw(info));
 }
 
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getUtf8String(env: JNIEnv, _class: JClass) -> jstring {
+    let ptr = CString::new("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned()).unwrap();
+    let output = env.new_string(ptr.to_str().unwrap()).expect("Couldn't create java string!");
+    output.into_inner()
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getNativeObject(env: JNIEnv, _class: JClass) -> jobject {
+    let c: Color = Color {
+        red: 255,
+        green: 255,
+        blue: 0,
+    };
+    JObject::null().into()
+}
+
+/**
+MyNativeStruct* data; // Initialized elsewhere.
+jobject bb = (*env)->NewDirectByteBuffer(env, (void*) data, sizeof(MyNativeStruct));
+*/
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(

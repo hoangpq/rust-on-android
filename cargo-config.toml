@@ -1,11 +1,11 @@
 [target.aarch64-linux-android]
-ar = "~/ndk-standalone/arm64/bin/aarch64-linux-android-ar"
-linker = "~/ndk-standalone/arm64/bin/aarch64-linux-android-clang"
+ar = "$NDK_TOOLCHAIN/arm64/bin/aarch64-linux-android-ar"
+linker = "$NDK_TOOLCHAIN/arm64/bin/aarch64-linux-android-clang"
 
 [target.armv7-linux-androideabi]
-ar = "~/ndk-standalone/arm/bin/arm-linux-androideabi-ar"
-linker = "~/ndk-standalone/arm/bin/arm-linux-androideabi-clang"
+ar = "$NDK_TOOLCHAIN/arm/bin/arm-linux-androideabi-ar"
+linker = "$NDK_TOOLCHAIN/arm/bin/arm-linux-androideabi-clang"
 
 [target.i686-linux-android]
-ar = "<project path>/greetings/NDK/x86/bin/i686-linux-android-ar"
-linker = "~/ndk-standalone/x86/bin/i686-linux-android-clang"
+ar = "$NDK_TOOLCHAIN/x86/bin/i686-linux-android-ar"
+linker = "$NDK_TOOLCHAIN/x86/bin/i686-linux-android-clang"

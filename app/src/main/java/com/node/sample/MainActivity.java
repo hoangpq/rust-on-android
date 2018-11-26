@@ -21,7 +21,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -43,9 +46,13 @@ public class MainActivity extends AppCompatActivity {
 
     public native void dropPointer(long ptr);
 
+    public native String getUtf8String();
+
+    public native Object getNativeObject();
+
     //We just want one instance of node running in the background.
     public static boolean _startedNodeAlready = false;
-    private TextView txtCounter;
+    private TextView txtCounter, txtMessage;
 
     @SuppressLint("StaticFieldLeak")
     @Override
@@ -53,9 +60,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         txtCounter = findViewById(R.id.txtCounter);
+        txtMessage = findViewById(R.id.txtMessage);
 
         long ptr = createPointer();
         // dropPointer(ptr);
+        txtMessage.setText(getUtf8String());
 
         // toast watcher
         initVM(new Observable() {
