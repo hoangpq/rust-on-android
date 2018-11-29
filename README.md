@@ -3,7 +3,7 @@
 
 ## How to build
 ```bash
-~ cd nodejs-android
+~ cd native-practice
 ~ chmod +x ./pre-build-sh && ./pre-build.sh
 ```
 
