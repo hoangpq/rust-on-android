@@ -89,7 +89,7 @@ namespace node {
         public:
             static void Initialize(v8::Local<v8::Object> target,
                                    v8::Local<v8::Value> unused,
-                                   v8::Local<v8::Context> context);
+                                   v8::Local<v8::Context> context) {};
         };
 
         class AndroidModuleWrap : public ModuleWrap {
