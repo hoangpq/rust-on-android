@@ -79,7 +79,7 @@ namespace node {
         jsize argument_count = env->GetArrayLength(arguments);
 
         // Compute byte size need for all arguments in contiguous memory.
-        int c_arguments_size = 0;
+        size_t c_arguments_size = 0;
         for (int i = 0; i < argument_count; i++) {
             c_arguments_size += strlen(
                     env->GetStringUTFChars((jstring) env->GetObjectArrayElement(arguments, i), 0));
