@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
 
     //We just want one instance of node running in the background.
     public static boolean _startedNodeAlready = false;
-    private TextView txtCounter, txtMessage;
+    private TextView txtCounter;
 
     @SuppressLint("StaticFieldLeak")
     @Override
@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         txtCounter = findViewById(R.id.txtCounter);
-        txtMessage = findViewById(R.id.txtMessage);
+        TextView txtMessage = findViewById(R.id.txtMessage);
 
         long ptr = createPointer();
         // dropPointer(ptr);

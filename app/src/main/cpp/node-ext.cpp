@@ -1,28 +1,7 @@
-#include "v8.h"
-#include "node.h"
+#include <v8.h>
+#include "java.h"
 #include "node-ext.h"
-#include "java-vm.h"
-
-#include <stddef.h>
-#include <stdint.h>
-
-#include <string>
-#include <cstdlib>
-#include <pthread.h>
-#include <unistd.h>
-#include <android/log.h>
-
-static const char *kTAG = "Nodejs Runtime";
-
-#define LOGI(...) \
-  ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
-
-typedef struct node_context {
-    JavaVM *javaVM;
-    jclass mainActivityClz;
-    jobject mainActivityObj;
-} NodeContext;
-NodeContext g_ctx;
+#include "native-lib.h"
 
 namespace node {
 
@@ -33,6 +12,7 @@ namespace node {
     using v8::Object;
     using v8::Value;
     using v8::Isolate;
+    using v8::Function;
     using v8::Exception;
     using v8::HandleScope;
     using v8::ObjectTemplate;
@@ -41,6 +21,17 @@ namespace node {
     using v8::FunctionCallbackInfo;
     using v8::MaybeLocal;
     using v8::JSON;
+    using node::jvm::JavaType;
+
+    /*namespace jvm {
+
+        void InitJavaVM(Local<Object> target) {
+            jvm::JavaType::Init(target->GetIsolate());
+            NODE_SET_METHOD(target, "type", CreateJavaType);
+        }
+
+        NODE_MODULE_CONTEXT_AWARE_BUILTIN(java, node::jvm::InitJavaVM);
+    }*/
 
     namespace loader {
 
@@ -94,6 +85,18 @@ namespace node {
 
         class AndroidModuleWrap : public ModuleWrap {
         public:
+            static void New(const FunctionCallbackInfo<Value> &args) {
+                Isolate *isolate = args.GetIsolate();
+                if (args.IsConstructCall()) {
+                    node::jvm::JavaType *jvm = new node::jvm::JavaType(g_ctx.javaVM);
+                    jvm->PWrap(args.This());
+                    args.GetReturnValue().Set(args.This());
+                } else {
+                    isolate->ThrowException(
+                            String::NewFromUtf8(isolate, "Function is not constructor."));
+                }
+            }
+
             static void Initialize(Local<Object> target,
                                    Local<Value> unused,
                                    Local<Context> context,
@@ -110,10 +113,27 @@ namespace node {
                 auto logFn = FunctionTemplate::New(isolate, loader::AndroidLog)->GetFunction();
                 global->Set(String::NewFromUtf8(isolate, "$log"), logFn);
 
+                static v8::Persistent<v8::Function> constructor;
+                Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
+                tpl->SetClassName(String::NewFromUtf8(isolate, "Java"));
+                tpl->InstanceTemplate()->SetInternalFieldCount(1);
+                constructor.Reset(isolate, tpl->GetFunction());
+
+                Local<Function> cons = Local<Function>::New(isolate, constructor);
+                Local<Object> instance = cons->NewInstance(context).ToLocalChecked();
+
+                Local<String> $vm = String::NewFromUtf8(isolate, "$vm");
+                global->Set($vm, instance);
+
+                Local<Object> obj = v8::Local<v8::Function>::Cast(
+                        global->Get(context, $vm).ToLocalChecked());
+                JavaType *t = ObjectWrap::Unwrap<JavaType>(obj);
             }
 
         };
+
     }
+
 }
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {

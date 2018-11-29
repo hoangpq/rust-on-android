@@ -1,6 +1,12 @@
 const http = require('http');
 const { TextDecoder } = require('util');
-const { createObject } = process.binding('java');
+const Java = process.binding('java');
+
+$log(typeof $vm);
+if (typeof Java !== "undefined") {
+    $log('Enter context');
+    Java.type().$toast();
+}
 
 // wasm test
 const fs = require('fs');
@@ -17,18 +23,11 @@ WebAssembly.instantiate(waBuf, env)
         result.instance.exports.modify(buf);
         const word = new TextDecoder().decode(buf);
         // $log(`WASM result: ${word}`);
-        $toast(`WASM result: ${word}`);
+        // $toast(`WASM result: ${word}`);
     }).catch(e => {
         // error caught
         $log(e.message);
     });
-
-// console.log(typeof createObject);
-
-var obj = createObject(10);
-// $log(obj.plusOne());
-// $log(obj.plusOne());
-// $log(obj.plusOne());
 
 var server = http.createServer( (request, response) => {
   var msg = ` \nUser-Agent: ${request.headers['user-agent']}\n`;

@@ -15,31 +15,31 @@ project(android_nodejs)
 include_directories(libnode/include/node/)
 
 # add imported target
-add_library( imp_lib_rust STATIC IMPORTED )
+add_library(imp_lib_rust STATIC IMPORTED)
 
 # point the imported target at the real file
-set_property( TARGET imp_lib_rust PROPERTY
-                IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/target/${ANDROID_ABI}/librust.a )
+set_property(TARGET imp_lib_rust PROPERTY
+        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/target/${ANDROID_ABI}/librust.a)
 
 add_library( # Sets the name of the library.
-             native-lib
-             # Sets the library as a shared library.
-             SHARED
-             # Provides a relative path to your source file(s).
-             src/main/cpp/native-lib.cpp
-             src/main/cpp/java-vm.cpp
-             src/main/cpp/node-ext.cpp )
+        native-lib
+        # Sets the library as a shared library.
+        SHARED
+        # Provides a relative path to your source file(s).
+        src/main/cpp/native-lib.cpp
+        src/main/cpp/java.cpp
+        src/main/cpp/node-ext.cpp)
 
-add_library( libnode
-             SHARED
-             IMPORTED )
+add_library(libnode
+        SHARED
+        IMPORTED)
 
 set_target_properties( # Specifies the target library.
-                       libnode
-                       # Specifies the parameter you want to define.
-                       PROPERTIES IMPORTED_LOCATION
-                       # Provides the path to the library you want to import.
-                       ${CMAKE_SOURCE_DIR}/libnode/bin/${ANDROID_ABI}/libnode.so )
+        libnode
+        # Specifies the parameter you want to define.
+        PROPERTIES IMPORTED_LOCATION
+        # Provides the path to the library you want to import.
+        ${CMAKE_SOURCE_DIR}/libnode/bin/${ANDROID_ABI}/libnode.so)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
@@ -47,25 +47,25 @@ set_target_properties( # Specifies the target library.
 # you want to add. CMake verifies that the library exists before
 # completing its build.
 find_library( # Sets the name of the path variable.
-              log-lib
-              # Specifies the name of the NDK library that
-              # you want CMake to locate.
-              log )
+        log-lib
+        # Specifies the name of the NDK library that
+        # you want CMake to locate.
+        log)
 
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this
 # build script, prebuilt third-party libraries, or system libraries.
 target_link_libraries( # Specifies the target library.
-                       native-lib
-                       imp_lib_rust
-                       jnigraphics
-                       libnode
-                       # Links the target library to the log library
-                       # included in the NDK.
-                       ${log-lib} )
+        native-lib
+        imp_lib_rust
+        jnigraphics
+        libnode
+        # Links the target library to the log library
+        # included in the NDK.
+        ${log-lib})
 
 
 # add imported target
-add_library( image-gen SHARED src/main/cpp/image-gen.cpp )
+add_library(image-gen SHARED src/main/cpp/image-gen.cpp)
 
-target_link_libraries( image-gen jnigraphics ${log-lib} imp_lib_rust )
+target_link_libraries(image-gen jnigraphics ${log-lib} imp_lib_rust)
