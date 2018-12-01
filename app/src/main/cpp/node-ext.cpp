@@ -23,16 +23,6 @@ namespace node {
     using v8::JSON;
     using node::jvm::JavaType;
 
-    /*namespace jvm {
-
-        void InitJavaVM(Local<Object> target) {
-            jvm::JavaType::Init(target->GetIsolate());
-            NODE_SET_METHOD(target, "type", CreateJavaType);
-        }
-
-        NODE_MODULE_CONTEXT_AWARE_BUILTIN(java, node::jvm::InitJavaVM);
-    }*/
-
     namespace loader {
 
         const char *ToCString(Local<String> str) {
@@ -75,6 +65,18 @@ namespace node {
             LOGI("%s", jsonString);
         }
 
+        void AndroidError(const FunctionCallbackInfo<Value> &args) {
+            Isolate *isolate = args.GetIsolate();
+            Local<Context> context = isolate->GetCurrentContext();
+
+            EscapableHandleScope handle_scope(isolate);
+            Local<String> result =
+                    handle_scope.Escape(
+                            JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
+            const char *jsonString = ToCString(result);
+            LOGE("%s", jsonString);
+        }
+
         // Override header
         class ModuleWrap {
         public:
@@ -88,7 +90,7 @@ namespace node {
             static void New(const FunctionCallbackInfo<Value> &args) {
                 Isolate *isolate = args.GetIsolate();
                 if (args.IsConstructCall()) {
-                    node::jvm::JavaType *jvm = new node::jvm::JavaType(g_ctx.javaVM);
+                    JavaType *jvm = new JavaType(&g_ctx.javaVM);
                     jvm->PWrap(args.This());
                     args.GetReturnValue().Set(args.This());
                 } else {
@@ -112,6 +114,9 @@ namespace node {
 
                 auto logFn = FunctionTemplate::New(isolate, loader::AndroidLog)->GetFunction();
                 global->Set(String::NewFromUtf8(isolate, "$log"), logFn);
+
+                auto errFn = FunctionTemplate::New(isolate, loader::AndroidError)->GetFunction();
+                global->Set(String::NewFromUtf8(isolate, "$error"), errFn);
 
                 static v8::Persistent<v8::Function> constructor;
                 Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);

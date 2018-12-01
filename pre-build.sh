@@ -39,4 +39,4 @@ cp ./target/i686-linux-android/release/librust.a ./target/x86/librust.a
 rustc +nightly --target wasm32-unknown-unknown -O src/main.rs
 wasm-gc main.wasm wa.wasm && rm main.wasm
 
-cp ./wa.wasm "${dir}/app/src/main/assets/nodejs-project" && rm ./wa.wasm
+cp ./wa.wasm "${dir}/app/src/main/assets/deps" && rm ./wa.wasm

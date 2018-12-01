@@ -7,12 +7,16 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Gravity;
 import android.widget.Button;
+import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.VideoView;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -21,10 +25,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.lang.reflect.Array;
 import java.net.URL;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -44,11 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
     public native long createPointer();
 
-    public native void dropPointer(long ptr);
-
     public native String getUtf8String();
-
-    public native Object getNativeObject();
 
     //We just want one instance of node running in the background.
     public static boolean _startedNodeAlready = false;
@@ -62,15 +60,20 @@ public class MainActivity extends AppCompatActivity {
         txtCounter = findViewById(R.id.txtCounter);
         TextView txtMessage = findViewById(R.id.txtMessage);
 
-        long ptr = createPointer();
-        // dropPointer(ptr);
         txtMessage.setText(getUtf8String());
 
         // toast watcher
         initVM(new Observable() {
             @Override
             public void subscribe(String arg) {
-                runOnUiThread(() -> Toast.makeText(getApplicationContext(), arg, Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> {
+                    Toast toast = Toast.makeText(getApplicationContext(), arg, Toast.LENGTH_SHORT);
+                    TextView tv = toast.getView().findViewById(android.R.id.message);
+                    if (tv != null) {
+                        tv.setGravity(Gravity.CENTER);
+                    }
+                    toast.show();
+                });
             }
         });
 
@@ -87,16 +90,16 @@ public class MainActivity extends AppCompatActivity {
             new Thread(() -> {
                 try {
                     //The path where we expect the node project to be at runtime.
-                    String nodeDir = getApplicationContext().getFilesDir().getAbsolutePath() + "/nodejs-project";
+                    String nodeDir = getApplicationContext().getFilesDir().getAbsolutePath() + "/deps";
                     if (wasAPKUpdated()) {
-                        //Recursively delete any existing nodejs-project.
+                        //Recursively delete any existing deps.
                         File nodeDirReference = new File(nodeDir);
                         if (nodeDirReference.exists()) {
                             deleteFolderRecursively(new File(nodeDir));
                         }
                         //Copy the node project from assets into the application's data path.
                         copyAssetFolder(getApplicationContext()
-                                .getAssets(), "nodejs-project", nodeDir);
+                                .getAssets(), "deps", nodeDir);
 
                         saveLastUpdateTime();
                     }
@@ -110,8 +113,21 @@ public class MainActivity extends AppCompatActivity {
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
-        final TextView textViewVersions = findViewById(R.id.tvVersions);
+        final VideoView mVideoView = findViewById(R.id.videoView);
+        final Button mButtonPlayVideo = findViewById(R.id.btnPlayVideo);
 
+        MediaController vidControl = new MediaController(this);
+        vidControl.setAnchorView(mVideoView);
+        mVideoView.setMediaController(vidControl);
+
+        mButtonPlayVideo.setOnClickListener(view -> {
+            String url = "http://localhost:3000/stream";
+            Uri uri = Uri.parse(url);
+            mVideoView.setVideoURI(uri);
+            mVideoView.start();
+        });
+
+        // final TextView textViewVersions = findViewById(R.id.tvVersions);
         btnImageProcessing.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, GenerateImageActivity.class)));
         buttonVersions.setOnClickListener(v -> {
             //Network operations should be done in the background.
@@ -135,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 protected void onPostExecute(String result) {
-                    textViewVersions.setText(result);
+                    // textViewVersions.setText(result);
                 }
             }.execute();
         });

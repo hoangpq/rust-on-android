@@ -19,8 +19,9 @@ namespace node {
         public:
 
             JavaVM *_jvm;
+            JNIEnv *_env;
 
-            explicit JavaType(JavaVM *);
+            explicit JavaType(JavaVM **);
 
             static void Init(v8::Isolate *isolate);
 
@@ -30,7 +31,7 @@ namespace node {
                 Wrap(handle);
             }
 
-            static void Toast(const v8::FunctionCallbackInfo<v8::Value>& args);
+            static void Toast(const v8::FunctionCallbackInfo<v8::Value> &args);
 
             ~JavaType();
 

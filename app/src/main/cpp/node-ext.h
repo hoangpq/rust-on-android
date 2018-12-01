@@ -21,6 +21,9 @@ static const char *kTAG = "NodeJS Runtime";
 #define LOGI(...) \
   ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
 
+#define LOGE(...) \
+  ((void)__android_log_print(ANDROID_LOG_ERROR, kTAG, __VA_ARGS__))
+
 typedef struct node_context {
     JavaVM *javaVM;
     jclass mainActivityClz;
@@ -35,5 +38,15 @@ extern "C" void JNICALL Java_com_node_sample_MainActivity_dropPointer(JNIEnv *, 
 extern "C" jstring JNICALL Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
 
 extern "C" jobject JNICALL Java_com_node_sample_MainActivity_getNativeObject(JNIEnv *, jobject);
+
+namespace node {
+
+    using v8::Value;
+    using v8::FunctionCallbackInfo;
+
+    namespace loader {
+        void InitJavaEnv(JNIEnv **env, const FunctionCallbackInfo<Value> &args);
+    }
+}
 
 #endif  // NODE_EXTENSION_H_
