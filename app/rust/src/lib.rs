@@ -138,7 +138,7 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getNativeObject(
         green: 255,
         blue: 0,
     };
-    JObject::null().into()
+    JObject::null().into_inner()
 }
 
 /**
@@ -179,4 +179,12 @@ pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBi
     });
     rx.recv().unwrap();
     env.call_method(_class, "showToast", "()V", &[]).unwrap();
+}
+
+/** Android Version**/
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn getAndroidVersion(env: &JNIEnv) -> i32 {
+    env.get_static_field("android/os/Build$VERSION", "SDK_INT", "I")
+        .unwrap().i().unwrap() as i32
 }

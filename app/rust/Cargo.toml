@@ -7,17 +7,12 @@ authors = ["Hoang Phan <pquochoang2007@gmail.com>"]
 name = "rust"
 crate-type = ["staticlib"]
 
-[target.'cfg(target_os="android")'.dependencies.jni]
-git = "https://github.com/hoangpq/jni-rs"
-branch = "feat/detach_current_thread"
-version = "*"
-default-features = false
-
 [target.'cfg(target_os="android")'.dependencies]
 num-complex = "0.2"
 itertools = "*"
 libc = "0.2"
 num = "0.2.0"
+jni = { version = "0.10.2", default-features = false }
 
 [dependencies]
 num-complex = "0.2"

@@ -24,6 +24,10 @@ static const char *kTAG = "NodeJS Runtime";
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, kTAG, __VA_ARGS__))
 
+using v8::Local;
+using v8::Object;
+using v8::Function;
+
 typedef struct node_context {
     JavaVM *javaVM;
     jclass mainActivityClz;
@@ -44,9 +48,9 @@ namespace node {
     using v8::Value;
     using v8::FunctionCallbackInfo;
 
-    namespace loader {
-        void InitJavaEnv(JNIEnv **env, const FunctionCallbackInfo<Value> &args);
-    }
+    namespace loader {}
 }
+
+bool jvmInitialized = false;
 
 #endif  // NODE_EXTENSION_H_

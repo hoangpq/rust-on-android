@@ -12,6 +12,10 @@ if (typeof Java !== 'undefined') {
   if (typeof $type.jni_version !== 'undefined') {
     $log(`JNI Version: ${$type.jni_version}`);
   }
+  // Android version
+  if (typeof $type.androidVersion === 'function') {
+    $log(`Android Version API: ${$type.androidVersion()}`);
+  }
 }
 
 // wasm test
@@ -30,7 +34,10 @@ WebAssembly.instantiate(waBuf, env)
     result.instance.exports.modify(buf);
     const word = new TextDecoder().decode(buf);
     // console.log(`WASM result: ${word}`);
-    $toast(`WASM result: ${word}`);
+    const $t = setTimeout(() => {
+      $toast(`WASM result: ${word}`);
+      clearTimeout($t);
+    }, 3000);
   })
   .catch(e => {
     // error caught

@@ -30,17 +30,9 @@ namespace node {
             return *value ? *value : "<string conversion failed>";
         }
 
-        static void AndroidToast(const FunctionCallbackInfo<Value> &args) {
-            Isolate *isolate = args.GetIsolate();
+        void AndroidToast(const FunctionCallbackInfo<Value> &args) {
             JNIEnv *env;
-            jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
-            if (res != JNI_OK) {
-                res = g_ctx.javaVM->AttachCurrentThread(&env, NULL);
-                if (JNI_OK != res) {
-                    args.GetReturnValue()
-                            .Set(String::NewFromUtf8(isolate, "Unable to invoke activity!"));
-                }
-            }
+            JavaType::InitEnvironment(args, &env);
             Local<String> str = args[0]->ToString();
             const char *msg = ToCString(str);
 
@@ -75,6 +67,17 @@ namespace node {
                             JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
             const char *jsonString = ToCString(result);
             LOGE("%s", jsonString);
+        }
+
+        void JVMOnLoad(const FunctionCallbackInfo<Value> &args) {
+            Isolate *isolate = args.GetIsolate();
+            if (args[0]->IsFunction()) {
+                Local<Object> context = Object::New(isolate);
+                Local<Function> onJvmCreatedFunc = args[0].As<Function>();
+                if (jvmInitialized) {
+                    onJvmCreatedFunc->Call(context, 0, NULL);
+                }
+            }
         }
 
         // Override header
@@ -118,6 +121,9 @@ namespace node {
                 auto errFn = FunctionTemplate::New(isolate, loader::AndroidError)->GetFunction();
                 global->Set(String::NewFromUtf8(isolate, "$error"), errFn);
 
+                auto onLoadFn = FunctionTemplate::New(isolate, loader::JVMOnLoad)->GetFunction();
+                global->Set(String::NewFromUtf8(isolate, "$load"), onLoadFn);
+
                 static v8::Persistent<v8::Function> constructor;
                 Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
                 tpl->SetClassName(String::NewFromUtf8(isolate, "Java"));
@@ -129,10 +135,6 @@ namespace node {
 
                 Local<String> $vm = String::NewFromUtf8(isolate, "$vm");
                 global->Set($vm, instance);
-
-                Local<Object> obj = v8::Local<v8::Function>::Cast(
-                        global->Get(context, $vm).ToLocalChecked());
-                JavaType *t = ObjectWrap::Unwrap<JavaType>(obj);
             }
 
         };
@@ -141,7 +143,7 @@ namespace node {
 
 }
 
-JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env;
     memset(&g_ctx, 0, sizeof(g_ctx));
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
@@ -149,10 +151,11 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     }
     g_ctx.javaVM = vm;
     g_ctx.mainActivityObj = NULL;
+    jvmInitialized = true;
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *reserved) {
+JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *) {
     JNIEnv *env;
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_EDETACHED) {
         vm->DetachCurrentThread();

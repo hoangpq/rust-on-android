@@ -44,24 +44,20 @@ namespace node {
             }
         }
 
+        void JavaType::AndroidVersion(const v8::FunctionCallbackInfo<v8::Value> &args) {
+            JNIEnv *env;
+            Isolate *isolate = args.GetIsolate();
+            JavaType::InitEnvironment(args, &env);
+            // From Rust static lib
+            args.GetReturnValue().Set(Number::New(isolate, getAndroidVersion(&env)));
+        }
+
         void JavaType::NewInstance(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate = args.GetIsolate();
             Local<Context> context = isolate->GetCurrentContext();
 
-            // get $vm from global object
-            Local<Object> global = context->Global();
-            Local<String> $vmKey = String::NewFromUtf8(isolate, "$vm");
-            Local<Object> $vm = Local<Object>::Cast(global->Get(context, $vmKey).ToLocalChecked());
-            JavaType *t = ObjectWrap::Unwrap<JavaType>($vm);
-
-            jint res = t->_jvm->GetEnv(reinterpret_cast<void **>(&t->_env), JNI_VERSION_1_6);
-            if (res != JNI_OK) {
-                res = t->_jvm->AttachCurrentThread(&t->_env, NULL);
-                if (JNI_OK != res) {
-                    args.GetReturnValue()
-                            .Set(String::NewFromUtf8(isolate, "Unable to invoke activity!"));
-                }
-            }
+            JNIEnv *env = nullptr;
+            JavaType::InitEnvironment(args, &env);
 
             const unsigned argc = 1;
             Local<Value> argv[argc] = {args[0]};
@@ -69,11 +65,15 @@ namespace node {
             Local<Object> instance =
                     cons->NewInstance(context, argc, argv).ToLocalChecked();
 
-            jint ver = t->_env->GetVersion();
+            jint ver = env->GetVersion();
             double jniVersion = (double) ((ver >> 16) & 0x0f) + (ver & 0x0f) * 0.1;
 
             instance->Set(String::NewFromUtf8(isolate, "jni_version"),
                           Number::New(isolate, jniVersion));
+
+            auto androidVersionFn = FunctionTemplate::New(isolate, AndroidVersion)->GetFunction();
+            instance->Set(String::NewFromUtf8(isolate, "androidVersion"), androidVersionFn);
+
             args.GetReturnValue().Set(instance);
         }
 
@@ -89,6 +89,26 @@ namespace node {
             funcArgs[0] = String::NewFromUtf8(isolate,
                                               "Invoke $toast function in global context successfully!");
             $toast->Call(global, 1, funcArgs);
+        }
+
+        void JavaType::InitEnvironment(const FunctionCallbackInfo<Value> &args, JNIEnv **env) {
+            Isolate *isolate = args.GetIsolate();
+            Local<Context> context = isolate->GetCurrentContext();
+
+            // get $vm from global object
+            Local<Object> global = context->Global();
+            Local<String> $vmKey = String::NewFromUtf8(isolate, "$vm");
+            Local<Object> $vm = Local<Object>::Cast(global->Get(context, $vmKey).ToLocalChecked());
+            JavaType *t = ObjectWrap::Unwrap<JavaType>($vm);
+
+            jint res = t->_jvm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+            if (res != JNI_OK) {
+                res = t->_jvm->AttachCurrentThread(&(*env), NULL);
+                if (JNI_OK != res) {
+                    args.GetReturnValue()
+                            .Set(String::NewFromUtf8(isolate, "Unable to invoke activity!"));
+                }
+            }
         }
 
         void CreateJavaType(const FunctionCallbackInfo<Value> &args) {

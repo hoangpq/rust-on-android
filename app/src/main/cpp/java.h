@@ -8,6 +8,8 @@
 #include "env-inl.h"
 #include "node_object_wrap.h"
 
+extern "C" int getAndroidVersion(JNIEnv **);
+
 namespace node {
 
     using v8::Value;
@@ -33,6 +35,8 @@ namespace node {
 
             static void Toast(const v8::FunctionCallbackInfo<v8::Value> &args);
 
+            static void InitEnvironment(const FunctionCallbackInfo<Value> &args, JNIEnv **env);
+
             ~JavaType();
 
         private:
@@ -40,6 +44,8 @@ namespace node {
             static void New(const v8::FunctionCallbackInfo<v8::Value> &args);
 
             static v8::Persistent<v8::Function> constructor;
+
+            static void AndroidVersion(const FunctionCallbackInfo<Value> &args);
         };
 
         void CreateJavaType(const FunctionCallbackInfo<Value> &args);
