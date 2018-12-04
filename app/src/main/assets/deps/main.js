@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const { TextDecoder } = require('util');
 const Java = process.binding('java');
+const { Transform } = require('stream');
 
 if (typeof Java !== 'undefined') {
   const $type = Java.type();
@@ -51,6 +52,13 @@ function serveFile(req, res) {
   const fileSize = stat.size;
   const range = req.headers.range;
 
+  const filterStream = new Transform({
+    transform(chunk, encoding, callback) {
+      this.push(chunk);
+      callback();
+    }
+  });
+
   if (range) {
     const parts = range.replace(/bytes=/, '').split('-');
     const start = parseInt(parts[0], 10);
@@ -66,14 +74,16 @@ function serveFile(req, res) {
     };
 
     res.writeHead(206, head);
-    file.pipe(res);
+    file.pipe(filterStream).pipe(res);
   } else {
     const head = {
       'Content-Length': fileSize,
       'Content-Type': 'video/mp4'
     };
     res.writeHead(200, head);
-    fs.createReadStream(assetPath).pipe(res);
+    fs.createReadStream(assetPath)
+      .pipe(filterStream)
+      .pipe(res);
   }
 }
 
