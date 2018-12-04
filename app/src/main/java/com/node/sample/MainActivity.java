@@ -44,8 +44,6 @@ public class MainActivity extends AppCompatActivity {
 
     public native void asyncComputation(Observable callbackObj);
 
-    public native long createPointer();
-
     public native String getUtf8String();
 
     //We just want one instance of node running in the background.
@@ -208,17 +206,19 @@ public class MainActivity extends AppCompatActivity {
             String[] files = assetManager.list(fromAssetPath);
             boolean res = true;
 
+            assert files != null;
             if (files.length == 0) {
                 //If it's a file, it won't have any assets "inside" it.
                 res = copyAsset(assetManager,
                         fromAssetPath,
                         toPath);
             } else {
-                new File(toPath).mkdirs();
-                for (String file : files)
-                    res &= copyAssetFolder(assetManager,
-                            fromAssetPath + "/" + file,
-                            toPath + "/" + file);
+                if (new File(toPath).mkdirs()) {
+                    for (String file : files)
+                        res &= copyAssetFolder(assetManager,
+                                fromAssetPath + "/" + file,
+                                toPath + "/" + file);
+                }
             }
             return res;
         } catch (Exception e) {
@@ -228,18 +228,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static boolean copyAsset(AssetManager assetManager, String fromAssetPath, String toPath) {
-        InputStream in = null;
-        OutputStream out = null;
+        InputStream in;
+        OutputStream out;
         try {
             in = assetManager.open(fromAssetPath);
-            new File(toPath).createNewFile();
-            out = new FileOutputStream(toPath);
-            copyFile(in, out);
-            in.close();
-            in = null;
-            out.flush();
-            out.close();
-            out = null;
+            if (new File(toPath).createNewFile()) {
+                out = new FileOutputStream(toPath);
+                copyFile(in, out);
+                in.close();
+                out.flush();
+                out.close();
+            }
             return true;
         } catch (Exception e) {
             e.printStackTrace();
