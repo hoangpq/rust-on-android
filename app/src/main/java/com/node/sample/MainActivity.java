@@ -27,7 +27,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 
-
 public class MainActivity extends AppCompatActivity {
 
     // Used to load the 'native-lib' library on application startup.
@@ -53,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
     @SuppressLint("StaticFieldLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         txtCounter = findViewById(R.id.txtCounter);
@@ -88,7 +88,8 @@ public class MainActivity extends AppCompatActivity {
             new Thread(() -> {
                 try {
                     //The path where we expect the node project to be at runtime.
-                    String nodeDir = getApplicationContext().getFilesDir().getAbsolutePath() + "/deps";
+                    String nodeDir = getApplicationContext()
+                            .getFilesDir().getAbsolutePath() + "/deps";
                     if (wasAPKUpdated()) {
                         //Recursively delete any existing deps.
                         File nodeDirReference = new File(nodeDir);
@@ -126,7 +127,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // final TextView textViewVersions = findViewById(R.id.tvVersions);
-        btnImageProcessing.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, GenerateImageActivity.class)));
+        btnImageProcessing.setOnClickListener(view -> startActivity(
+                new Intent(MainActivity.this, GenerateImageActivity.class)));
         buttonVersions.setOnClickListener(v -> {
             //Network operations should be done in the background.
             new AsyncTask<Void, Void, String>() {
@@ -157,11 +159,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean wasAPKUpdated() {
-        SharedPreferences prefs = getApplicationContext().getSharedPreferences("NODEJS_MOBILE_PREFS", Context.MODE_PRIVATE);
+        SharedPreferences prefs = getApplicationContext().getSharedPreferences(
+                "NODEJS_MOBILE_PREFS", Context.MODE_PRIVATE);
         long previousLastUpdateTime = prefs.getLong("NODEJS_MOBILE_APK_LastUpdateTime", 0);
         long lastUpdateTime = 1;
         try {
-            PackageInfo packageInfo = getApplicationContext().getPackageManager().getPackageInfo(getApplicationContext().getPackageName(), 0);
+            PackageInfo packageInfo = getApplicationContext().getPackageManager().getPackageInfo(
+                    getApplicationContext().getPackageName(), 0);
             lastUpdateTime = packageInfo.lastUpdateTime;
         } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
@@ -172,12 +176,14 @@ public class MainActivity extends AppCompatActivity {
     private void saveLastUpdateTime() {
         long lastUpdateTime = 1;
         try {
-            PackageInfo packageInfo = getApplicationContext().getPackageManager().getPackageInfo(getApplicationContext().getPackageName(), 0);
+            PackageInfo packageInfo = getApplicationContext().getPackageManager().getPackageInfo(
+                    getApplicationContext().getPackageName(), 0);
             lastUpdateTime = packageInfo.lastUpdateTime;
         } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
         }
-        SharedPreferences prefs = getApplicationContext().getSharedPreferences("NODEJS_MOBILE_PREFS", Context.MODE_PRIVATE);
+        SharedPreferences prefs = getApplicationContext().getSharedPreferences(
+                "NODEJS_MOBILE_PREFS", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putLong("NODEJS_MOBILE_APK_LastUpdateTime", lastUpdateTime);
         editor.apply();
@@ -201,7 +207,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static boolean copyAssetFolder(AssetManager assetManager, String fromAssetPath, String toPath) {
+    private static boolean copyAssetFolder(AssetManager assetManager,
+                                           String fromAssetPath, String toPath) {
         try {
             String[] files = assetManager.list(fromAssetPath);
             boolean res = true;
@@ -227,7 +234,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static boolean copyAsset(AssetManager assetManager, String fromAssetPath, String toPath) {
+    private static boolean copyAsset(AssetManager assetManager,
+                                     String fromAssetPath, String toPath) {
         InputStream in;
         OutputStream out;
         try {

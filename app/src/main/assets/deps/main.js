@@ -5,18 +5,49 @@ const { TextDecoder } = require('util');
 const Java = process.binding('java');
 const { Transform } = require('stream');
 
+const INTERVAL = 3000;
+function ToastQueue() {
+  this._queue = [];
+  this._timer = null;
+  this._initialize = false;
+  process.on('exit', (code) => {
+    this._timer && clearTimeout(this._timer);
+    $log(`Toast queue stopped`);
+  });
+}
+
+ToastQueue.prototype.push = function(func, value) {
+  this._queue.push(func.bind(null, value || ''));
+};
+
+ToastQueue.prototype.start = function() {
+  this._timer = setTimeout(() => {
+    const func = this._queue.shift();
+    if (func && typeof func === 'function') {
+      $log(func.call(null));
+      if (this._queue.length) {
+        if (!this._initialize) {
+          this._initialize = true;
+        }
+        this.start();
+      } else {
+        this._timer && clearTimeout(this._timer);
+      }
+    }
+  }, this._initialize ? INTERVAL : 0);
+};
+
+const $toastQueue = new ToastQueue();
+$toastQueue.start();
+
 if (typeof Java !== 'undefined') {
-  const $type = Java.type();
-  if (typeof $type.$toast === 'function') {
-    $type.$toast();
-  }
-  if (typeof $type.jni_version !== 'undefined') {
-    $log(`JNI Version: ${$type.jni_version}`);
-  }
+  const $type = Java.type('java/util/ArrayList');
+  // $toast(`JNI Version: ${$type.jniVersion}`);
+  // $toast(`Android Version API: ${$type.$version()}`);
+  // JNI Version
+  $toastQueue.push($toast, `JNI Version: ${$type.jniVersion}`);
   // Android version
-  if (typeof $type.androidVersion === 'function') {
-    $log(`Android Version API: ${$type.androidVersion()}`);
-  }
+  $toastQueue.push($toast, `Android Version API: ${$type.$version()}`);
 }
 
 // wasm test
@@ -34,11 +65,7 @@ WebAssembly.instantiate(waBuf, env)
     );
     result.instance.exports.modify(buf);
     const word = new TextDecoder().decode(buf);
-    // console.log(`WASM result: ${word}`);
-    const $t = setTimeout(() => {
-      $toast(`WASM result: ${word}`);
-      clearTimeout($t);
-    }, 3000);
+    // $toastQueue.push($toast, `WASM result: ${word}`);
   })
   .catch(e => {
     // error caught

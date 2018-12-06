@@ -1,51 +1,63 @@
-#ifndef SRC_JAVA_VM_H_
-#define SRC_JAVA_VM_H_
+#ifndef JAVA_H_
+#define JAVA_H_
 
 #include <jni.h>
+#include <v8.h>
 #include "v8.h"
 #include "node.h"
 #include "env.h"
 #include "env-inl.h"
 #include "node_object_wrap.h"
+#include "context.h"
 
 extern "C" int getAndroidVersion(JNIEnv **);
 
 namespace node {
 
+    using v8::Local;
     using v8::Value;
+    using v8::Array;
+    using v8::Object;
+    using v8::String;
+    using v8::Isolate;
+    using v8::Function;
+    using v8::Persistent;
     using v8::FunctionCallbackInfo;
+    using v8::PropertyCallbackInfo;
 
     namespace jvm {
 
         class JavaType : public node::ObjectWrap {
         public:
-
-            JavaVM *_jvm;
-            JNIEnv *_env;
-
-            explicit JavaType(JavaVM **);
-
-            static void Init(v8::Isolate *isolate);
-
-            static void NewInstance(const v8::FunctionCallbackInfo<v8::Value> &args);
-
-            inline void PWrap(v8::Local<v8::Object> handle) {
-                Wrap(handle);
-            }
-
-            static void Toast(const v8::FunctionCallbackInfo<v8::Value> &args);
-
+            JavaType(char *className, NodeContext &ctx);
+            virtual ~JavaType();
+            static void Init(Isolate *isolate);
+            static void NewInstance(const FunctionCallbackInfo<Value> &args);
             static void InitEnvironment(const FunctionCallbackInfo<Value> &args, JNIEnv **env);
-
-            ~JavaType();
+            void WrapObject(Local<Object> handle);
+        public:
+            JavaVM* getJavaVM() { return _ctx.javaVM; }
+            JNIEnv* getJNIEnv() { return *_env; }
+            char* getClassName() { return _className; };
 
         private:
-
-            static void New(const v8::FunctionCallbackInfo<v8::Value> &args);
-
-            static v8::Persistent<v8::Function> constructor;
-
-            static void AndroidVersion(const FunctionCallbackInfo<Value> &args);
+            char *_className;
+            NodeContext _ctx;
+            JNIEnv** _env;
+            static void New(const FunctionCallbackInfo<Value> &args);
+            static Persistent<Function> constructor;
+            static void NamedGetter(Local<String> js_key,
+                                    const PropertyCallbackInfo<Value>& js_info);
+            static void NamedSetter(Local<String> js_key, Local<Value> js_value,
+                                    const PropertyCallbackInfo<Value>& js_info);
+            static void Call(const FunctionCallbackInfo <Value> &js_args);
+            static void Toast(const FunctionCallbackInfo<Value> &args);
+            static void Version(const FunctionCallbackInfo<Value> &args);
+            static void Enumerator(const PropertyCallbackInfo <Array> &js_info);
+            static void ToStringAccessor(Local <String> js_property,
+                                         const PropertyCallbackInfo <Value> &js_info);
+            static void ValueOfAccessor(Local <String> js_property,
+                                        const PropertyCallbackInfo <Value> &js_info);
         };
 
         void CreateJavaType(const FunctionCallbackInfo<Value> &args);
@@ -54,4 +66,4 @@ namespace node {
 
 } // namespace node
 
-#endif // SRC_JAVA_VM_H_
+#endif // JAVA_H_

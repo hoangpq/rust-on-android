@@ -12,45 +12,21 @@
 #include "env-inl.h"
 #include "node_buffer.h"
 #include "node.h"
+#include "context.h"
 
 #ifndef NODE_EXTENSION_H_
 #define NODE_EXTENSION_H_
 
-static const char *kTAG = "NodeJS Runtime";
-
-#define LOGI(...) \
-  ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
-
-#define LOGE(...) \
-  ((void)__android_log_print(ANDROID_LOG_ERROR, kTAG, __VA_ARGS__))
-
-using v8::Local;
-using v8::Object;
-using v8::Function;
-
-typedef struct node_context {
-    JavaVM *javaVM;
-    jclass mainActivityClz;
-    jobject mainActivityObj;
-} NodeContext;
-NodeContext g_ctx;
-
 extern "C" jlong JNICALL Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
-
 extern "C" void JNICALL Java_com_node_sample_MainActivity_dropPointer(JNIEnv *, jobject, jlong);
-
 extern "C" jstring JNICALL Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
-
 extern "C" jobject JNICALL Java_com_node_sample_MainActivity_getNativeObject(JNIEnv *, jobject);
 
 namespace node {
-
-    using v8::Value;
-    using v8::FunctionCallbackInfo;
-
     namespace loader {}
 }
 
+NodeContext g_ctx;
 bool jvmInitialized = false;
 
 #endif  // NODE_EXTENSION_H_

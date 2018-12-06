@@ -92,9 +92,11 @@ namespace node {
         public:
             static void New(const FunctionCallbackInfo<Value> &args) {
                 Isolate *isolate = args.GetIsolate();
+                Local<String> className = args[0]->ToString();
+                String::Utf8Value str(className);
                 if (args.IsConstructCall()) {
-                    JavaType *jvm = new JavaType(&g_ctx.javaVM);
-                    jvm->PWrap(args.This());
+                    JavaType *jvm = new JavaType(*str, g_ctx);
+                    jvm->WrapObject(args.This());
                     args.GetReturnValue().Set(args.This());
                 } else {
                     isolate->ThrowException(
