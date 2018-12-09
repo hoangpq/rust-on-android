@@ -1,7 +1,4 @@
-#include <v8.h>
-#include "java.h"
 #include "node-ext.h"
-#include "native-lib.h"
 
 namespace node {
 
@@ -32,7 +29,7 @@ namespace node {
 
         void AndroidToast(const FunctionCallbackInfo<Value> &args) {
             JNIEnv *env;
-            JavaType::InitEnvironment(args, &env);
+            JavaType::InitEnvironment(args.GetIsolate(), &env);
             Local<String> str = args[0]->ToString();
             const char *msg = ToCString(str);
 
@@ -90,24 +87,12 @@ namespace node {
 
         class AndroidModuleWrap : public ModuleWrap {
         public:
-            static void New(const FunctionCallbackInfo<Value> &args) {
-                Isolate *isolate = args.GetIsolate();
-                Local<String> className = args[0]->ToString();
-                String::Utf8Value str(className);
-                if (args.IsConstructCall()) {
-                    JavaType *jvm = new JavaType(*str, g_ctx);
-                    jvm->WrapObject(args.This());
-                    args.GetReturnValue().Set(args.This());
-                } else {
-                    isolate->ThrowException(
-                            String::NewFromUtf8(isolate, "Function is not constructor."));
-                }
-            }
-
             static void Initialize(Local<Object> target,
                                    Local<Value> unused,
                                    Local<Context> context,
                                    void *priv) {
+
+                JavaType::Init(target->GetIsolate());
 
                 ModuleWrap::Initialize(target, unused, context);
                 // define function in global context
@@ -126,17 +111,15 @@ namespace node {
                 auto onLoadFn = FunctionTemplate::New(isolate, loader::JVMOnLoad)->GetFunction();
                 global->Set(String::NewFromUtf8(isolate, "$load"), onLoadFn);
 
-                static v8::Persistent<v8::Function> constructor;
-                Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
-                tpl->SetClassName(String::NewFromUtf8(isolate, "Java"));
-                tpl->InstanceTemplate()->SetInternalFieldCount(1);
-                constructor.Reset(isolate, tpl->GetFunction());
+                Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate);
+                Local<Object> javaVM = javaVMTemplate->NewInstance();
 
-                Local<Function> cons = Local<Function>::New(isolate, constructor);
-                Local<Object> instance = cons->NewInstance(context).ToLocalChecked();
+                auto javaTypeFn = FunctionTemplate::New(
+                        isolate, JavaType::NewInstance)->GetFunction();
 
-                Local<String> $vm = String::NewFromUtf8(isolate, "$vm");
-                global->Set($vm, instance);
+                javaVM->Set(String::NewFromUtf8(isolate, "type"), javaTypeFn);
+                global->Set(String::NewFromUtf8(isolate, "Java"), javaVM);
+
             }
 
         };
@@ -147,7 +130,7 @@ namespace node {
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env;
-    memset(&g_ctx, 0, sizeof(g_ctx));
+    memset(&g_ctx, 0, sizeof(NodeContext));
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR; // JNI version not supported.
     }

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { TextDecoder } = require('util');
-const Java = process.binding('java');
+// const Java = process.binding('java');
 const { Transform } = require('stream');
 
 const INTERVAL = 3000;
@@ -42,12 +42,16 @@ $toastQueue.start();
 
 if (typeof Java !== 'undefined') {
   const $type = Java.type('java/util/ArrayList');
-  // $toast(`JNI Version: ${$type.jniVersion}`);
+  // list all key
+  for (const k in $type) {
+    $log(`key: ${k}, type: ${typeof $type[k]}`);
+  }
+  $toast(`JNI Version: ${$type.$jni_version}`);
   // $toast(`Android Version API: ${$type.$version()}`);
   // JNI Version
-  $toastQueue.push($toast, `JNI Version: ${$type.jniVersion}`);
+  // $toastQueue.push($toast, `JNI Version: ${$type.jniVersion}`);
   // Android version
-  $toastQueue.push($toast, `Android Version API: ${$type.$version()}`);
+  // $toastQueue.push($toast, `Android Version API: ${$type.$version()}`);
 }
 
 // wasm test

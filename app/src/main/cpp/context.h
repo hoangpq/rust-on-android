@@ -9,6 +9,8 @@ typedef struct NodeContext {
     jobject mainActivityObj;
 } NodeContext;
 
+extern NodeContext g_ctx;
+
 static const char *kTAG = "NodeJS Runtime";
 
 #define LOGI(...) \
