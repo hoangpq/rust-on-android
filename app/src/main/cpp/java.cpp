@@ -1,5 +1,6 @@
 #include <v8.h>
 #include "java.h"
+#include "jobject.h"
 
 NodeContext g_ctx;
 
@@ -36,6 +37,8 @@ namespace node {
             Local<ObjectTemplate> instance_template = function_template->InstanceTemplate();
 
             instance_template->SetInternalFieldCount(1);
+            instance_template->SetCallAsFunctionHandler(Call, Handle<Value>());
+
             instance_template->SetNamedPropertyHandler(
                     NamedGetter, NamedSetter, NULL, NULL, Enumerator);
             instance_template->SetCallAsFunctionHandler(Call, Handle<Value>());
@@ -53,20 +56,6 @@ namespace node {
             NODE_SET_PROTOTYPE_METHOD(function_template, "$toast", Toast);
             NODE_SET_PROTOTYPE_METHOD(function_template, "$version", Version);
             constructor.Reset(isolate, function_template);
-        }
-
-        void JavaType::Enumerator(const PropertyCallbackInfo<Array> &js_info) {
-            HandleScope scope(js_info.GetIsolate());
-        }
-
-        void JavaType::ToStringAccessor(Local<String> jsProperty,
-                                        const PropertyCallbackInfo<Value> &js_info) {
-            HandleScope scope(js_info.GetIsolate());
-        }
-
-        void JavaType::ValueOfAccessor(Local<String> jsProperty,
-                                       const PropertyCallbackInfo<Value> &js_info) {
-            HandleScope scope(js_info.GetIsolate());
         }
 
         void JavaType::New(const FunctionCallbackInfo<Value> &args) {
@@ -117,54 +106,57 @@ namespace node {
             String::Utf8Value javaClassName(args[0]->ToString());
             jclass clazz = env->FindClass(*javaClassName);
 
-            Handle<FunctionTemplate> _py_function_template =
+            Handle<FunctionTemplate> _js_function_template =
                     Local<FunctionTemplate>::New(Isolate::GetCurrent(), JavaType::constructor);
-            Local<Object> jsObject = _py_function_template->GetFunction()->NewInstance();
+            Local<Object> instance = _js_function_template->GetFunction()->NewInstance();
 
             jint ver = env->GetVersion();
             double jniVersion = (double) ((ver >> 16) & 0x0f) + (ver & 0x0f) * 0.1;
-            jsObject->Set(String::NewFromUtf8(isolate, "$jni_version"),
+            instance->Set(String::NewFromUtf8(isolate, "$jni_version"),
                           Number::New(isolate, jniVersion));
 
-            JavaType *instance = new JavaType(clazz, &env);
-            instance->InitJavaMethod(isolate, jsObject);
-            instance->Wrap(jsObject);
-            args.GetReturnValue().Set(scope.Escape(jsObject));
+            JavaType *type = new JavaType(clazz, &env);
+
+            type->InitJavaMethod(isolate, instance);
+            type->Wrap(instance);
+
+            args.GetReturnValue().Set(scope.Escape(instance));
         }
 
         void JavaType::InitJavaMethod(Isolate *isolate, Local<Object> wrapper) {
             JNIEnv *env = GetCurrentJNIEnv();
-            jclass clazzclazz = env->FindClass("java/lang/Class");
+            jclass clazz = env->FindClass("java/lang/Class");
             jmethodID clazz_getMethods = env
-                    ->GetMethodID(clazzclazz, "getMethods", "()[Ljava/lang/reflect/Method;");
+                    ->GetMethodID(clazz, "getMethods", "()[Ljava/lang/reflect/Method;");
 
             jclass methodClazz = env->FindClass("java/lang/reflect/Method");
             jmethodID method_getName = env->GetMethodID(methodClazz, "getName",
                                                         "()Ljava/lang/String;");
+
             jobjectArray methodObjects = (jobjectArray)
                     env->CallObjectMethod(_klass, clazz_getMethods);
 
             jsize methodCount = env->GetArrayLength(methodObjects);
-
             auto callFn = FunctionTemplate::New(isolate, Call)->GetFunction();
 
             for (jsize i = 0; i < methodCount; i++) {
+
                 jobject method = env->GetObjectArrayElement(methodObjects, i);
                 jobject obj = env->CallObjectMethod(method, method_getName);
-
                 jclass objClazz = env->GetObjectClass(obj);
                 jmethodID methodId = env->GetMethodID(objClazz,
                                                       "toString", "()Ljava/lang/String;");
-                jstring result = (jstring) env->CallObjectMethod(obj, methodId);
 
+                jstring result = (jstring) env->CallObjectMethod(obj, methodId);
                 const char *str = env->GetStringUTFChars(result, NULL);
                 env->ReleaseStringUTFChars(result, str);
-
                 // map java class method to javascript object method
                 wrapper->Set(String::NewFromUtf8(isolate, str), callFn);
-                // LOGE("%s", str);
             }
 
+            // init by java constructor
+            jmethodID constructor = env->GetMethodID(this->_klass, "<init>", "()V");
+            this->_jinstance = env->NewObject(this->_klass, constructor);
         }
 
         void JavaType::InitEnvironment(Isolate *isolate, JNIEnv **env) {
@@ -181,19 +173,36 @@ namespace node {
         void JavaType::Call(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate = args.GetIsolate();
             HandleScope scope(isolate);
-            args.GetReturnValue().Set(
-                    String::NewFromUtf8(isolate, "Method called"));
+            args.GetReturnValue().Set(args.This());
         }
 
-        void JavaType::NamedGetter(Local<String> jsKey,
-                                   const PropertyCallbackInfo<Value> &jsInfo) {
-            HandleScope scope(jsInfo.GetIsolate());
-            String::Utf8Value key(jsKey);
+        void JavaType::NamedGetter(Local<String> key, const PropertyCallbackInfo<Value> &info) {
+            Isolate *isolate = info.GetIsolate();
+            EscapableHandleScope scope(isolate);
+            String::Utf8Value key_(key);
+
+            JavaType *t = ObjectWrap::Unwrap<JavaType>(info.Holder());
+            jmethodID methodId = g_ctx.env->GetMethodID(t->GetJavaClass(), *key_, "()V");
+            Local<Object> jObject = JavaObject::NewInstance(t->GetJavaInstance(), methodId, isolate);
+            info.GetReturnValue().Set(scope.Escape(jObject));
         }
 
-        void JavaType::NamedSetter(Local<String> jsKey, Local<Value> jsValue,
-                                   const PropertyCallbackInfo<Value> &js_info) {}
+        void JavaType::NamedSetter(Local<String> key, Local<Value> value,
+                                   const PropertyCallbackInfo<Value> &info) {}
 
+        void JavaType::Enumerator(const PropertyCallbackInfo<Array> &info) {
+            HandleScope scope(info.GetIsolate());
+        }
+
+        void JavaType::ToStringAccessor(Local<String> property,
+                                        const PropertyCallbackInfo<Value> &info) {
+            HandleScope scope(info.GetIsolate());
+        }
+
+        void
+        JavaType::ValueOfAccessor(Local<String> property, const PropertyCallbackInfo<Value> &info) {
+            HandleScope scope(info.GetIsolate());
+        }
 
     }  // anonymous namespace
 

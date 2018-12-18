@@ -27,6 +27,7 @@ add_library( # Sets the name of the library.
         SHARED
         # Provides a relative path to your source file(s).
         src/main/cpp/java.cpp
+        src/main/cpp/jobject.cpp
         src/main/cpp/native-lib.cpp
         src/main/cpp/node-ext.cpp)
 

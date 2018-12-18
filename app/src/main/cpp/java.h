@@ -1,5 +1,5 @@
-#ifndef JAVA_H_
-#define JAVA_H_
+#ifndef _java_h_
+#define _java_h_
 
 #include <jni.h>
 #include <android/log.h>
@@ -30,7 +30,7 @@ namespace node {
 
     namespace jvm {
 
-        class JavaType : public node::ObjectWrap {
+        class JavaType : public ObjectWrap {
         public:
             JavaType(jclass, JNIEnv **);
             virtual ~JavaType();
@@ -39,10 +39,14 @@ namespace node {
             static void NewInstance(const FunctionCallbackInfo<Value> &args);
             static void InitEnvironment(Isolate *isolate, JNIEnv **env);
             JNIEnv* GetCurrentJNIEnv() { return *_env; }
+            jclass GetJavaClass() { return _klass; };
+            jobject GetJavaInstance() { return _jinstance; };
 
         private:
             jclass _klass;
             JNIEnv **_env;
+            jobject _jinstance;
+
             static void New(const FunctionCallbackInfo<Value> &args);
             static void NamedGetter(Local<String> js_key,
                                     const PropertyCallbackInfo<Value>& js_info);
@@ -63,4 +67,4 @@ namespace node {
 
 } // namespace node
 
-#endif // JAVA_H_
+#endif // _java_h_

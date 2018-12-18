@@ -18,7 +18,9 @@ namespace node {
     using v8::FunctionCallbackInfo;
     using v8::MaybeLocal;
     using v8::JSON;
+
     using node::jvm::JavaType;
+    using node::jvm::JavaObject;
 
     namespace loader {
 
@@ -92,11 +94,13 @@ namespace node {
                                    Local<Context> context,
                                    void *priv) {
 
-                JavaType::Init(target->GetIsolate());
+                Isolate *isolate = target->GetIsolate();
+
+                JavaType::Init(isolate);
+                JavaObject::Init(isolate);
 
                 ModuleWrap::Initialize(target, unused, context);
                 // define function in global context
-                v8::Isolate *isolate = target->GetIsolate();
                 Local<Object> global = context->Global();
 
                 auto toastFn = FunctionTemplate::New(isolate, loader::AndroidToast)->GetFunction();
@@ -135,6 +139,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
         return JNI_ERR; // JNI version not supported.
     }
     g_ctx.javaVM = vm;
+    g_ctx.env = env;
     g_ctx.mainActivityObj = NULL;
     jvmInitialized = true;
     return JNI_VERSION_1_6;

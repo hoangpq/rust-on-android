@@ -1,10 +1,11 @@
-#ifndef CONTEXT_H_
-#define CONTEXT_H_
+#ifndef _context_h
+#define _context_h
 
 #include <jni.h>
 
 typedef struct NodeContext {
     JavaVM *javaVM;
+    JNIEnv *env;
     jclass mainActivityClz;
     jobject mainActivityObj;
 } NodeContext;
@@ -19,4 +20,4 @@ static const char *kTAG = "NodeJS Runtime";
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, kTAG, __VA_ARGS__))
 
-#endif // CONTEXT_H_
+#endif // _context_h

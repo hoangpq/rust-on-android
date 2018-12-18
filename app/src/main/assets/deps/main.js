@@ -43,9 +43,10 @@ $toastQueue.start();
 if (typeof Java !== 'undefined') {
   const $type = Java.type('java/util/ArrayList');
   // list all key
-  for (const k in $type) {
-    $log(`key: ${k}, type: ${typeof $type[k]}`);
-  }
+
+  console.log(typeof $type.add);
+
+  // $type.add(10);
   $toast(`JNI Version: ${$type.$jni_version}`);
   // $toast(`Android Version API: ${$type.$version()}`);
   // JNI Version

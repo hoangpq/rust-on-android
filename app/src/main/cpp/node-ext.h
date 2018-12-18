@@ -1,5 +1,5 @@
-#ifndef NODE_EXTENSION_H_
-#define NODE_EXTENSION_H_
+#ifndef _node_extension_h_
+#define _node_extension_h_
 
 #include <jni.h>
 #include <stddef.h>
@@ -17,6 +17,7 @@
 #include "node.h"
 #include "context.h"
 #include "java.h"
+#include "jobject.h"
 
 extern "C" jlong JNICALL Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
 
@@ -32,4 +33,4 @@ namespace node {
 
 bool jvmInitialized = false;
 
-#endif  // NODE_EXTENSION_H_
+#endif  // _node_extension_h_
