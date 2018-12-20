@@ -1,6 +1,7 @@
 #include <v8.h>
 #include "java.h"
 #include "jobject.h"
+#include <string.h>
 
 NodeContext g_ctx;
 
@@ -179,12 +180,15 @@ namespace node {
         void JavaType::NamedGetter(Local<String> key, const PropertyCallbackInfo<Value> &info) {
             Isolate *isolate = info.GetIsolate();
             EscapableHandleScope scope(isolate);
-            String::Utf8Value key_(key);
+            String::Utf8Value key_(key->ToString());
 
-            JavaType *t = ObjectWrap::Unwrap<JavaType>(info.Holder());
-            jmethodID methodId = g_ctx.env->GetMethodID(t->GetJavaClass(), *key_, "()V");
-            Local<Object> jObject = JavaObject::NewInstance(t->GetJavaInstance(), methodId, isolate);
-            info.GetReturnValue().Set(scope.Escape(jObject));
+            if (strcmp(*key_, "add")) {
+                JavaType *t = ObjectWrap::Unwrap<JavaType>(info.Holder());
+                jmethodID methodId = g_ctx.env->GetMethodID(t->GetJavaClass(), *key_, "()V");
+                Local<Object> jObject = JavaObject::NewInstance(t->GetJavaInstance(), methodId,
+                                                                isolate);
+                info.GetReturnValue().Set(scope.Escape(jObject));
+            }
         }
 
         void JavaType::NamedSetter(Local<String> key, Local<Value> value,

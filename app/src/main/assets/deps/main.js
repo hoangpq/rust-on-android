@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { TextDecoder } = require('util');
-// const Java = process.binding('java');
 const { Transform } = require('stream');
 
 const INTERVAL = 3000;
@@ -10,7 +9,7 @@ function ToastQueue() {
   this._queue = [];
   this._timer = null;
   this._initialize = false;
-  process.on('exit', (code) => {
+  process.on('exit', code => {
     this._timer && clearTimeout(this._timer);
     $log(`Toast queue stopped`);
   });
@@ -21,38 +20,34 @@ ToastQueue.prototype.push = function(func, value) {
 };
 
 ToastQueue.prototype.start = function() {
-  this._timer = setTimeout(() => {
-    const func = this._queue.shift();
-    if (func && typeof func === 'function') {
-      $log(func.call(null));
-      if (this._queue.length) {
-        if (!this._initialize) {
-          this._initialize = true;
+  this._timer = setTimeout(
+    () => {
+      const func = this._queue.shift();
+      if (func && typeof func === 'function') {
+        $log(func.call(null));
+        if (this._queue.length) {
+          if (!this._initialize) {
+            this._initialize = true;
+          }
+          this.start();
+        } else {
+          this._timer && clearTimeout(this._timer);
         }
-        this.start();
-      } else {
-        this._timer && clearTimeout(this._timer);
       }
-    }
-  }, this._initialize ? INTERVAL : 0);
+    },
+    this._initialize ? INTERVAL : 0
+  );
 };
 
 const $toastQueue = new ToastQueue();
 $toastQueue.start();
 
 if (typeof Java !== 'undefined') {
-  const $type = Java.type('java/util/ArrayList');
-  // list all key
-
-  console.log(typeof $type.add);
-
+  const $list = Java.type('java/util/ArrayList');
+  // $log(typeof $list.add);
   // $type.add(10);
-  $toast(`JNI Version: ${$type.$jni_version}`);
-  // $toast(`Android Version API: ${$type.$version()}`);
   // JNI Version
   // $toastQueue.push($toast, `JNI Version: ${$type.jniVersion}`);
-  // Android version
-  // $toastQueue.push($toast, `Android Version API: ${$type.$version()}`);
 }
 
 // wasm test
@@ -60,22 +55,23 @@ const env = {};
 const waBuf = new Uint8Array(fs.readFileSync(path.join(__dirname, 'wa.wasm')));
 // $log((new TextDecoder).decode(Uint8Array.from([0xe3, 0x81, 0x82])));
 
-WebAssembly.instantiate(waBuf, env)
-  .then(result => {
+// run wa
+(async function() {
+  try {
+    const result = await WebAssembly.instantiate(waBuf, env);
     const len = 3;
-    var buf = new Uint8ClampedArray(
+    const buf = new Uint8ClampedArray(
       result.instance.exports.memory.buffer,
       new Uint8Array(len),
       len
     );
     result.instance.exports.modify(buf);
     const word = new TextDecoder().decode(buf);
-    // $toastQueue.push($toast, `WASM result: ${word}`);
-  })
-  .catch(e => {
-    // error caught
+    $log(`WASM result: ${word}`);
+  } catch (e) {
     $error(e.message);
-  });
+  }
+})();
 
 function serveFile(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -98,21 +94,19 @@ function serveFile(req, res) {
 
     const chunksize = end - start + 1;
     const file = fs.createReadStream(assetPath, { start, end });
-    const head = {
+
+    res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
       'Content-Type': 'video/mp4'
-    };
-
-    res.writeHead(206, head);
+    });
     file.pipe(filterStream).pipe(res);
   } else {
-    const head = {
+    res.writeHead(200, {
       'Content-Length': fileSize,
       'Content-Type': 'video/mp4'
-    };
-    res.writeHead(200, head);
+    });
     fs.createReadStream(assetPath)
       .pipe(filterStream)
       .pipe(res);
@@ -121,10 +115,10 @@ function serveFile(req, res) {
 
 function handleNodeVersionRequest(req, res) {
   res.statusCode = 200;
-  res.setHeader('Content-Type', 'application/json');
-  const msg = ` \nUser-Agent: ${req.headers['user-agent']}\n`;
-  $toast(msg);
-  $log(msg);
+  res.writeHead(200, {
+    'Content-Type': 'application/json'
+  });
+  $toast(` \nUser-Agent: ${req.headers['user-agent']}\n`);
   res.end(JSON.stringify({ ...process.versions }));
 }
 

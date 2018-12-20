@@ -16,8 +16,9 @@ namespace node {
     using v8::FunctionTemplate;
     using v8::EscapableHandleScope;
     using v8::FunctionCallbackInfo;
-    using v8::MaybeLocal;
+
     using v8::JSON;
+    using v8::MaybeLocal;
 
     using node::jvm::JavaType;
     using node::jvm::JavaObject;
@@ -123,7 +124,6 @@ namespace node {
 
                 javaVM->Set(String::NewFromUtf8(isolate, "type"), javaTypeFn);
                 global->Set(String::NewFromUtf8(isolate, "Java"), javaVM);
-
             }
 
         };
