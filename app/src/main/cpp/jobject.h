@@ -23,18 +23,22 @@ namespace node {
 
     namespace jvm {
 
-        class JavaObject : public ObjectWrap {
+        class JavaFunctionWrapper : public ObjectWrap {
         public:
-            static Persistent<FunctionTemplate> constructor;
-            JavaObject(jobject, jmethodID);
-            virtual ~JavaObject();
+            JavaFunctionWrapper(jobject, jmethodID, char *);
+            virtual ~JavaFunctionWrapper();
             static void Init(Isolate *isolate);
-            static Local<Object> NewInstance(jobject ,jmethodID, Isolate *);
+            static void New(const FunctionCallbackInfo<Value> &args);
+            static void Call(const FunctionCallbackInfo<Value> &args);
+            static Local<Value> NewInstance(Isolate *, jobject, jmethodID, char *);
+
+        public:
+            static Persistent<FunctionTemplate> _func_wrapper;
 
         private:
             jobject _instance;
             jmethodID _methodId;
-            static void New(const FunctionCallbackInfo<Value> &args);
+            char *_methodName;
         };
 
     }  // anonymous namespace

@@ -21,7 +21,7 @@ namespace node {
     using v8::MaybeLocal;
 
     using node::jvm::JavaType;
-    using node::jvm::JavaObject;
+    using node::jvm::JavaFunctionWrapper;
 
     namespace loader {
 
@@ -95,10 +95,16 @@ namespace node {
                                    Local<Context> context,
                                    void *priv) {
 
+                // VM for android main thread
+                if (g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&g_ctx.env), JNI_VERSION_1_6) !=
+                    JNI_OK) {
+                    return;
+                }
+
                 Isolate *isolate = target->GetIsolate();
 
                 JavaType::Init(isolate);
-                JavaObject::Init(isolate);
+                JavaFunctionWrapper::Init(isolate);
 
                 ModuleWrap::Initialize(target, unused, context);
                 // define function in global context
@@ -139,7 +145,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
         return JNI_ERR; // JNI version not supported.
     }
     g_ctx.javaVM = vm;
-    g_ctx.env = env;
     g_ctx.mainActivityObj = NULL;
     jvmInitialized = true;
     return JNI_VERSION_1_6;

@@ -39,16 +39,16 @@ ToastQueue.prototype.start = function() {
   );
 };
 
-const $toastQueue = new ToastQueue();
-$toastQueue.start();
+// const $toastQueue = new ToastQueue();
+// $toastQueue.start();
 
-if (typeof Java !== 'undefined') {
-  const $list = Java.type('java/util/ArrayList');
-  // $log(typeof $list.add);
-  // $type.add(10);
-  // JNI Version
-  // $toastQueue.push($toast, `JNI Version: ${$type.jniVersion}`);
+const $list = Java.type('java/util/ArrayList');
+
+for (let i = 0; i < 80; i++) {
+  $list.add(Math.random() * 1000);
 }
+
+$log($list.toString());
 
 // wasm test
 const env = {};

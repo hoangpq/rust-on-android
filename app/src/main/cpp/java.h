@@ -12,13 +12,15 @@
 
 #include "context.h"
 
-extern "C" int getAndroidVersion(JNIEnv **);
+// extern "C" int getAndroidVersion(JNIEnv **);
 
 namespace node {
 
     using v8::Local;
     using v8::Value;
     using v8::Array;
+    using v8::Value;
+    using v8::Handle;
     using v8::Object;
     using v8::String;
     using v8::Isolate;
@@ -35,9 +37,10 @@ namespace node {
             JavaType(jclass, JNIEnv **);
             virtual ~JavaType();
             static Persistent<FunctionTemplate> constructor;
-            static void Init(Isolate *isolate);
-            static void NewInstance(const FunctionCallbackInfo<Value> &args);
-            static void InitEnvironment(Isolate *isolate, JNIEnv **env);
+            static void Init(Isolate *);
+            static void NewInstance(const FunctionCallbackInfo<Value> &);
+            static void InitEnvironment(Isolate *, JNIEnv **);
+
             JNIEnv* GetCurrentJNIEnv() { return *_env; }
             jclass GetJavaClass() { return _klass; };
             jobject GetJavaInstance() { return _jinstance; };
@@ -47,20 +50,18 @@ namespace node {
             JNIEnv **_env;
             jobject _jinstance;
 
-            static void New(const FunctionCallbackInfo<Value> &args);
-            static void NamedGetter(Local<String> js_key,
-                                    const PropertyCallbackInfo<Value>& js_info);
-            static void NamedSetter(Local<String> js_key, Local<Value> js_value,
-                                    const PropertyCallbackInfo<Value>& js_info);
-            static void Call(const FunctionCallbackInfo <Value> &js_args);
-            static void Toast(const FunctionCallbackInfo<Value> &args);
-            static void Version(const FunctionCallbackInfo<Value> &args);
-            static void Enumerator(const PropertyCallbackInfo <Array> &js_info);
-            static void ToStringAccessor(Local <String> js_property,
-                                         const PropertyCallbackInfo <Value> &js_info);
-            static void ValueOfAccessor(Local <String> js_property,
-                                        const PropertyCallbackInfo <Value> &js_info);
-            void InitJavaMethod(Isolate *isolate, Local<Object>);
+            static void New(const FunctionCallbackInfo<Value> &);
+            static void NamedGetter(Local<String>, const PropertyCallbackInfo<Value>&);
+            static void NamedSetter(Local<String> , Local<Value>, const PropertyCallbackInfo<Value>&);
+            static void Call(const FunctionCallbackInfo <Value> &);
+            static void Enumerator(const PropertyCallbackInfo <Array> &);
+            void InitJavaMethod(Isolate *, Local<Object>);
+            static void ValueOfAccessor(Local <v8::String>, const v8::PropertyCallbackInfo<Value> &);
+            static void ValueOf(const FunctionCallbackInfo <Value> &);
+            static void ToString(const FunctionCallbackInfo <Value> &);
+            static void ToStringAccessor(Local <String>, const PropertyCallbackInfo <Value> &);
+
+            static Handle<Value> JavaNameGetter(JNIEnv *, const PropertyCallbackInfo<Value> &, const char *);
         };
 
     }  // anonymous namespace

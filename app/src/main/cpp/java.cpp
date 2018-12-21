@@ -38,24 +38,17 @@ namespace node {
             Local<ObjectTemplate> instance_template = function_template->InstanceTemplate();
 
             instance_template->SetInternalFieldCount(1);
-            instance_template->SetCallAsFunctionHandler(Call, Handle<Value>());
-
             instance_template->SetNamedPropertyHandler(
                     NamedGetter, NamedSetter, NULL, NULL, Enumerator);
-            instance_template->SetCallAsFunctionHandler(Call, Handle<Value>());
-
             instance_template->SetAccessor(
-                    String::NewFromUtf8(isolate, "valueOf", String::kInternalizedString),
-                    ValueOfAccessor);
+                    String::NewFromUtf8(Isolate::GetCurrent(), "valueOf",
+                                        String::kInternalizedString), ValueOfAccessor);
 
             Local<ObjectTemplate> prototype_template = function_template->PrototypeTemplate();
             prototype_template->SetAccessor(
-                    String::NewFromUtf8(isolate, "toString", String::kInternalizedString),
-                    ToStringAccessor);
+                    String::NewFromUtf8(Isolate::GetCurrent(), "toString",
+                                        String::kInternalizedString), ToStringAccessor);
 
-            // Prototype
-            NODE_SET_PROTOTYPE_METHOD(function_template, "$toast", Toast);
-            NODE_SET_PROTOTYPE_METHOD(function_template, "$version", Version);
             constructor.Reset(isolate, function_template);
         }
 
@@ -67,28 +60,6 @@ namespace node {
                 isolate->ThrowException(
                         String::NewFromUtf8(isolate, "Function is not constructor."));
             }
-        }
-
-        void JavaType::Toast(const FunctionCallbackInfo<Value> &args) {
-            Isolate *isolate = args.GetIsolate();
-            Handle<Context> context = isolate->GetCurrentContext();
-            Local<String> fnName = String::NewFromUtf8(isolate, "$toast");
-            Handle<Object> global = context->Global();
-            // Get $toast function from global context
-            Local<Function> $toast = Local<Function>::Cast(
-                    global->Get(context, fnName).ToLocalChecked());
-            Local<Value> funcArgs[1];
-            funcArgs[0] = String::NewFromUtf8(
-                    isolate, "Invoke $toast function in global context successfully!");
-            $toast->Call(global, 1, funcArgs);
-        }
-
-        void JavaType::Version(const FunctionCallbackInfo<Value> &args) {
-            JNIEnv *env;
-            Isolate *isolate = args.GetIsolate();
-            JavaType::InitEnvironment(isolate, &env);
-            // From Rust static lib
-            args.GetReturnValue().Set(Number::New(isolate, getAndroidVersion(&env)));
         }
 
         void JavaType::NewInstance(const FunctionCallbackInfo<Value> &args) {
@@ -110,12 +81,6 @@ namespace node {
             Handle<FunctionTemplate> _js_function_template =
                     Local<FunctionTemplate>::New(Isolate::GetCurrent(), JavaType::constructor);
             Local<Object> instance = _js_function_template->GetFunction()->NewInstance();
-
-            jint ver = env->GetVersion();
-            double jniVersion = (double) ((ver >> 16) & 0x0f) + (ver & 0x0f) * 0.1;
-            instance->Set(String::NewFromUtf8(isolate, "$jni_version"),
-                          Number::New(isolate, jniVersion));
-
             JavaType *type = new JavaType(clazz, &env);
 
             type->InitJavaMethod(isolate, instance);
@@ -131,8 +96,8 @@ namespace node {
                     ->GetMethodID(clazz, "getMethods", "()[Ljava/lang/reflect/Method;");
 
             jclass methodClazz = env->FindClass("java/lang/reflect/Method");
-            jmethodID method_getName = env->GetMethodID(methodClazz, "getName",
-                                                        "()Ljava/lang/String;");
+            jmethodID method_getName = env->GetMethodID(
+                    methodClazz, "getName", "()Ljava/lang/String;");
 
             jobjectArray methodObjects = (jobjectArray)
                     env->CallObjectMethod(_klass, clazz_getMethods);
@@ -145,19 +110,19 @@ namespace node {
                 jobject method = env->GetObjectArrayElement(methodObjects, i);
                 jobject obj = env->CallObjectMethod(method, method_getName);
                 jclass objClazz = env->GetObjectClass(obj);
-                jmethodID methodId = env->GetMethodID(objClazz,
-                                                      "toString", "()Ljava/lang/String;");
-
+                jmethodID methodId = env->GetMethodID(objClazz, "toString", "()Ljava/lang/String;");
                 jstring result = (jstring) env->CallObjectMethod(obj, methodId);
                 const char *str = env->GetStringUTFChars(result, NULL);
                 env->ReleaseStringUTFChars(result, str);
+
+                if (strcmp(str, "toString")) continue;
                 // map java class method to javascript object method
                 wrapper->Set(String::NewFromUtf8(isolate, str), callFn);
             }
 
             // init by java constructor
-            jmethodID constructor = env->GetMethodID(this->_klass, "<init>", "()V");
-            this->_jinstance = env->NewObject(this->_klass, constructor);
+            jmethodID constructor = env->GetMethodID(_klass, "<init>", "()V");
+            this->_jinstance = env->NewObject(_klass, constructor);
         }
 
         void JavaType::InitEnvironment(Isolate *isolate, JNIEnv **env) {
@@ -177,18 +142,31 @@ namespace node {
             args.GetReturnValue().Set(args.This());
         }
 
+        Handle<Value> JavaType::JavaNameGetter(
+                JNIEnv *env, const PropertyCallbackInfo<Value> &args, const char *methodName) {
+
+            Isolate *isolate = args.GetIsolate();
+            JavaType *wrapper = ObjectWrap::Unwrap<JavaType>(args.Holder());
+
+            // jclass jniUtil = env->FindClass("com/node/util/JNIUtil");
+            jmethodID methodId = env->GetMethodID(wrapper->_klass, methodName,
+                                                  "(Ljava/lang/Object;)Z");
+            if (env->ExceptionCheck()) {
+                env->ExceptionDescribe();
+                env->ExceptionClear();
+                return Handle<Value>();
+            }
+
+            jobject ref = env->NewGlobalRef(wrapper->GetJavaInstance());
+            return JavaFunctionWrapper::NewInstance(isolate, ref, methodId,
+                                                    const_cast<char *>(methodName));
+        }
+
         void JavaType::NamedGetter(Local<String> key, const PropertyCallbackInfo<Value> &info) {
             Isolate *isolate = info.GetIsolate();
             EscapableHandleScope scope(isolate);
-            String::Utf8Value key_(key->ToString());
-
-            if (strcmp(*key_, "add")) {
-                JavaType *t = ObjectWrap::Unwrap<JavaType>(info.Holder());
-                jmethodID methodId = g_ctx.env->GetMethodID(t->GetJavaClass(), *key_, "()V");
-                Local<Object> jObject = JavaObject::NewInstance(t->GetJavaInstance(), methodId,
-                                                                isolate);
-                info.GetReturnValue().Set(scope.Escape(jObject));
-            }
+            String::Utf8Value methodName(key->ToString());
+            info.GetReturnValue().Set(scope.Escape(JavaNameGetter(g_ctx.env, info, *methodName)));
         }
 
         void JavaType::NamedSetter(Local<String> key, Local<Value> value,
@@ -198,15 +176,38 @@ namespace node {
             HandleScope scope(info.GetIsolate());
         }
 
+        void JavaType::ValueOf(const FunctionCallbackInfo<Value> &args) {
+            Isolate *isolate = args.GetIsolate();
+            HandleScope scope(isolate);
+            args.GetReturnValue().Set(Number::New(isolate, 10.0));
+        }
+
+        void JavaType::ValueOfAccessor(Local<String> property,
+                                       const PropertyCallbackInfo<Value> &info) {
+            HandleScope scope(info.GetIsolate());
+            Local<FunctionTemplate> js_function = FunctionTemplate::New(info.GetIsolate(), ValueOf);
+            info.GetReturnValue().Set(js_function->GetFunction());
+        }
+
+        void JavaType::ToString(const FunctionCallbackInfo<Value> &args) {
+            HandleScope scope(args.GetIsolate());
+            JNIEnv *env = g_ctx.env;
+            JavaType *wrapper = ObjectWrap::Unwrap<JavaType>(args.Holder());
+            jmethodID valueOf = env->GetMethodID(wrapper->_klass, "toString",
+                                                 "()Ljava/lang/String;");
+            jstring result = (jstring) env->CallObjectMethod(wrapper->_jinstance, valueOf);
+            const char *ch = env->GetStringUTFChars(result, 0);
+            env->ReleaseStringUTFChars(result, ch);
+            args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), ch));
+        }
+
         void JavaType::ToStringAccessor(Local<String> property,
                                         const PropertyCallbackInfo<Value> &info) {
             HandleScope scope(info.GetIsolate());
+            Local<FunctionTemplate> func = FunctionTemplate::New(info.GetIsolate(), ToString);
+            info.GetReturnValue().Set(func->GetFunction());
         }
 
-        void
-        JavaType::ValueOfAccessor(Local<String> property, const PropertyCallbackInfo<Value> &info) {
-            HandleScope scope(info.GetIsolate());
-        }
 
     }  // anonymous namespace
 
