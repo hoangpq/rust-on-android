@@ -22,17 +22,17 @@ public class JNIUtils {
         PRIMITIVE_SIGNATURES.put(void.class, "V");
     }
 
-    private JNIUtils() {
-    }
-
-    public static String getJNIMethodSignature(Object o) {
-        Method m = (Method) o;
+    public static String getJNIMethodSignature(Method m) {
         final StringBuilder sb = new StringBuilder("(");
         for (final Class<?> p : m.getParameterTypes()) {
             sb.append(getJNIClassSignature(p));
         }
         sb.append(')').append(getJNIClassSignature(m.getReturnType()));
         return sb.toString();
+    }
+
+    public static int getArgumentCount(Method m) {
+        return m.getParameterTypes().length;
     }
 
     private static String getJNIClassSignature(Class<?> c) {

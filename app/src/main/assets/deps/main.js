@@ -44,11 +44,11 @@ ToastQueue.prototype.start = function() {
 
 const $list = Java.type('java/util/ArrayList');
 
-for (let i = 0; i < 80; i++) {
+for (let i = 0; i < 10; i++) {
   $list.add(Math.random() * 1000);
 }
 
-$log($list.toString());
+$log(`List: ${$list}`);
 
 // wasm test
 const env = {};

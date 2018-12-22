@@ -23,9 +23,10 @@ namespace node {
         Persistent<FunctionTemplate> JavaFunctionWrapper::_func_wrapper;
 
         JavaFunctionWrapper::JavaFunctionWrapper(
-                jobject instance, jmethodID methodId, char *methodName) : _instance(instance),
-                                                                          _methodId(methodId),
-                                                                          _methodName(methodName) {}
+                JavaType *type, jobject instance, std::string methodName)
+                : _type(type),
+                  _instance(instance),
+                  _methodName(methodName) {}
 
         JavaFunctionWrapper::~JavaFunctionWrapper() {}
 
@@ -48,13 +49,13 @@ namespace node {
         }
 
         Local<Value>
-        JavaFunctionWrapper::NewInstance(
-                Isolate *isolate, jobject jinst, jmethodID methodId, char *methodName) {
+        JavaFunctionWrapper::NewInstance(JavaType *type, Isolate *isolate, jobject jinst,
+                                         std::string methodName) {
             Handle<FunctionTemplate> _function_template =
                     Local<FunctionTemplate>::New(isolate, _func_wrapper);
 
             Local<Object> jsinst = _function_template->GetFunction()->NewInstance();
-            JavaFunctionWrapper *function_wrapper = new JavaFunctionWrapper(jinst, methodId,
+            JavaFunctionWrapper *function_wrapper = new JavaFunctionWrapper(type, jinst,
                                                                             methodName);
 
             function_wrapper->Wrap(jsinst);
@@ -64,23 +65,39 @@ namespace node {
         void JavaFunctionWrapper::Call(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate = args.GetIsolate();
             HandleScope scope(isolate);
+
             JavaFunctionWrapper *wrapper = ObjectWrap::Unwrap<JavaFunctionWrapper>(args.This());
-
             JNIEnv *env = g_ctx.env;
-            jclass cls = env->FindClass("java/lang/Double");
-            jmethodID midInit = env->GetMethodID(cls, "<init>", "(D)V");
-            if (NULL == midInit) return;
 
-            double num = args[0]->NumberValue(isolate->GetCurrentContext()).FromMaybe(0);
-            jobject newObj = env->NewObject(cls, midInit, num);
-            env->CallBooleanMethod(wrapper->_instance, wrapper->_methodId, newObj);
+            int argumentCount = args.Length();
 
-            if (env->ExceptionCheck()) {
-                env->ExceptionDescribe();
-                env->ExceptionClear();
+            for (JFunc &func : wrapper->_type->funcList) {
+                if (func.argumentCount == argumentCount &&
+                    func.methodName.compare(wrapper->_methodName) == 0) {
+                    jmethodID mId = env->GetMethodID(wrapper->_type->GetJavaClass(),
+                                                     func.methodName.c_str(), func.sig.c_str());
+                    jclass cls = env->FindClass("java/lang/Double");
+                    jmethodID midInit = env->GetMethodID(cls, "<init>", "(D)V");
+
+                    if (NULL == midInit) return;
+                    double num = args[0]->NumberValue(isolate->GetCurrentContext()).FromMaybe(0);
+                    jobject newObj = env->NewObject(cls, midInit, num);
+
+                    jboolean result = env->CallBooleanMethod(
+                            wrapper->_type->GetJavaInstance(), mId, newObj);
+
+                    if (env->ExceptionCheck()) {
+                        env->ExceptionDescribe();
+                        env->ExceptionClear();
+                        isolate->ThrowException(Exception::TypeError(
+                                String::NewFromUtf8(isolate, "Something went wrong!")));
+                    }
+
+                    args.GetReturnValue().Set(v8::Boolean::New(isolate, (bool) result));
+                    return;
+                }
             }
-
-            args.GetReturnValue().Set(Number::New(isolate, 10.0));
+            args.GetReturnValue().Set(v8::Undefined(isolate));
         }
 
     }

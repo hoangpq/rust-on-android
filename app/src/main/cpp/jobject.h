@@ -9,6 +9,7 @@
 #include "node_object_wrap.h"
 
 #include "context.h"
+#include "java.h"
 
 namespace node {
 
@@ -25,20 +26,21 @@ namespace node {
 
         class JavaFunctionWrapper : public ObjectWrap {
         public:
-            JavaFunctionWrapper(jobject, jmethodID, char *);
+            JavaFunctionWrapper(JavaType *, jobject, std::string);
             virtual ~JavaFunctionWrapper();
             static void Init(Isolate *isolate);
             static void New(const FunctionCallbackInfo<Value> &args);
             static void Call(const FunctionCallbackInfo<Value> &args);
-            static Local<Value> NewInstance(Isolate *, jobject, jmethodID, char *);
+            static Local<Value> NewInstance(JavaType *, Isolate *, jobject, std::string);
 
         public:
             static Persistent<FunctionTemplate> _func_wrapper;
 
         private:
             jobject _instance;
-            jmethodID _methodId;
-            char *_methodName;
+            std::string _methodName;
+            JavaType *_type;
+
         };
 
     }  // anonymous namespace

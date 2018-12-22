@@ -2,7 +2,12 @@
 #define _java_h_
 
 #include <jni.h>
+#include <map>
 #include <android/log.h>
+
+#include <string>
+#include <vector>
+#include <string.h>
 
 #include "v8.h"
 #include "node.h"
@@ -30,6 +35,8 @@ namespace node {
     using v8::FunctionCallbackInfo;
     using v8::PropertyCallbackInfo;
 
+    using namespace std;
+
     namespace jvm {
 
         class JavaType : public ObjectWrap {
@@ -45,6 +52,7 @@ namespace node {
             jclass GetJavaClass() { return _klass; };
             jobject GetJavaInstance() { return _jinstance; };
 
+            vector<JFunc> funcList;
         private:
             jclass _klass;
             JNIEnv **_env;
@@ -55,13 +63,16 @@ namespace node {
             static void NamedSetter(Local<String> , Local<Value>, const PropertyCallbackInfo<Value>&);
             static void Call(const FunctionCallbackInfo <Value> &);
             static void Enumerator(const PropertyCallbackInfo <Array> &);
-            void InitJavaMethod(Isolate *, Local<Object>);
             static void ValueOfAccessor(Local <v8::String>, const v8::PropertyCallbackInfo<Value> &);
             static void ValueOf(const FunctionCallbackInfo <Value> &);
             static void ToString(const FunctionCallbackInfo <Value> &);
             static void ToStringAccessor(Local <String>, const PropertyCallbackInfo <Value> &);
+            static Handle<Value> JavaNameGetter(JNIEnv *, const PropertyCallbackInfo<Value> &, std::string);
 
-            static Handle<Value> JavaNameGetter(JNIEnv *, const PropertyCallbackInfo<Value> &, const char *);
+        private:
+            void InitJavaMethod(Isolate *, Local<Object>);
+            std::string GetMethodDescriptor(jobject method);
+            int GetArgumentCount(jobject method);
         };
 
     }  // anonymous namespace

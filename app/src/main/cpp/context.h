@@ -2,6 +2,10 @@
 #define _context_h
 
 #include <jni.h>
+#include <iostream>
+#include <string>
+
+using namespace std;
 
 typedef struct NodeContext {
     JavaVM *javaVM;
@@ -9,6 +13,12 @@ typedef struct NodeContext {
     jclass mainActivityClz;
     jobject mainActivityObj;
 } NodeContext;
+
+typedef struct JFunc {
+    std::string methodName;
+    std::string sig;
+    int argumentCount;
+} JFunc;
 
 extern NodeContext g_ctx;
 
