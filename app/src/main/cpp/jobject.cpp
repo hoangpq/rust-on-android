@@ -10,7 +10,9 @@ namespace node {
     using v8::Handle;
     using v8::String;
     using v8::Isolate;
+    using v8::Boolean;
     using v8::Persistent;
+    using v8::Undefined;
     using v8::Exception;
     using v8::HandleScope;
     using v8::ObjectTemplate;
@@ -62,6 +64,38 @@ namespace node {
             return Local<Value>::New(isolate, jsinst);
         }
 
+        jobject JavaFunctionWrapper::V8ToJava(Handle<Value> value) {
+            JNIEnv *env = g_ctx.env;
+
+            jobject result = NULL;
+            if (value->IsNumber()) {
+                if (value->IsInt32()) {
+                    jclass cls = env->FindClass("java/lang/Integer");
+                    jmethodID midInit = env->GetMethodID(cls, "<init>", "(I)V");
+                    result = env->NewObject(cls, midInit, value->Int32Value());
+                } else {
+                    jclass cls = env->FindClass("java/lang/Double");
+                    jmethodID midInit = env->GetMethodID(cls, "<init>", "(D)V");
+                    result = env->NewObject(cls, midInit, value->NumberValue());
+                }
+            }
+            if (value->IsString()) {
+                String::Utf8Value s(value->ToString());
+                result = env->NewStringUTF(*s);
+            }
+            return result;
+        }
+
+        void JavaFunctionWrapper::HandleException(Isolate *isolate) {
+            JNIEnv *env = g_ctx.env;
+            if (env->ExceptionCheck()) {
+                env->ExceptionDescribe();
+                env->ExceptionClear();
+                isolate->ThrowException(Exception::TypeError(
+                        String::NewFromUtf8(isolate, "Something went wrong!")));
+            }
+        }
+
         void JavaFunctionWrapper::Call(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate = args.GetIsolate();
             HandleScope scope(isolate);
@@ -70,34 +104,30 @@ namespace node {
             JNIEnv *env = g_ctx.env;
 
             int argumentCount = args.Length();
+            Local<Value> jsValue = Undefined(isolate);
 
             for (JFunc &func : wrapper->_type->funcList) {
                 if (func.argumentCount == argumentCount &&
                     func.methodName.compare(wrapper->_methodName) == 0) {
-                    jmethodID mId = env->GetMethodID(wrapper->_type->GetJavaClass(),
-                                                     func.methodName.c_str(), func.sig.c_str());
-                    jclass cls = env->FindClass("java/lang/Double");
-                    jmethodID midInit = env->GetMethodID(cls, "<init>", "(D)V");
 
-                    if (NULL == midInit) return;
-                    double num = args[0]->NumberValue(isolate->GetCurrentContext()).FromMaybe(0);
-                    jobject newObj = env->NewObject(cls, midInit, num);
+                    jmethodID methodId = env->GetMethodID(wrapper->_type->GetJavaClass(),
+                                                          func.methodName.c_str(),
+                                                          func.sig.c_str());
 
-                    jboolean result = env->CallBooleanMethod(
-                            wrapper->_type->GetJavaInstance(), mId, newObj);
-
-                    if (env->ExceptionCheck()) {
-                        env->ExceptionDescribe();
-                        env->ExceptionClear();
-                        isolate->ThrowException(Exception::TypeError(
-                                String::NewFromUtf8(isolate, "Something went wrong!")));
+                    if (func.argumentCount == 0) {
+                        jint size = env->CallIntMethod(wrapper->_type->GetJavaInstance(), methodId);
+                        jsValue = Number::New(isolate, size);
+                    } else {
+                        jobject jValue = V8ToJava(args[0]);
+                        env->CallBooleanMethod(
+                                wrapper->_type->GetJavaInstance(), methodId, jValue);
+                        env->DeleteLocalRef(jValue);
                     }
 
-                    args.GetReturnValue().Set(v8::Boolean::New(isolate, (bool) result));
-                    return;
+                    HandleException(isolate);
                 }
             }
-            args.GetReturnValue().Set(v8::Undefined(isolate));
+            args.GetReturnValue().Set(jsValue);
         }
 
     }

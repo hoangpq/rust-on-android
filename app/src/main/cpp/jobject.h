@@ -3,6 +3,7 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <stdlib.h>
 
 #include "v8.h"
 #include "node.h"
@@ -41,6 +42,8 @@ namespace node {
             std::string _methodName;
             JavaType *_type;
 
+            static jobject V8ToJava(Handle<Value> value);
+            static void HandleException(Isolate *isolate);
         };
 
     }  // anonymous namespace
