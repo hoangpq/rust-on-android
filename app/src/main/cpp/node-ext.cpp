@@ -102,6 +102,7 @@ namespace node {
                 }
 
                 Isolate *isolate = target->GetIsolate();
+                g_ctx.isolate = isolate;
 
                 JavaType::Init(isolate);
                 JavaFunctionWrapper::Init(isolate);

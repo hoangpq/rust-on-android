@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -43,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
 
     public native void asyncComputation(Observable callbackObj);
 
+    public native String executeScript(String script);
+
     public native String getUtf8String();
 
     //We just want one instance of node running in the background.
@@ -59,6 +62,15 @@ public class MainActivity extends AppCompatActivity {
         TextView txtMessage = findViewById(R.id.txtMessage);
 
         txtMessage.setText(getUtf8String());
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(2000);
+                Log.i("NodeJS Runtime: ", executeScript("`Hello from native Java`"));
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
 
         // toast watcher
         initVM(new Observable() {
