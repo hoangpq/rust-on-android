@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -27,9 +28,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 
+import com.node.v8.V8Context;
+
 public class MainActivity extends AppCompatActivity {
 
-    // Used to load the 'native-lib' library on application startup.
     static {
         System.loadLibrary("native-lib");
         System.loadLibrary("node");
@@ -130,6 +132,16 @@ public class MainActivity extends AppCompatActivity {
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
         buttonVersions.setOnClickListener(v -> {
+
+            int[] list = {11, 10, 30, 39, 100};
+            V8Context.set("$test", list);
+
+            String json = V8Context.eval(
+                    "const dFunc = i => Math.pow(i, 2); " +
+                            "JSON.stringify({ result: $test.map(dFunc) })");
+
+            Log.i("NodeJS Runtime: ", json);
+
             //Network operations should be done in the background.
             new AsyncTask<Void, Void, String>() {
                 @Override

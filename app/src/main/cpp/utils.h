@@ -2,16 +2,19 @@
 #define _context_h
 
 #include <jni.h>
+#include <v8.h>
 #include <iostream>
 #include <string>
 
 using namespace std;
+using namespace v8;
 
 typedef struct NodeContext {
     JavaVM *javaVM;
     JNIEnv *env;
     jclass mainActivityClz;
     jobject mainActivityObj;
+    Isolate *isolate_;
 } NodeContext;
 
 typedef struct JFunc {
@@ -19,6 +22,11 @@ typedef struct JFunc {
     std::string sig;
     int argumentCount;
 } JFunc;
+
+class Util {
+public:
+    static std::string JavaToString(JNIEnv *env, jstring str);
+};
 
 extern NodeContext g_ctx;
 

@@ -23,30 +23,6 @@ namespace node {
     using v8::EscapableHandleScope;
     using v8::FunctionCallbackInfo;
 
-    namespace util {
-
-        std::string javaToString(JNIEnv *env, jstring str) {
-            jclass objClazz = env->GetObjectClass(str);
-            jmethodID methodId = env->GetMethodID(objClazz, "getBytes", "(Ljava/lang/String;)[B");
-
-            jstring charsetName = env->NewStringUTF("UTF-8");
-            jbyteArray stringJbytes = (jbyteArray) env->CallObjectMethod(str, methodId,
-                                                                         charsetName);
-            env->DeleteLocalRef(charsetName);
-
-            jbyte *pBytes = env->GetByteArrayElements(stringJbytes, NULL);
-
-            const jsize length = env->GetArrayLength(stringJbytes);
-            std::string results((const char *) pBytes, (unsigned long) length);
-
-            env->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
-            env->DeleteLocalRef(stringJbytes);
-
-            return results;
-        }
-    }
-
-
     namespace jvm {
 
         Persistent<FunctionTemplate> JavaType::constructor;
@@ -124,7 +100,7 @@ namespace node {
             jstring methodSig = (jstring) env->CallStaticObjectMethod(jniUtilClass,
                                                                       getClassDescriptorMethodId,
                                                                       method);
-            return util::javaToString(env, methodSig);
+            return Util::JavaToString(env, methodSig);
         }
 
         int JavaType::GetArgumentCount(jobject method) {
@@ -165,7 +141,7 @@ namespace node {
                         objClazz, "toString", "()Ljava/lang/String;");
 
                 jstring jmethodName = (jstring) env->CallObjectMethod(obj, toStringMethodId);
-                std::string methodName = util::javaToString(env, jmethodName);
+                std::string methodName = Util::JavaToString(env, jmethodName);
 
                 if (methodName.compare("wait") == 0 ||
                     methodName.compare("equals") == 0 ||

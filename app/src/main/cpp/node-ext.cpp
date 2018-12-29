@@ -107,6 +107,7 @@ namespace node {
                 JavaFunctionWrapper::Init(isolate);
 
                 ModuleWrap::Initialize(target, unused, context);
+
                 // define function in global context
                 Local<Object> global = context->Global();
 
