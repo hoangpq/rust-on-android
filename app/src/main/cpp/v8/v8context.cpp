@@ -1,24 +1,63 @@
 #include <iostream>
 #include <jni.h>
 #include <v8.h>
+#include <node.h>
+#include <env.h>
+#include <env-inl.h>
+#include <uv.h>
+
 #include "../utils.h"
 
-namespace v8 {
+#ifndef NODE_CONTEXT_EMBEDDER_DATA_INDEX
+#define NODE_CONTEXT_EMBEDDER_DATA_INDEX 32
+#endif
+
+namespace node {
 
     using namespace std;
     using namespace v8;
 
-    Persistent<Context> context_;
+    class V8Runtime {
+    public:
+        Isolate *isolate_;
+        Persistent<Context> context_;
+    };
+
+    ArrayBuffer::Allocator *allocator;
+    uint32_t zero_fill_field_ = 1;
+
+    uint32_t *zero_fill_field() { return &zero_fill_field_; }
+
+    class IsolateData {
+    public:
+        IsolateData(Isolate *isolate, uv_loop_t *event_loop, uint32_t *zero_fill_field) {};
+    };
 
     Isolate *InitV8Isolate() {
         if (g_ctx.isolate_ == NULL) {
             std::cout << "current isolate is null before locker" << std::endl;
             // Create a new Isolate and make it the current one.
             Isolate::CreateParams create_params;
-            create_params.array_buffer_allocator = ArrayBuffer::Allocator::NewDefaultAllocator();
+            allocator = ArrayBuffer::Allocator::NewDefaultAllocator();
+            create_params.array_buffer_allocator = allocator;
             g_ctx.isolate_ = Isolate::New(create_params);
         }
         return g_ctx.isolate_;
+    }
+
+
+    jlong CreateRuntime() {
+        V8Runtime *runtime = new V8Runtime();
+        runtime->isolate_ = InitV8Isolate();
+
+        Locker locker(runtime->isolate_);
+        Isolate::Scope isolate_scope(runtime->isolate_);
+        HandleScope handle_scope(runtime->isolate_);
+
+        Local<Context> context = Context::New(runtime->isolate_);
+        runtime->context_.Reset(runtime->isolate_, context);
+        Context::Scope contextScope(context);
+        return reinterpret_cast<jlong>(runtime);
     }
 
     extern "C" void JNICALL
@@ -26,12 +65,24 @@ namespace v8 {
         InitV8Isolate();
     }
 
+    extern "C" jobject JNICALL
+    Java_com_node_v8_V8Context_create(JNIEnv *env, jclass klass) {
+        jlong ptr = CreateRuntime();
+        jmethodID constructor = env->GetMethodID(klass, "<init>", "(J)V");
+        return env->NewObject(klass, constructor, ptr);
+    }
+
     extern "C" void JNICALL
     Java_com_node_v8_V8Context_set(
-            JNIEnv *env, jclass klass, jstring key, jintArray data) {
+            JNIEnv *env, jobject instance, jstring key, jintArray data) {
 
-        InitV8Isolate();
-        Isolate *isolate_ = g_ctx.isolate_;
+        jclass objClazz = env->GetObjectClass(instance);
+        jfieldID field = env->GetFieldID(objClazz, "runtimePtr", "J");
+        jlong ptr = env->GetLongField(instance, field);
+
+        V8Runtime *runtime = reinterpret_cast<V8Runtime *>(ptr);
+
+        Isolate *isolate_ = runtime->isolate_;
         jsize len = env->GetArrayLength(data);
         jint *body = env->GetIntArrayElements(data, 0);
 
@@ -39,8 +90,8 @@ namespace v8 {
         Isolate::Scope isolate_scope(isolate_);
         HandleScope handle_scope(isolate_);
 
-        Local<Context> context = Context::New(isolate_);
-        context_.Reset(isolate_, context);
+        Local<Context> context = Local<Context>::New(
+                runtime->isolate_, runtime->context_);
 
         Context::Scope context_scope(context);
         Local<Array> array = Array::New(isolate_, 3);
@@ -57,10 +108,15 @@ namespace v8 {
 
     extern "C" jstring JNICALL
     Java_com_node_v8_V8Context_eval(
-            JNIEnv *env, jclass klass, jstring script) {
+            JNIEnv *env, jobject instance, jstring script) {
 
-        InitV8Isolate();
-        Isolate *isolate_ = g_ctx.isolate_;
+        jclass objClazz = env->GetObjectClass(instance);
+        jfieldID field = env->GetFieldID(objClazz, "runtimePtr", "J");
+        jlong ptr = env->GetLongField(instance, field);
+
+        V8Runtime *runtime = reinterpret_cast<V8Runtime *>(ptr);
+
+        Isolate *isolate_ = runtime->isolate_;
         std::string _script = Util::JavaToString(env, script);
 
         // lock isolate
@@ -68,8 +124,8 @@ namespace v8 {
         Isolate::Scope isolate_scope(isolate_);
         HandleScope handle_scope(isolate_);
 
-        TryCatch tryCatch(isolate_);
-        Local<Context> context = Local<Context>::New(isolate_, context_);
+        Local<Context> context = Local<Context>::New(
+                runtime->isolate_, runtime->context_);
         Context::Scope scope_context(context);
 
         Local<String> source =
@@ -79,12 +135,6 @@ namespace v8 {
         // Run the script to get the result.
         Local<Value> result = Script::Compile(context, source)
                 .ToLocalChecked()->Run(context).ToLocalChecked();
-
-        if (tryCatch.HasCaught()) {
-            Local<String> _error = tryCatch.Exception()->ToString();
-            String::Utf8Value error(_error);
-            std::cout << *error << std::endl;
-        }
 
         String::Utf8Value utf8(result);
         return env->NewStringUTF(*utf8);

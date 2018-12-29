@@ -69,17 +69,6 @@ namespace node {
             LOGE("%s", jsonString);
         }
 
-        void JVMOnLoad(const FunctionCallbackInfo<Value> &args) {
-            Isolate *isolate = args.GetIsolate();
-            if (args[0]->IsFunction()) {
-                Local<Object> context = Object::New(isolate);
-                Local<Function> onJvmCreatedFunc = args[0].As<Function>();
-                if (jvmInitialized) {
-                    onJvmCreatedFunc->Call(context, 0, NULL);
-                }
-            }
-        }
-
         // Override header
         class ModuleWrap {
         public:
@@ -119,9 +108,6 @@ namespace node {
 
                 auto errFn = FunctionTemplate::New(isolate, loader::AndroidError)->GetFunction();
                 global->Set(String::NewFromUtf8(isolate, "$error"), errFn);
-
-                auto onLoadFn = FunctionTemplate::New(isolate, loader::JVMOnLoad)->GetFunction();
-                global->Set(String::NewFromUtf8(isolate, "$load"), onLoadFn);
 
                 Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate);
                 Local<Object> javaVM = javaVMTemplate->NewInstance();
