@@ -102,12 +102,12 @@ namespace node {
                 }
 
                 Isolate *isolate = target->GetIsolate();
-                g_ctx.isolate = isolate;
 
                 JavaType::Init(isolate);
                 JavaFunctionWrapper::Init(isolate);
 
                 ModuleWrap::Initialize(target, unused, context);
+
                 // define function in global context
                 Local<Object> global = context->Global();
 

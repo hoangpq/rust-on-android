@@ -15,7 +15,7 @@
 #include "env-inl.h"
 #include "node_buffer.h"
 #include "node.h"
-#include "context.h"
+#include "utils.h"
 #include "java.h"
 #include "jobject.h"
 

@@ -28,9 +28,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 
+import com.node.v8.V8Context;
+
 public class MainActivity extends AppCompatActivity {
 
-    // Used to load the 'native-lib' library on application startup.
     static {
         System.loadLibrary("native-lib");
         System.loadLibrary("node");
@@ -43,8 +44,6 @@ public class MainActivity extends AppCompatActivity {
     public native void releaseVM();
 
     public native void asyncComputation(Observable callbackObj);
-
-    public native String executeScript(String script);
 
     public native String getUtf8String();
 
@@ -62,15 +61,6 @@ public class MainActivity extends AppCompatActivity {
         TextView txtMessage = findViewById(R.id.txtMessage);
 
         txtMessage.setText(getUtf8String());
-
-        new Thread(() -> {
-            try {
-                Thread.sleep(2000);
-                Log.i("NodeJS Runtime: ", executeScript("`Hello from native Java`"));
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
 
         // toast watcher
         initVM(new Observable() {
@@ -142,6 +132,16 @@ public class MainActivity extends AppCompatActivity {
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
         buttonVersions.setOnClickListener(v -> {
+
+            int[] list = {11, 10, 30, 39, 100};
+            V8Context.set("$test", list);
+
+            String json = V8Context.eval(
+                    "const dFunc = i => Math.pow(i, 2); " +
+                            "JSON.stringify({ result: $test.map(dFunc) })");
+
+            Log.i("NodeJS Runtime: ", json);
+
             //Network operations should be done in the background.
             new AsyncTask<Void, Void, String>() {
                 @Override

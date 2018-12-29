@@ -7,15 +7,14 @@
 #include <string>
 
 using namespace std;
-
-using v8::Isolate;
+using namespace v8;
 
 typedef struct NodeContext {
     JavaVM *javaVM;
     JNIEnv *env;
     jclass mainActivityClz;
     jobject mainActivityObj;
-    Isolate *isolate;
+    Isolate *isolate_;
 } NodeContext;
 
 typedef struct JFunc {

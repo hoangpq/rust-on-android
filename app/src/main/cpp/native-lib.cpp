@@ -6,10 +6,13 @@
 #include <unistd.h>
 #include <android/log.h>
 #include <uv.h>
+#include <cstdio>
+#include <libplatform/libplatform.h>
 
+#include "v8.h"
 #include "node.h"
 #include "native-lib.h"
-#include "context.h"
+#include "utils.h"
 
 // Start threads to redirect stdout and stderr to logcat.
 int pipe_stdout[2];
@@ -108,47 +111,6 @@ namespace node {
         }
         // Start node, with argc and argv.
         return jint(node::Start(argument_count, argv));
-    }
-
-    struct Task {
-        uv_work_t request;
-        string script;
-        jobject instance;
-        jmethodID callback;
-    };
-
-    static void TaskAsync(uv_work_t *req) {
-        Task *t = static_cast<Task *>(req->data);
-        // delay(t->seconds);
-        /*Local<String> source =
-                String::NewFromUtf8(g_ctx.isolate, .c_str(), NewStringType::kNormal)
-                        .ToLocalChecked();
-        // Compile the source code.
-        Local<Script> s = Script::Compile(context, source).ToLocalChecked();
-        // Run the script to get the result.
-        Local<Value> result = s->Run(context).ToLocalChecked();
-        // Convert the result to an UTF8 string and print it.
-        String::Utf8Value utf8(result);
-        // printf("%s\n", *utf8);
-        return env->NewStringUTF(*utf8);*/
-    }
-
-    static void TaskAsyncAfter(uv_work_t *req, int status) {
-        // get the reference to the baton from the request
-        Task *t = static_cast<Task *>(req->data);
-        jmethodID callback = t->callback;
-        // delete the baton object
-        delete t;
-    }
-
-    extern "C" jstring JNICALL
-    Java_com_node_sample_MainActivity_executeScript(JNIEnv *env, jobject klass, jstring script) {
-        // Persistent<Context> _context;
-        Local<Context> context = g_ctx.isolate->GetCurrentContext();
-        context->Enter();
-        // std::string _script = Util::JavaToString(env, script);
-        Task *t = new Task;
-        t->request.data = t;
     }
 
 }
