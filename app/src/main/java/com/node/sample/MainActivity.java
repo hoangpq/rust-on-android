@@ -19,6 +19,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
+import com.node.v8.V8Context;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -27,8 +29,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
-
-import com.node.v8.V8Context;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -47,21 +48,69 @@ public class MainActivity extends AppCompatActivity {
 
     public native String getUtf8String();
 
-    //We just want one instance of node running in the background.
-    public static boolean _startedNodeAlready = false;
-    private TextView txtCounter;
+    AtomicBoolean _startedNodeAlready = new AtomicBoolean(false);
 
     @SuppressLint("StaticFieldLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        txtCounter = findViewById(R.id.txtCounter);
-        TextView txtMessage = findViewById(R.id.txtMessage);
+
+        final Button buttonVersions = findViewById(R.id.btVersions);
+        final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
+        final VideoView mVideoView = findViewById(R.id.videoView);
+        final Button mButtonPlayVideo = findViewById(R.id.btnPlayVideo);
+        final TextView txtCounter = findViewById(R.id.txtCounter);
+        final TextView txtMessage = findViewById(R.id.txtMessage);
 
         txtMessage.setText(getUtf8String());
 
+        // Init VM
+        _initVM();
+
+        // Async counter watcher
+        asyncComputation(new Observable() {
+            @Override
+            public void subscribe(int arg) {
+                runOnUiThread(() -> txtCounter.setText(String.valueOf(arg)));
+            }
+        });
+
+        // Video
+        MediaController vidControl = new MediaController(this);
+        vidControl.setAnchorView(mVideoView);
+        mVideoView.setMediaController(vidControl);
+
+        mButtonPlayVideo.setOnClickListener(view -> {
+            String url = "http://localhost:3000/stream";
+            Uri uri = Uri.parse(url);
+            mVideoView.setVideoURI(uri);
+            mVideoView.start();
+        });
+
+        initNodeJS();
+
+        // Generate image activity
+        btnImageProcessing.setOnClickListener(view -> startActivity(
+                new Intent(MainActivity.this, GenerateImageActivity.class)));
+
+        buttonVersions.setOnClickListener(v -> {
+
+            int[] list = {11, 10, 30, 39, 100};
+            V8Context ctx = V8Context.create();
+
+            ctx.set("$list", list);
+            String json = ctx.eval(
+                    "const double = i => Math.pow(i, 2); " +
+                            "JSON.stringify({ result: $list.map(double) })");
+
+            Log.i("NodeJS Runtime: ", json);
+            requestApi();
+        });
+
+    }
+
+    private void _initVM() {
         // toast watcher
         initVM(new Observable() {
             @Override
@@ -76,17 +125,10 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+    }
 
-        // async counter watcher
-        asyncComputation(new Observable() {
-            @Override
-            public void subscribe(int arg) {
-                runOnUiThread(() -> txtCounter.setText(String.valueOf(arg)));
-            }
-        });
-
-        if (!_startedNodeAlready) {
-            _startedNodeAlready = true;
+    private void initNodeJS() {
+        if (!_startedNodeAlready.get()) {
             new Thread(() -> {
                 try {
                     //The path where we expect the node project to be at runtime.
@@ -106,74 +148,45 @@ public class MainActivity extends AppCompatActivity {
                     }
                     String args[] = {"node", nodeDir + "/main.js"};
                     startNodeWithArguments(args);
+                    _startedNodeAlready.compareAndSet(false, true);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }).start();
         }
+    }
 
-        final Button buttonVersions = findViewById(R.id.btVersions);
-        final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
-        final VideoView mVideoView = findViewById(R.id.videoView);
-        final Button mButtonPlayVideo = findViewById(R.id.btnPlayVideo);
-
-        MediaController vidControl = new MediaController(this);
-        vidControl.setAnchorView(mVideoView);
-        mVideoView.setMediaController(vidControl);
-
-        mButtonPlayVideo.setOnClickListener(view -> {
-            String url = "http://localhost:3000/stream";
-            Uri uri = Uri.parse(url);
-            mVideoView.setVideoURI(uri);
-            mVideoView.start();
-        });
-
-        // final TextView textViewVersions = findViewById(R.id.tvVersions);
-        btnImageProcessing.setOnClickListener(view -> startActivity(
-                new Intent(MainActivity.this, GenerateImageActivity.class)));
-        buttonVersions.setOnClickListener(v -> {
-
-            int[] list = {11, 10, 30, 39, 100};
-            V8Context.set("$test", list);
-
-            String json = V8Context.eval(
-                    "const dFunc = i => Math.pow(i, 2); " +
-                            "JSON.stringify({ result: $test.map(dFunc) })");
-
-            Log.i("NodeJS Runtime: ", json);
-
-            //Network operations should be done in the background.
-            new AsyncTask<Void, Void, String>() {
-                @Override
-                protected String doInBackground(Void... params) {
-                    StringBuilder nodeResponse = new StringBuilder();
-                    try {
-                        URL localNodeServer = new URL("http://localhost:3000/");
-                        BufferedReader in = new BufferedReader(
-                                new InputStreamReader(localNodeServer.openStream()));
-                        String inputLine;
-                        while ((inputLine = in.readLine()) != null)
-                            nodeResponse.append(inputLine);
-                        in.close();
-                    } catch (Exception ex) {
-                        nodeResponse = new StringBuilder(ex.toString());
-                    }
-                    return nodeResponse.toString();
+    @SuppressLint("StaticFieldLeak")
+    private void requestApi() {
+        new AsyncTask<Void, Void, String>() {
+            @Override
+            protected String doInBackground(Void... params) {
+                StringBuilder nodeResponse = new StringBuilder();
+                try {
+                    URL localNodeServer = new URL("http://localhost:3000/");
+                    BufferedReader in = new BufferedReader(
+                            new InputStreamReader(localNodeServer.openStream()));
+                    String inputLine;
+                    while ((inputLine = in.readLine()) != null)
+                        nodeResponse.append(inputLine);
+                    in.close();
+                } catch (Exception ex) {
+                    nodeResponse = new StringBuilder(ex.toString());
                 }
+                return nodeResponse.toString();
+            }
 
-                @Override
-                protected void onPostExecute(String result) {
-                    // textViewVersions.setText(result);
-                }
-            }.execute();
-        });
-
+            @Override
+            protected void onPostExecute(String result) {
+                // textViewVersions.setText(result);
+            }
+        }.execute();
     }
 
     private boolean wasAPKUpdated() {
         SharedPreferences prefs = getApplicationContext().getSharedPreferences(
-                "NODEJS_MOBILE_PREFS", Context.MODE_PRIVATE);
-        long previousLastUpdateTime = prefs.getLong("NODEJS_MOBILE_APK_LastUpdateTime", 0);
+                "PREFS", Context.MODE_PRIVATE);
+        long previousLastUpdateTime = prefs.getLong("LastUpdateTime", 0);
         long lastUpdateTime = 1;
         try {
             PackageInfo packageInfo = getApplicationContext().getPackageManager().getPackageInfo(
@@ -195,9 +208,9 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         SharedPreferences prefs = getApplicationContext().getSharedPreferences(
-                "NODEJS_MOBILE_PREFS", Context.MODE_PRIVATE);
+                "PREFS", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putLong("NODEJS_MOBILE_APK_LastUpdateTime", lastUpdateTime);
+        editor.putLong("LastUpdateTime", lastUpdateTime);
         editor.apply();
     }
 
