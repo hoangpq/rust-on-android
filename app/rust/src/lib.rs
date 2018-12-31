@@ -141,10 +141,6 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getNativeObject(
     JObject::null().into_inner()
 }
 
-/**
-MyNativeStruct* data; // Initialized elsewhere.
-jobject bb = (*env)->NewDirectByteBuffer(env, (void*) data, sizeof(MyNativeStruct));
-*/
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
