@@ -12,7 +12,7 @@
 #include "v8.h"
 #include "node.h"
 #include "native-lib.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 // Start threads to redirect stdout and stderr to logcat.
 int pipe_stdout[2];

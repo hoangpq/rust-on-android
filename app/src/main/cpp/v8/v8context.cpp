@@ -6,7 +6,7 @@
 #include <env-inl.h>
 #include <uv.h>
 
-#include "../utils.h"
+#include "../utils/utils.h"
 
 #ifndef NODE_CONTEXT_EMBEDDER_DATA_INDEX
 #define NODE_CONTEXT_EMBEDDER_DATA_INDEX 32

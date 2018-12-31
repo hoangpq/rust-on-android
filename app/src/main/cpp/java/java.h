@@ -15,7 +15,7 @@
 #include "env-inl.h"
 #include "node_object_wrap.h"
 
-#include "utils.h"
+#include "../utils/utils.h"
 
 // extern "C" int getAndroidVersion(JNIEnv **);
 

@@ -133,7 +133,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     }
     g_ctx.javaVM = vm;
     g_ctx.mainActivityObj = NULL;
-    jvmInitialized = true;
     return JNI_VERSION_1_6;
 }
 

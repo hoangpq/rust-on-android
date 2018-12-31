@@ -9,7 +9,7 @@
 #include "node.h"
 #include "node_object_wrap.h"
 
-#include "utils.h"
+#include "../utils/utils.h"
 #include "java.h"
 
 namespace node {

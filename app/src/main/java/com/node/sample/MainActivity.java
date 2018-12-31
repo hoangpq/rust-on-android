@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity {
@@ -96,17 +97,16 @@ public class MainActivity extends AppCompatActivity {
 
         buttonVersions.setOnClickListener(v -> {
             V8Context ctx = V8Context.create();
-
             ctx.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+
             V8Context.V8Result result = ctx.eval(
                     "const double = i => Math.pow(i, 2); $doubleList = $list.map(double);");
 
             Integer[] array = result.toIntegerArray();
-            for (Integer item : array) {
-                Log.i("NodeJS Runtime ", String.valueOf(item.intValue()));
-            }
+            Log.i("NodeJS Runtime ", Arrays.toString(array));
 
-            V8Context.V8Result integerResult = ctx.eval("$doubleList.reduce((s, i) => s + i, 0);");
+            V8Context.V8Result integerResult = ctx.eval("" +
+                    "$doubleList.map(double).reduce((s, i) => s + i, 0);");
             Log.i("NodeJS Runtime ", String.valueOf(integerResult.toInteger()));
 
             requestApi();
