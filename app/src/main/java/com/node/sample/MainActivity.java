@@ -95,16 +95,20 @@ public class MainActivity extends AppCompatActivity {
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
 
         buttonVersions.setOnClickListener(v -> {
-
-            int[] list = {11, 10, 30, 39, 100};
             V8Context ctx = V8Context.create();
 
-            ctx.set("$list", list);
-            String json = ctx.eval(
-                    "const double = i => Math.pow(i, 2); " +
-                            "JSON.stringify({ result: $list.map(double) })");
+            ctx.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+            V8Context.V8Result result = ctx.eval(
+                    "const double = i => Math.pow(i, 2); $doubleList = $list.map(double);");
 
-            Log.i("NodeJS Runtime: ", json);
+            Integer[] array = result.toIntegerArray();
+            for (Integer item : array) {
+                Log.i("NodeJS Runtime ", String.valueOf(item.intValue()));
+            }
+
+            V8Context.V8Result integerResult = ctx.eval("$doubleList.reduce((s, i) => s + i, 0);");
+            Log.i("NodeJS Runtime ", String.valueOf(integerResult.toInteger()));
+
             requestApi();
         });
 
