@@ -7,7 +7,7 @@ public class V8Context {
     public native V8Result eval(String script);
     public native void set(String key, int[] arr);
 
-    private long runtimePtr;
+    long runtimePtr;
 
     public V8Context(long runtimePtr) {
         this.runtimePtr = runtimePtr;
@@ -24,5 +24,6 @@ public class V8Context {
 
         public native Integer[] toIntegerArray();
         public native Integer toInteger();
+        public native V8Promise toPromise();
     }
 }
