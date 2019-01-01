@@ -30,6 +30,7 @@ add_library( # Sets the name of the library.
         src/main/cpp/utils/utils.cpp
         src/main/cpp/java/java.cpp
         src/main/cpp/java/jobject.cpp
+        src/main/cpp/java/jsobject.cpp
         src/main/cpp/native-lib.cpp
         src/main/cpp/node-ext.cpp
         # for v8

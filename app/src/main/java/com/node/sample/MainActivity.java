@@ -20,6 +20,9 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.node.v8.V8Context;
+import com.node.v8.V8Promise;
+
+import static com.node.v8.V8Context.V8Result;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -99,15 +102,31 @@ public class MainActivity extends AppCompatActivity {
             V8Context ctx = V8Context.create();
             ctx.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-            V8Context.V8Result result = ctx.eval(
+            V8Result result = ctx.eval(
                     "const double = i => Math.pow(i, 2); $doubleList = $list.map(double);");
 
             Integer[] array = result.toIntegerArray();
             Log.i("NodeJS Runtime ", Arrays.toString(array));
 
-            V8Context.V8Result integerResult = ctx.eval("" +
+            V8Result integerResult = ctx.eval("" +
                     "$doubleList.map(double).reduce((s, i) => s + i, 0);");
+
             Log.i("NodeJS Runtime ", String.valueOf(integerResult.toInteger()));
+
+            V8Result promiseResult = ctx.eval(
+                    "const promises = $doubleList.map(num => Promise.resolve(num)); " +
+                            "const promise = (async function() { " +
+                            "  return Math.max(...(await Promise.all(promises))); " +
+                            "})();" +
+                            "(async function() { return await promise; })()");
+
+            promiseResult.toPromise().then(new Observable() {
+                @Override
+                public void subscribe(Object arg) {
+                    V8Result result = (V8Result) arg;
+                    Log.i("NodeJS Runtime ", "Max value is " + String.valueOf(result.toInteger()));
+                }
+            });
 
             requestApi();
         });
