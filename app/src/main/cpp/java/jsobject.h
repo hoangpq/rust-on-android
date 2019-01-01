@@ -26,15 +26,20 @@ namespace node {
 
         class JSObject : public ObjectWrap {
         public:
-            JSObject();
+            JSObject(jobject, jmethodID, jlong);
             virtual ~JSObject();
             static void Init(Isolate *isolate);
             static void New(const FunctionCallbackInfo<Value> &args);
             static void Call(const FunctionCallbackInfo<Value> &args);
-            static Local<Value> NewInstance(Isolate *);
+            static Local<Value> NewInstance(Isolate *, jobject, jmethodID, jlong);
 
         public:
             static Persistent<FunctionTemplate> _func_wrapper;
+
+        private:
+            jobject _observer;
+            jmethodID _subscribe;
+            jlong _runtimePtr;
         };
 
     }  // anonymous namespace

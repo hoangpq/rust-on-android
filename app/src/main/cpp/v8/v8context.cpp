@@ -1,14 +1,5 @@
-#include <iostream>
-#include <jni.h>
-#include <v8.h>
-#include <node.h>
-#include <env.h>
-#include <env-inl.h>
-#include <uv.h>
-#include <android/log.h>
-
-#include "../java/jsobject.h"
-#include "../utils/utils.h"
+#include "v8context.h"
+#include <unistd.h>
 
 #define LockV8Context(env, instance) \
     jclass objClazz = env->GetObjectClass(instance);\
@@ -36,12 +27,6 @@ namespace node {
     using namespace v8;
     using jvm::JSObject;
 
-    class V8Runtime {
-    public:
-        Isolate *isolate_;
-        Persistent<Context> context_;
-    };
-
     Isolate *InitV8Isolate() {
         if (g_ctx.isolate_ == NULL) {
             // Create a new Isolate and make it the current one.
@@ -58,6 +43,11 @@ namespace node {
         return g_ctx.isolate_;
     }
 
+    void Sleep(const FunctionCallbackInfo<Value> &args) {
+        // sleep(static_cast<unsigned int>(args[0]->Int32Value()));
+        args.GetReturnValue().Set(args[1]);
+    }
+
     jlong CreateRuntime() {
         V8Runtime *runtime = new V8Runtime();
         runtime->isolate_ = InitV8Isolate();
@@ -66,7 +56,11 @@ namespace node {
         Isolate::Scope isolate_scope(g_ctx.isolate_);
         HandleScope handle_scope(g_ctx.isolate_);
 
-        Local<Context> context = Context::New(runtime->isolate_);
+        Local<ObjectTemplate> global = ObjectTemplate::New(g_ctx.isolate_);
+        global->Set(String::NewFromUtf8(g_ctx.isolate_, "sleep"),
+                    FunctionTemplate::New(g_ctx.isolate_, Sleep));
+
+        Local<Context> context = Context::New(runtime->isolate_, NULL, global);
         runtime->context_.Reset(runtime->isolate_, context);
         Context::Scope contextScope(context);
         return reinterpret_cast<jlong>(runtime);
@@ -174,11 +168,6 @@ namespace node {
         return env->NewObject(integerClass, constructor, result->Int32Value());
     }
 
-    void ThenFn(const FunctionCallbackInfo<Value> &args) {
-        LOGI("%d", args[0]->Int32Value());
-        args.GetReturnValue().Set(args.This());
-    }
-
     extern "C" JNIEXPORT jobject JNICALL
     Java_com_node_v8_V8Context_00024V8Result_toPromise(JNIEnv *env, jobject instance) {
 
@@ -189,10 +178,7 @@ namespace node {
                 runtime->isolate_, *reinterpret_cast<Persistent<Object> *>(resultPtr));
 
         Local<Promise> promise(Handle<Promise>::Cast(result));
-
         SetV8Key(runtime->isolate_, context, "__p", promise);
-        SetV8Key(runtime->isolate_, context, "__fn", JSObject::NewInstance(runtime->isolate_));
-        RunScript(runtime->isolate_, context, "__p.then(__fn)");
 
         jclass promiseClass = env->FindClass("com/node/v8/V8Promise");
         jmethodID constructor = env->GetMethodID(promiseClass, "<init>", "(JJ)V");
@@ -211,22 +197,16 @@ namespace node {
         Local<Promise> promise(Handle<Promise>::Cast(result));
         Local<Value> pResult = promise->Result();
 
-        if (!pResult->IsNull() && !pResult->IsUndefined()) {
-            Persistent<Object> *container = new Persistent<Object>;
-            container->Reset(runtime->isolate_, pResult->ToObject(runtime->isolate_));
+        Persistent<Object> *container = new Persistent<Object>;
+        container->Reset(runtime->isolate_, pResult->ToObject(runtime->isolate_));
 
-            jclass resultClass = env->FindClass("com/node/v8/V8Context$V8Result");
-            jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(JJ)V");
+        jclass observableClass = env->GetObjectClass(observer);
+        jmethodID subscribe = env->GetMethodID(
+                observableClass, "subscribe", "(Ljava/lang/Object;)V");
 
-            jclass observableClass = env->GetObjectClass(observer);
-            jmethodID subscribe = env->GetMethodID(
-                    observableClass, "subscribe", "(Ljava/lang/Object;)V");
-
-            jobject callbackResult = env->NewObject(
-                    resultClass, constructor, reinterpret_cast<jlong>(container), runtimePtr);
-
-            env->CallVoidMethod(observer, subscribe, callbackResult);
-        }
+        SetV8Key(runtime->isolate_, context, "__fn", JSObject::NewInstance(
+                runtime->isolate_, observer, subscribe, runtimePtr));
+        RunScript(runtime->isolate_, context, "__p.then(__fn)");
     }
 
 }

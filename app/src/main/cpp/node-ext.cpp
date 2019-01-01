@@ -1,5 +1,4 @@
 #include "node-ext.h"
-#include "java/jsobject.h"
 
 namespace node {
 

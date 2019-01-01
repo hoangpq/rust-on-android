@@ -1,6 +1,7 @@
 #include <v8.h>
 #include "jsobject.h"
 #include "java.h"
+#include "../v8/v8context.h"
 
 namespace node {
 
@@ -24,7 +25,8 @@ namespace node {
 
         Persistent<FunctionTemplate> JSObject::_func_wrapper;
 
-        JSObject::JSObject() {}
+        JSObject::JSObject(jobject observer, jmethodID subscribe, jlong runtimePtr) :
+                _observer(observer), _subscribe(subscribe), _runtimePtr(runtimePtr) {};
 
         JSObject::~JSObject() {}
 
@@ -46,12 +48,14 @@ namespace node {
             }
         }
 
-        Local<Value> JSObject::NewInstance(Isolate *isolate) {
+        Local<Value>
+        JSObject::NewInstance(Isolate *isolate, jobject observer, jmethodID subscribe,
+                              jlong runtimePtr) {
             Handle<FunctionTemplate> _function_template =
                     Local<FunctionTemplate>::New(isolate, _func_wrapper);
 
             Local<Object> jsInst = _function_template->GetFunction()->NewInstance();
-            JSObject *wrapper = new JSObject();
+            JSObject *wrapper = new JSObject(observer, subscribe, runtimePtr);
             wrapper->Wrap(jsInst);
             return Local<Value>::New(isolate, jsInst);
         }
@@ -61,6 +65,20 @@ namespace node {
             HandleScope scope(isolate);
             JSObject *wrapper = ObjectWrap::Unwrap<JSObject>(args.This());
 
+            JNIEnv *env;
+            JavaType::InitEnvironment(isolate, &env);
+
+            jclass resultClass = env->FindClass("com/node/v8/V8Context$V8Result");
+            jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(JJ)V");
+
+            Persistent<Object> *container = new Persistent<Object>;
+            container->Reset(isolate, args[0]->ToObject(isolate));
+
+            jobject callbackResult = env->NewObject(
+                    resultClass, constructor, reinterpret_cast<jlong>(container),
+                    wrapper->_runtimePtr);
+
+            env->CallVoidMethod(wrapper->_observer, wrapper->_subscribe, callbackResult);
             args.GetReturnValue().Set(Undefined(isolate));
         }
 

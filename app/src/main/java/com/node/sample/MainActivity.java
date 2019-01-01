@@ -114,7 +114,10 @@ public class MainActivity extends AppCompatActivity {
             Log.i("NodeJS Runtime ", String.valueOf(integerResult.toInteger()));
 
             V8Result promiseResult = ctx.eval(
-                    "const promises = $doubleList.map(num => Promise.resolve(num)); " +
+                    "async function delay(t, v) {" +
+                            "  return new Promise(resolve => { const r = sleep(t, v); resolve(r); });" +
+                            "}" +
+                            "const promises = $doubleList.map((num, index) => delay(index, num));" +
                             "const promise = (async function() { " +
                             "  return Math.max(...(await Promise.all(promises))); " +
                             "})();" +
