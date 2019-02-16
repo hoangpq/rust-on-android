@@ -197,7 +197,7 @@ namespace node {
         Local<Promise> promise(Handle<Promise>::Cast(result));
         Local<Value> pResult = promise->Result();
 
-        Persistent<Object> *container = new Persistent<Object>;
+        auto *container = new Persistent<Object>;
         container->Reset(runtime->isolate_, pResult->ToObject(runtime->isolate_));
 
         jclass observableClass = env->GetObjectClass(observer);

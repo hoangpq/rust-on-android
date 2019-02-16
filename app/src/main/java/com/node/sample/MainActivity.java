@@ -112,24 +112,6 @@ public class MainActivity extends AppCompatActivity {
 
             Log.i("NodeJS Runtime ", String.valueOf(integerResult.toInteger()));
 
-            V8Result promiseResult = ctx.eval(
-                    "async function delay(t, v) {" +
-                            "  return new Promise(resolve => { const r = sleep(t, v); resolve(r); });" +
-                            "}" +
-                            "const promises = $doubleList.map((num, index) => delay(index, num));" +
-                            "const promise = (async function() { " +
-                            "  return Math.max(...(await Promise.all(promises))); " +
-                            "})();" +
-                            "(async function() { return await promise; })()");
-
-            promiseResult.toPromise().then(new Observable() {
-                @Override
-                public void subscribe(Object arg) {
-                    V8Result result = (V8Result) arg;
-                    Log.i("NodeJS Runtime ", "Max value is " + String.valueOf(result.toInteger()));
-                }
-            });
-
             requestApi();
         });
 
