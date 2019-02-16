@@ -20,9 +20,6 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.node.v8.V8Context;
-import com.node.v8.V8Promise;
-
-import static com.node.v8.V8Context.V8Result;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -34,6 +31,8 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.node.v8.V8Context.V8Result;
 
 public class MainActivity extends AppCompatActivity {
 
