@@ -25,6 +25,8 @@ namespace node {
 
     namespace jvm {
 
+        using namespace util;
+
         Persistent<FunctionTemplate> JavaType::constructor;
 
         JavaType::JavaType(jclass klass, JNIEnv **env) : _klass(klass), _env(env) {}
@@ -159,7 +161,7 @@ namespace node {
 
                 funcList.push_back(jfunc);
                 // map java class method to javascript object method
-                wrapper->Set(String::NewFromUtf8(isolate, methodName.c_str()), callFn);
+                wrapper->Set(Util::ConvertToV8String(methodName), callFn);
             }
 
             // init by java constructor
@@ -172,8 +174,7 @@ namespace node {
             if (res != JNI_OK) {
                 res = g_ctx.javaVM->AttachCurrentThread(&(*env), NULL);
                 if (JNI_OK != res) {
-                    isolate->ThrowException(
-                            String::NewFromUtf8(isolate, "Unable to invoke activity!"));
+                    isolate->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
                 }
             }
         }

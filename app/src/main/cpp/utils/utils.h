@@ -23,10 +23,15 @@ typedef struct JFunc {
     int argumentCount;
 } JFunc;
 
-class Util {
-public:
-    static std::string JavaToString(JNIEnv *env, jstring str);
-};
+namespace util {
+
+    class Util {
+    public:
+        static std::string JavaToString(JNIEnv *env, jstring str);
+
+        static Local<String> ConvertToV8String(const string &s);
+    };
+}
 
 extern NodeContext g_ctx;
 

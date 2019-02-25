@@ -2,22 +2,31 @@
 #include <string>
 #include <jni.h>
 
-std::string Util::JavaToString(JNIEnv *env, jstring str) {
-    jclass objClazz = env->GetObjectClass(str);
-    jmethodID methodId = env->GetMethodID(objClazz, "getBytes", "(Ljava/lang/String;)[B");
+namespace util {
 
-    jstring charsetName = env->NewStringUTF("UTF-8");
-    jbyteArray stringJbytes = (jbyteArray) env->CallObjectMethod(str, methodId,
-                                                                 charsetName);
-    env->DeleteLocalRef(charsetName);
+    string Util::JavaToString(JNIEnv *env, jstring str) {
+        jclass objClazz = env->GetObjectClass(str);
+        jmethodID methodId = env->GetMethodID(objClazz, "getBytes", "(Ljava/lang/String;)[B");
 
-    jbyte *pBytes = env->GetByteArrayElements(stringJbytes, NULL);
+        jstring charsetName = env->NewStringUTF("UTF-8");
+        auto byteArray = (jbyteArray) env->CallObjectMethod(str, methodId,
+                                                            charsetName);
+        env->DeleteLocalRef(charsetName);
 
-    const jsize length = env->GetArrayLength(stringJbytes);
-    std::string results((const char *) pBytes, (unsigned long) length);
+        jbyte *pBytes = env->GetByteArrayElements(byteArray, NULL);
 
-    env->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
-    env->DeleteLocalRef(stringJbytes);
+        const jsize length = env->GetArrayLength(byteArray);
+        std::string results((const char *) pBytes, (unsigned long) length);
 
-    return results;
+        env->ReleaseByteArrayElements(byteArray, pBytes, JNI_ABORT);
+        env->DeleteLocalRef(byteArray);
+
+        return results;
+    }
+
+    Local<String> Util::ConvertToV8String(const string &s) {
+        auto isolate = Isolate::GetCurrent();
+        return String::NewFromUtf8(isolate, s.c_str());
+    }
+
 }

@@ -25,6 +25,8 @@ namespace node {
 
     namespace loader {
 
+        using namespace util;
+
         const char *ToCString(Local<String> str) {
             String::Utf8Value value(str);
             return *value ? *value : "<string conversion failed>";
@@ -101,13 +103,13 @@ namespace node {
                 Local<Object> global = context->Global();
 
                 auto toastFn = FunctionTemplate::New(isolate, loader::AndroidToast)->GetFunction();
-                global->Set(String::NewFromUtf8(isolate, "$toast"), toastFn);
+                global->Set(Util::ConvertToV8String("$toast"), toastFn);
 
                 auto logFn = FunctionTemplate::New(isolate, loader::AndroidLog)->GetFunction();
-                global->Set(String::NewFromUtf8(isolate, "$log"), logFn);
+                global->Set(Util::ConvertToV8String("$log"), logFn);
 
                 auto errFn = FunctionTemplate::New(isolate, loader::AndroidError)->GetFunction();
-                global->Set(String::NewFromUtf8(isolate, "$error"), errFn);
+                global->Set(Util::ConvertToV8String("$error"), errFn);
 
                 Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate);
                 Local<Object> javaVM = javaVMTemplate->NewInstance();
@@ -115,8 +117,8 @@ namespace node {
                 auto javaTypeFn = FunctionTemplate::New(
                         isolate, JavaType::NewInstance)->GetFunction();
 
-                javaVM->Set(String::NewFromUtf8(isolate, "type"), javaTypeFn);
-                global->Set(String::NewFromUtf8(isolate, "Java"), javaVM);
+                javaVM->Set(Util::ConvertToV8String("type"), javaTypeFn);
+                global->Set(Util::ConvertToV8String("Java"), javaVM);
             }
 
         };
