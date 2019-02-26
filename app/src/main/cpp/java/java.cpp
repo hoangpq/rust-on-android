@@ -40,7 +40,7 @@ namespace node {
 
             instance_template->SetInternalFieldCount(1);
             instance_template->SetNamedPropertyHandler(
-                    NamedGetter, NamedSetter, NULL, NULL, Enumerator);
+                    NamedGetter, NamedSetter, nullptr, nullptr, Enumerator);
 
             instance_template->SetAccessor(
                     String::NewFromUtf8(Isolate::GetCurrent(), "valueOf",
@@ -172,7 +172,7 @@ namespace node {
         void JavaType::InitEnvironment(Isolate *isolate, JNIEnv **env) {
             jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
             if (res != JNI_OK) {
-                res = g_ctx.javaVM->AttachCurrentThread(&(*env), NULL);
+                res = g_ctx.javaVM->AttachCurrentThread(&(*env), nullptr);
                 if (JNI_OK != res) {
                     isolate->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
                 }

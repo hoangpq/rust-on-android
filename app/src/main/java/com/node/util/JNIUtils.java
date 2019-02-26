@@ -45,4 +45,14 @@ public class JNIUtils {
             return 'L' + c.getName().replace('.', '/') + ';';
         }
     }
+
+    private static String[] getClassMethodList(String className) throws ClassNotFoundException {
+        Class c = Class.forName(className);
+        Method[] methods = c.getMethods();
+        String[] list = new String[c.getMethods().length];
+        for (int i = 0; i < methods.length; i++) {
+            list[i] = methods[i].getName();
+        }
+        return list;
+    }
 }

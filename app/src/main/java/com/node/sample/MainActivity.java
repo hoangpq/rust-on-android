@@ -101,16 +101,15 @@ public class MainActivity extends AppCompatActivity {
             V8Context ctx = V8Context.create();
             ctx.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-            V8Result result = ctx.eval(
-                    "const double = i => Math.pow(i, 2); $doubleList = $list.map(double);");
+            new Thread(() -> {
+                V8Result result = ctx.eval("const double = i => Math.pow(i, 2); $doubleList = $list.map(double);");
+                Integer[] array = result.toIntegerArray();
+                Log.i("V8 Runtime ", Arrays.toString(array));
 
-            Integer[] array = result.toIntegerArray();
-            Log.i("NodeJS Runtime ", Arrays.toString(array));
-
-            V8Result integerResult = ctx.eval("" +
-                    "$doubleList.map(double).reduce((s, i) => s + i, 0);");
-
-            Log.i("NodeJS Runtime ", String.valueOf(integerResult.toInteger()));
+                V8Result integerResult = ctx.eval("$doubleList.map(double).reduce((s, i) => s + i, 0);");
+                Log.i("V8 Runtime ", String.valueOf(integerResult.toInteger()));
+                Log.i("V8 Runtime", ctx.eval("JavaType('java.util.ArrayList').join(' | ')").toString());
+            }).start();
 
             requestApi();
         });

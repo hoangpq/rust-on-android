@@ -39,17 +39,6 @@ ToastQueue.prototype.start = function() {
   );
 };
 
-// const $toastQueue = new ToastQueue();
-// $toastQueue.start();
-
-const $list = Java.type('java/util/ArrayList');
-
-$list.add(1);
-$list.add(Math.random() * 100);
-
-$log(`Size: ${$list.size()}`);
-$log(`List: ${$list}`);
-
 // wasm test
 const env = {};
 const waBuf = new Uint8Array(fs.readFileSync(path.join(__dirname, 'wa.wasm')));

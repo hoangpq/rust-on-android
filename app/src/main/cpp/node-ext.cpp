@@ -134,7 +134,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
         return JNI_ERR; // JNI version not supported.
     }
     g_ctx.javaVM = vm;
-    g_ctx.mainActivityObj = NULL;
+    g_ctx.mainActivityObj = nullptr;
     return JNI_VERSION_1_6;
 }
 
@@ -165,8 +165,8 @@ Java_com_node_sample_MainActivity_releaseVM(
     // release allocated objects
     env->DeleteGlobalRef(g_ctx.mainActivityObj);
     env->DeleteGlobalRef(g_ctx.mainActivityClz);
-    g_ctx.mainActivityObj = NULL;
-    g_ctx.mainActivityClz = NULL;
+    g_ctx.mainActivityObj = nullptr;
+    g_ctx.mainActivityClz = nullptr;
 }
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap, node::loader::AndroidModuleWrap::Initialize);

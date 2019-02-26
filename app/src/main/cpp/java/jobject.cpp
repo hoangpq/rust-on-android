@@ -67,7 +67,7 @@ namespace node {
         jobject JavaFunctionWrapper::V8ToJava(Handle<Value> value) {
             JNIEnv *env = g_ctx.env;
 
-            jobject result = NULL;
+            jobject result = nullptr;
             if (value->IsNumber()) {
                 if (value->IsInt32()) {
                     jclass cls = env->FindClass("java/lang/Integer");

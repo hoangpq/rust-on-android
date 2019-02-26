@@ -26,7 +26,12 @@ public class V8Context {
         }
 
         public native Integer[] toIntegerArray();
-
         public native Integer toInteger();
+        public native String toJavaString();
+
+        @Override
+        public String toString() {
+            return toJavaString();
+        }
     }
 }

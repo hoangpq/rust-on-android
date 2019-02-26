@@ -13,7 +13,7 @@ namespace util {
                                                             charsetName);
         env->DeleteLocalRef(charsetName);
 
-        jbyte *pBytes = env->GetByteArrayElements(byteArray, NULL);
+        jbyte *pBytes = env->GetByteArrayElements(byteArray, nullptr);
 
         const jsize length = env->GetArrayLength(byteArray);
         std::string results((const char *) pBytes, (unsigned long) length);

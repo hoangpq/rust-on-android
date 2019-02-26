@@ -15,6 +15,8 @@ typedef struct NodeContext {
     jclass mainActivityClz;
     jobject mainActivityObj;
     Isolate *isolate_;
+    Persistent<Context> globalContext_;
+    Persistent<ObjectTemplate> globalObject_;
 } NodeContext;
 
 typedef struct JFunc {

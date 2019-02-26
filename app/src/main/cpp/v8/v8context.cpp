@@ -29,8 +29,41 @@ namespace node {
 
     using jvm::JSObject;
 
+    void JavaType(const FunctionCallbackInfo<Value> &args) {
+        Isolate *isolate = args.GetIsolate();
+
+        JNIEnv *env = nullptr;
+        jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
+        if (res != JNI_OK) {
+            res = g_ctx.javaVM->AttachCurrentThread(&env, nullptr);
+            if (JNI_OK != res) {
+                isolate->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
+            }
+        }
+        jclass utilClass = env->FindClass("com/node/util/JNIUtils");
+        jmethodID getClassMethodList = env->GetStaticMethodID(
+                utilClass, "getClassMethodList", "(Ljava/lang/String;)[Ljava/lang/String;");
+
+        Local<String> className = args[0]->ToString();
+        String::Utf8Value s(className);
+
+        auto arr = (jobjectArray) env->CallStaticObjectMethod(utilClass, getClassMethodList,
+                                                              env->NewStringUTF(*s));
+
+        jsize arrLength = env->GetArrayLength(arr);
+        int len = int(arrLength);
+
+        Local<Array> array = Array::New(isolate, len);
+        for (int i = 0; i < len; i++) {
+            auto methodName = (jstring) env->GetObjectArrayElement(arr, static_cast<jsize>(i));
+            array->Set(static_cast<uint32_t>(i),
+                       Util::ConvertToV8String(Util::JavaToString(env, methodName)));
+        }
+        args.GetReturnValue().Set(array);
+    }
+
     Isolate *InitV8Isolate() {
-        if (g_ctx.isolate_ == NULL) {
+        if (g_ctx.isolate_ == nullptr) {
             // Create a new Isolate and make it the current one.
             Isolate::CreateParams create_params;
             create_params.array_buffer_allocator = ArrayBuffer::Allocator::NewDefaultAllocator();
@@ -39,6 +72,15 @@ namespace node {
             Locker locker(g_ctx.isolate_);
             Isolate::Scope isolate_scope(g_ctx.isolate_);
             HandleScope handle_scope(g_ctx.isolate_);
+
+            Local<ObjectTemplate> globalObject = ObjectTemplate::New(g_ctx.isolate_);
+            globalObject->Set(Util::ConvertToV8String("JavaType"),
+                              FunctionTemplate::New(g_ctx.isolate_, JavaType));
+
+            Local<Context> globalContext = Context::New(g_ctx.isolate_, nullptr, globalObject);
+
+            g_ctx.globalContext_.Reset(g_ctx.isolate_, globalContext);
+            g_ctx.globalObject_.Reset(g_ctx.isolate_, globalObject);
 
             JSObject::Init(g_ctx.isolate_);
         }
@@ -53,10 +95,11 @@ namespace node {
         Isolate::Scope isolate_scope(g_ctx.isolate_);
         HandleScope handle_scope(g_ctx.isolate_);
 
-        Local<ObjectTemplate> global = ObjectTemplate::New(g_ctx.isolate_);
-        Local<Context> context = Context::New(runtime->isolate_, NULL, global);
+        Local<Context> context = Context::New(
+                runtime->isolate_, nullptr, g_ctx.globalObject_.Get(runtime->isolate_));
         runtime->context_.Reset(runtime->isolate_, context);
         Context::Scope contextScope(context);
+
         return reinterpret_cast<jlong>(runtime);
     }
 
@@ -69,7 +112,7 @@ namespace node {
         return value->ToObject();
     }
 
-    void SetV8Key(Isolate *isolate, Local<Context> context, string key, Local<Value> value) {
+    void SetV8Key(Isolate *isolate, Local<Context> context, const string &key, Local<Value> value) {
         context->Global()->Set(String::NewFromUtf8(isolate, key.c_str()), value);
     }
 
@@ -90,7 +133,7 @@ namespace node {
         LockV8Context(env, instance);
         LockIsolate(runtimePtr);
         jsize len = env->GetArrayLength(data);
-        jint *body = env->GetIntArrayElements(data, NULL);
+        jint *body = env->GetIntArrayElements(data, nullptr);
 
         Local<Array> array = Array::New(runtime->isolate_, len);
         for (int i = 0; i < len; i++) {
@@ -136,11 +179,11 @@ namespace node {
         if (!result->IsArray()) {
             jclass Exception = env->FindClass("java/lang/Exception");
             env->ThrowNew(Exception, "Result is not an array!");
-            return NULL;
+            return nullptr;
         }
 
         Local<Array> jsArray(Handle<Array>::Cast(result));
-        jobjectArray array = env->NewObjectArray(jsArray->Length(), integerClass, NULL);
+        jobjectArray array = env->NewObjectArray(jsArray->Length(), integerClass, nullptr);
         for (uint32_t i = 0; i < jsArray->Length(); i++) {
             env->SetObjectArrayElement(array, i, env->NewObject(integerClass, constructor,
                                                                 jsArray->Get(i)->Int32Value()));
@@ -160,6 +203,18 @@ namespace node {
         jclass integerClass = env->FindClass("java/lang/Integer");
         jmethodID constructor = env->GetMethodID(integerClass, "<init>", "(I)V");
         return env->NewObject(integerClass, constructor, result->Int32Value());
+    }
+
+    extern "C" JNIEXPORT jstring JNICALL
+    Java_com_node_v8_V8Context_00024V8Result_toJavaString(JNIEnv *env, jobject instance) {
+        LockV8Result(env, instance);
+        LockIsolate(runtimePtr);
+
+        Handle<Object> result = Local<Object>::New(
+                runtime->isolate_, *reinterpret_cast<Persistent<Object> *>(resultPtr));
+
+        String::Utf8Value s(result->ToString());
+        return env->NewStringUTF(*s);
     }
 
 }
