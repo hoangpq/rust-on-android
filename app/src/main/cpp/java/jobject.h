@@ -46,8 +46,8 @@ namespace node {
             static void HandleException(Isolate *isolate);
         };
 
-    }  // anonymous namespace
+    }
 
-} // namespace node
+}
 
-#endif // _jobject_h_
+#endif

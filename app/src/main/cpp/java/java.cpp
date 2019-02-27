@@ -1,5 +1,5 @@
 #include <v8.h>
-#include "java.h"
+#include <utility> #include "java.h"
 #include "jobject.h"
 
 NodeContext g_ctx;
@@ -31,7 +31,7 @@ namespace node {
 
         JavaType::JavaType(jclass klass, JNIEnv **env) : _klass(klass), _env(env) {}
 
-        JavaType::~JavaType() {}
+        JavaType::~JavaType() = default;
 
         void JavaType::Init(Isolate *isolate) {
             // Prepare constructor template
@@ -83,7 +83,7 @@ namespace node {
             Handle<FunctionTemplate> _js_function_template =
                     Local<FunctionTemplate>::New(Isolate::GetCurrent(), JavaType::constructor);
             Local<Object> instance = _js_function_template->GetFunction()->NewInstance();
-            JavaType *type = new JavaType(clazz, &env);
+            auto *type = new JavaType(clazz, &env);
 
             type->InitJavaMethod(isolate, instance);
             type->Wrap(instance);
@@ -91,7 +91,7 @@ namespace node {
             args.GetReturnValue().Set(scope.Escape(instance));
         }
 
-        std::string JavaType::GetMethodDescriptor(jobject method) {
+        string JavaType::GetMethodDescriptor(jobject method) {
             JNIEnv *env = g_ctx.env;
             // method descriptor
             jclass jniUtilClass = env->FindClass("com/node/util/JNIUtils");
@@ -99,9 +99,9 @@ namespace node {
                     jniUtilClass, "getJNIMethodSignature",
                     "(Ljava/lang/reflect/Method;)Ljava/lang/String;");
 
-            jstring methodSig = (jstring) env->CallStaticObjectMethod(jniUtilClass,
-                                                                      getClassDescriptorMethodId,
-                                                                      method);
+            auto methodSig = (jstring) env->CallStaticObjectMethod(
+                    jniUtilClass, getClassDescriptorMethodId, method);
+
             return Util::JavaToString(env, methodSig);
         }
 
@@ -127,7 +127,7 @@ namespace node {
             jmethodID method_getName = env->GetMethodID(
                     methodClazz, "getName", "()Ljava/lang/String;");
 
-            jobjectArray methodObjects = (jobjectArray)
+            auto methodObjects = (jobjectArray)
                     env->CallObjectMethod(_klass, clazz_getMethods);
 
             jsize methodCount = env->GetArrayLength(methodObjects);
@@ -142,16 +142,16 @@ namespace node {
                 jmethodID toStringMethodId = env->GetMethodID(
                         objClazz, "toString", "()Ljava/lang/String;");
 
-                jstring jmethodName = (jstring) env->CallObjectMethod(obj, toStringMethodId);
+                auto jmethodName = (jstring) env->CallObjectMethod(obj, toStringMethodId);
                 std::string methodName = Util::JavaToString(env, jmethodName);
 
-                if (methodName.compare("wait") == 0 ||
-                    methodName.compare("equals") == 0 ||
-                    methodName.compare("notify") == 0 ||
-                    methodName.compare("toString") == 0 ||
-                    methodName.compare("hashCode") == 0 ||
-                    methodName.compare("getClass") == 0 ||
-                    methodName.compare("notifyAll") == 0)
+                if (methodName == "wait" ||
+                    methodName == "equals" ||
+                    methodName == "notify" ||
+                    methodName == "toString" ||
+                    methodName == "hashCode" ||
+                    methodName == "getClass" ||
+                    methodName == "notifyAll")
                     continue;
 
                 JFunc jfunc;
@@ -186,10 +186,10 @@ namespace node {
         }
 
         Handle<Value> JavaType::JavaNameGetter(
-                JNIEnv *env, const PropertyCallbackInfo<Value> &args, std::string methodName) {
+                JNIEnv *env, const PropertyCallbackInfo<Value> &args, string methodName) {
 
             Isolate *isolate = args.GetIsolate();
-            JavaType *wrapper = ObjectWrap::Unwrap<JavaType>(args.Holder());
+            auto *wrapper = ObjectWrap::Unwrap<JavaType>(args.Holder());
             jobject ref = env->NewGlobalRef(wrapper->GetJavaInstance());
             return JavaFunctionWrapper::NewInstance(wrapper, isolate, ref, methodName);
         }
@@ -200,7 +200,7 @@ namespace node {
             String::Utf8Value m(key->ToString());
             std::string methodName(*m);
 
-            if (methodName.compare("toString") == 0) {
+            if (methodName == "toString") {
                 info.GetReturnValue().Set(
                         scope.Escape(FunctionTemplate::New(isolate, ToString)->GetFunction()));
             } else {
@@ -232,15 +232,14 @@ namespace node {
         void JavaType::ToString(const FunctionCallbackInfo<Value> &args) {
             HandleScope scope(args.GetIsolate());
             JNIEnv *env = g_ctx.env;
-            JavaType *wrapper = ObjectWrap::Unwrap<JavaType>(args.Holder());
+            auto *wrapper = ObjectWrap::Unwrap<JavaType>(args.Holder());
             jmethodID valueOf = env->GetMethodID(
                     wrapper->_klass, "toString", "()Ljava/lang/String;");
 
-            jstring valueOfResult = (jstring) env->CallObjectMethod(wrapper->_jinstance, valueOf);
+            auto valueOfResult = (jstring) env->CallObjectMethod(wrapper->_jinstance, valueOf);
 
             const char *ch = env->GetStringUTFChars(valueOfResult, 0);
-            env->ReleaseStringUTFChars(valueOfResult, ch)
-                    ;
+            env->ReleaseStringUTFChars(valueOfResult, ch);
             args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), ch));
         }
 
@@ -251,6 +250,6 @@ namespace node {
             info.GetReturnValue().Set(func->GetFunction());
         }
 
-    }  // anonymous namespace
+    }
 
-} // namespace node
+}

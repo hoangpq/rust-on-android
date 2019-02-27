@@ -108,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
 
                 V8Result integerResult = ctx.eval("$doubleList.map(double).reduce((s, i) => s + i, 0);");
                 Log.i("V8 Runtime ", String.valueOf(integerResult.toInteger()));
-                Log.i("V8 Runtime", ctx.eval("JavaType('java.util.ArrayList').join(' | ')").toString());
+                Log.i("V8 Runtime", ctx.eval("Class.forName('java.util.ArrayList').invoke()").toString());
             }).start();
 
             requestApi();

@@ -15,9 +15,9 @@
 #include "env-inl.h"
 #include "node_buffer.h"
 #include "node.h"
-#include "utils/utils.h"
-#include "java/java.h"
-#include "java/jobject.h"
+#include "../utils/utils.h"
+#include "../java/java.h"
+#include "../java/jobject.h"
 
 extern "C" jlong JNICALL Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
 
@@ -31,4 +31,4 @@ namespace node {
     namespace loader {}
 }
 
-#endif  // _node_extension_h_
+#endif

@@ -48,7 +48,6 @@ namespace node {
             static void NewInstance(const FunctionCallbackInfo<Value> &);
             static void InitEnvironment(Isolate *, JNIEnv **);
 
-            JNIEnv* GetCurrentJNIEnv() { return *_env; }
             jclass GetJavaClass() { return _klass; };
             jobject GetJavaInstance() { return _jinstance; };
 
@@ -75,8 +74,8 @@ namespace node {
             int GetArgumentCount(jobject method);
         };
 
-    }  // anonymous namespace
+    }
 
-} // namespace node
+}
 
-#endif // _java_h_
+#endif

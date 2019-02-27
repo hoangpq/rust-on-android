@@ -1,4 +1,5 @@
 #include <v8.h>
+#include <utility>
 #include "jobject.h"
 #include "java.h"
 
@@ -25,12 +26,12 @@ namespace node {
         Persistent<FunctionTemplate> JavaFunctionWrapper::_func_wrapper;
 
         JavaFunctionWrapper::JavaFunctionWrapper(
-                JavaType *type, jobject instance, std::string methodName)
+                JavaType *type, jobject instance, string methodName)
                 : _type(type),
                   _instance(instance),
                   _methodName(methodName) {}
 
-        JavaFunctionWrapper::~JavaFunctionWrapper() {}
+        JavaFunctionWrapper::~JavaFunctionWrapper() = default;
 
         void JavaFunctionWrapper::Init(Isolate *isolate) {
             Local<FunctionTemplate> function_template = FunctionTemplate::New(isolate, New);
@@ -57,8 +58,8 @@ namespace node {
                     Local<FunctionTemplate>::New(isolate, _func_wrapper);
 
             Local<Object> jsinst = _function_template->GetFunction()->NewInstance();
-            JavaFunctionWrapper *function_wrapper = new JavaFunctionWrapper(type, jinst,
-                                                                            methodName);
+            JavaFunctionWrapper *function_wrapper = new JavaFunctionWrapper(
+                    type, jinst, methodName);
 
             function_wrapper->Wrap(jsinst);
             return Local<Value>::New(isolate, jsinst);
@@ -100,7 +101,7 @@ namespace node {
             Isolate *isolate = args.GetIsolate();
             HandleScope scope(isolate);
 
-            JavaFunctionWrapper *wrapper = ObjectWrap::Unwrap<JavaFunctionWrapper>(args.This());
+            auto *wrapper = ObjectWrap::Unwrap<JavaFunctionWrapper>(args.This());
             JNIEnv *env = g_ctx.env;
 
             int argumentCount = args.Length();
@@ -108,7 +109,7 @@ namespace node {
 
             for (JFunc &func : wrapper->_type->funcList) {
                 if (func.argumentCount == argumentCount &&
-                    func.methodName.compare(wrapper->_methodName) == 0) {
+                    func.methodName == wrapper->_methodName) {
 
                     jmethodID methodId = env->GetMethodID(wrapper->_type->GetJavaClass(),
                                                           func.methodName.c_str(),

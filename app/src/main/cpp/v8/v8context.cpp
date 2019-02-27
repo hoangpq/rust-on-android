@@ -29,15 +29,15 @@ namespace node {
 
     using jvm::JSObject;
 
-    void JavaType(const FunctionCallbackInfo<Value> &args) {
-        Isolate *isolate = args.GetIsolate();
+    void forName(const FunctionCallbackInfo<Value> &args) {
+        Isolate *isolate_ = args.GetIsolate();
 
         JNIEnv *env = nullptr;
         jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
         if (res != JNI_OK) {
             res = g_ctx.javaVM->AttachCurrentThread(&env, nullptr);
             if (JNI_OK != res) {
-                isolate->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
+                isolate_->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
             }
         }
         jclass utilClass = env->FindClass("com/node/util/JNIUtils");
@@ -53,37 +53,43 @@ namespace node {
         jsize arrLength = env->GetArrayLength(arr);
         int len = int(arrLength);
 
-        Local<Array> array = Array::New(isolate, len);
+        Local<Array> array = Array::New(isolate_, len);
         for (int i = 0; i < len; i++) {
             auto methodName = (jstring) env->GetObjectArrayElement(arr, static_cast<jsize>(i));
             array->Set(static_cast<uint32_t>(i),
                        Util::ConvertToV8String(Util::JavaToString(env, methodName)));
         }
-        args.GetReturnValue().Set(array);
+
+        JSObject::NewInstance(args);
     }
 
     Isolate *InitV8Isolate() {
-        if (g_ctx.isolate_ == nullptr) {
-            // Create a new Isolate and make it the current one.
-            Isolate::CreateParams create_params;
-            create_params.array_buffer_allocator = ArrayBuffer::Allocator::NewDefaultAllocator();
-            g_ctx.isolate_ = Isolate::New(create_params);
+        if (g_ctx.isolate_ != nullptr) return g_ctx.isolate_;
 
-            Locker locker(g_ctx.isolate_);
-            Isolate::Scope isolate_scope(g_ctx.isolate_);
-            HandleScope handle_scope(g_ctx.isolate_);
+        // Create a new Isolate and make it the current one.
+        Isolate::CreateParams create_params;
+        create_params.array_buffer_allocator = ArrayBuffer::Allocator::NewDefaultAllocator();
+        Isolate *isolate_ = Isolate::New(create_params);
 
-            Local<ObjectTemplate> globalObject = ObjectTemplate::New(g_ctx.isolate_);
-            globalObject->Set(Util::ConvertToV8String("JavaType"),
-                              FunctionTemplate::New(g_ctx.isolate_, JavaType));
+        Locker locker(isolate_);
+        Isolate::Scope isolate_scope(isolate_);
+        HandleScope handle_scope(isolate_);
 
-            Local<Context> globalContext = Context::New(g_ctx.isolate_, nullptr, globalObject);
+        Local<ObjectTemplate> globalObject = ObjectTemplate::New(isolate_);
 
-            g_ctx.globalContext_.Reset(g_ctx.isolate_, globalContext);
-            g_ctx.globalObject_.Reset(g_ctx.isolate_, globalObject);
+        Local<ObjectTemplate> class_ = ObjectTemplate::New(isolate_);
+        class_->Set(Util::ConvertToV8String("forName"),
+                    FunctionTemplate::New(isolate_, forName));
 
-            JSObject::Init(g_ctx.isolate_);
-        }
+        globalObject->Set(Util::ConvertToV8String("Class"), class_);
+        Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
+
+        g_ctx.isolate_ = isolate_;
+        g_ctx.globalContext_.Reset(isolate_, globalContext);
+        g_ctx.globalObject_.Reset(isolate_, globalObject);
+
+        JSObject::Init(isolate_);
+
         return g_ctx.isolate_;
     }
 
@@ -91,9 +97,9 @@ namespace node {
         auto *runtime = new V8Runtime();
         runtime->isolate_ = InitV8Isolate();
 
-        Locker locker(g_ctx.isolate_);
-        Isolate::Scope isolate_scope(g_ctx.isolate_);
-        HandleScope handle_scope(g_ctx.isolate_);
+        Locker locker(runtime->isolate_);
+        Isolate::Scope isolate_scope(runtime->isolate_);
+        HandleScope handle_scope(runtime->isolate_);
 
         Local<Context> context = Context::New(
                 runtime->isolate_, nullptr, g_ctx.globalObject_.Get(runtime->isolate_));

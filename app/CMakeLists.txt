@@ -30,10 +30,10 @@ add_library( # Sets the name of the library.
         src/main/cpp/utils/utils.cpp
         src/main/cpp/java/java.cpp
         src/main/cpp/java/jobject.cpp
-        src/main/cpp/java/jsobject.cpp
-        src/main/cpp/native-lib.cpp
-        src/main/cpp/node-ext.cpp
+        src/main/cpp/lib/native-lib.cpp
+        src/main/cpp/lib/node-ext.cpp
         # for v8
+        src/main/cpp/v8/jsobject.cpp
         src/main/cpp/v8/v8context.cpp)
 
 add_library(libnode
@@ -72,6 +72,6 @@ target_link_libraries( # Specifies the target library.
 
 
 # add imported target
-add_library(image-gen SHARED src/main/cpp/image-gen.cpp)
+add_library(image-gen SHARED src/main/cpp/lib/image-gen.cpp)
 
 target_link_libraries(image-gen jnigraphics ${log-lib} imp_lib_rust)

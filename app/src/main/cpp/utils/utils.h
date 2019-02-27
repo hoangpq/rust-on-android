@@ -45,4 +45,4 @@ static const char *kTAG = "NodeJS Runtime";
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, kTAG, __VA_ARGS__))
 
-#endif // _context_h
+#endif

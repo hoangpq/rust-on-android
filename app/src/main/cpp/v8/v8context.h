@@ -10,7 +10,7 @@
 #include <uv.h>
 #include <android/log.h>
 
-#include "../java/jsobject.h"
+#include "jsobject.h"
 #include "../utils/utils.h"
 
 namespace node {
@@ -22,4 +22,4 @@ namespace node {
     };
 }
 
-#endif // _v8context_h_
+#endif

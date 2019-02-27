@@ -3,7 +3,7 @@
 
 #include <jni.h>
 #include <android/log.h>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "v8.h"
 #include "node.h"
@@ -26,24 +26,21 @@ namespace node {
 
         class JSObject : public ObjectWrap {
         public:
-            JSObject(jobject, jmethodID, jlong);
-            virtual ~JSObject();
+            JSObject();
+            ~JSObject() override;
+
             static void Init(Isolate *isolate);
             static void New(const FunctionCallbackInfo<Value> &args);
             static void Call(const FunctionCallbackInfo<Value> &args);
-            static Local<Value> NewInstance(Isolate *, jobject, jmethodID, jlong);
+            static void NewInstance(const FunctionCallbackInfo<Value> &args);
 
         public:
-            static Persistent<FunctionTemplate> _func_wrapper;
-
-        private:
-            jobject _observer;
-            jmethodID _subscribe;
-            jlong _runtimePtr;
+            static Persistent<FunctionTemplate> constructor_;
+            static void NamedGetter(Local<String>, const PropertyCallbackInfo<Value> &);
         };
 
-    }  // anonymous namespace
+    }
 
-} // namespace node
+}
 
-#endif // _jsobject_h_
+#endif
