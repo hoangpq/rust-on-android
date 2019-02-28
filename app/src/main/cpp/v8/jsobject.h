@@ -26,17 +26,26 @@ namespace node {
 
         class JSObject : public ObjectWrap {
         public:
-            JSObject();
+            explicit JSObject(jclass);
+            explicit JSObject(jclass, string);
             ~JSObject() override;
 
             static void Init(Isolate *isolate);
             static void New(const FunctionCallbackInfo<Value> &args);
             static void Call(const FunctionCallbackInfo<Value> &args);
-            static void NewInstance(const FunctionCallbackInfo<Value> &args);
+            static Handle<Object> NewInstance(Isolate*, jclass, string method_ = "");
 
         public:
             static Persistent<FunctionTemplate> constructor_;
             static void NamedGetter(Local<String>, const PropertyCallbackInfo<Value> &);
+
+        public: // getters
+            jclass GetObjectClass() { return class_; }
+
+        private:
+            jclass class_;
+            string method_;
+
         };
 
     }

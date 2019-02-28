@@ -23,9 +23,13 @@ namespace node {
 
     namespace jvm {
 
+        using util::Util;
+
         Persistent<FunctionTemplate> JSObject::constructor_;
 
-        JSObject::JSObject() = default;
+        JSObject::JSObject(jclass c) : class_(c) {};
+
+        JSObject::JSObject(jclass c, string method) : class_(c), method_(method) {};
 
         JSObject::~JSObject() = default;
 
@@ -47,29 +51,52 @@ namespace node {
                         String::NewFromUtf8(isolate, "Function is not constructor."));
             }
         }
-        void JSObject::NewInstance(const FunctionCallbackInfo<Value> &args) {
-            Isolate *isolate_ = args.GetIsolate();
+
+        Handle<Object>
+        JSObject::NewInstance(Isolate *isolate_, jclass class_, string method_) {
             Handle<FunctionTemplate> _function_template =
                     Local<FunctionTemplate>::New(isolate_, constructor_);
 
             Local<Object> instance_ = _function_template->GetFunction()->NewInstance();
-            auto *wrapper = new JSObject();
-            wrapper->Wrap(instance_);
 
-            args.GetReturnValue().Set(instance_);
+            auto *wrapper = !method_.empty()
+                            ? new JSObject(class_, method_)
+                            : new JSObject(class_);
+
+            wrapper->Wrap(instance_);
+            return instance_;
         }
 
         void JSObject::NamedGetter(Local<String> key, const PropertyCallbackInfo<Value> &info) {
-            Isolate *isolate = info.GetIsolate();
-            EscapableHandleScope scope(isolate);
+            Isolate *isolate_ = info.GetIsolate();
             String::Utf8Value m(key->ToString());
-            string methodName(*m);
-            info.GetReturnValue().Set(info.This());
+            string method_(*m);
+
+            auto *parent = ObjectWrap::Unwrap<JSObject>(info.Holder());
+            jclass class_ = parent->GetObjectClass();
+
+            Handle<Object> instance_ = NewInstance(isolate_, class_, method_);
+            info.GetReturnValue().Set(instance_);
         }
 
         void JSObject::Call(const FunctionCallbackInfo<Value> &args) {
-            Isolate *isolate = args.GetIsolate();
-            args.GetReturnValue().Set(String::NewFromUtf8(isolate, "Call"));
+            Isolate *isolate_ = args.GetIsolate();
+
+            JNIEnv *env = nullptr;
+            JavaType::InitEnvironment(isolate_, &env);
+
+            jclass utilClass = env->FindClass("com/node/util/JNIUtils");
+            jmethodID getPackageName = env->GetStaticMethodID(
+                    utilClass, "getPackageName", "(Ljava/lang/Class;)Ljava/lang/String;");
+
+            auto *parent = ObjectWrap::Unwrap<JSObject>(args.Holder());
+
+            auto packageName = (jstring) env->CallStaticObjectMethod(
+                    utilClass, getPackageName, parent->GetObjectClass());
+
+            auto packageName_ = Util::JavaToString(env, packageName);
+
+            args.GetReturnValue().Set(Util::ConvertToV8String(packageName_));
         }
 
     }

@@ -1,5 +1,6 @@
 package com.node.util;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,4 +56,13 @@ public class JNIUtils {
         }
         return list;
     }
+
+    private static Class<?> getClass(String className) throws ClassNotFoundException {
+        return Class.forName(className);
+    }
+
+    private static String getPackageName(Class class_) {
+        return class_.getName();
+    }
+
 }

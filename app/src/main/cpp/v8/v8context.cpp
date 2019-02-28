@@ -40,15 +40,22 @@ namespace node {
                 isolate_->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
             }
         }
+
         jclass utilClass = env->FindClass("com/node/util/JNIUtils");
+
         jmethodID getClassMethodList = env->GetStaticMethodID(
                 utilClass, "getClassMethodList", "(Ljava/lang/String;)[Ljava/lang/String;");
+
+        jmethodID getClass = env->GetStaticMethodID(
+                utilClass, "getClass", "(Ljava/lang/String;)Ljava/lang/Class;");
 
         Local<String> className = args[0]->ToString();
         String::Utf8Value s(className);
 
-        auto arr = (jobjectArray) env->CallStaticObjectMethod(utilClass, getClassMethodList,
-                                                              env->NewStringUTF(*s));
+        auto classStr = env->NewStringUTF(*s);
+
+        auto arr = (jobjectArray) env->CallStaticObjectMethod(
+                utilClass, getClassMethodList, classStr);
 
         jsize arrLength = env->GetArrayLength(arr);
         int len = int(arrLength);
@@ -60,7 +67,10 @@ namespace node {
                        Util::ConvertToV8String(Util::JavaToString(env, methodName)));
         }
 
-        JSObject::NewInstance(args);
+        auto class_ = (jclass) env->CallStaticObjectMethod(utilClass, getClass, classStr);
+
+        args.GetReturnValue().Set(
+                JSObject::NewInstance(isolate_, class_));
     }
 
     Isolate *InitV8Isolate() {
@@ -145,8 +155,9 @@ namespace node {
         for (int i = 0; i < len; i++) {
             array->Set(static_cast<uint32_t>(i), Integer::New(runtime->isolate_, (int) body[i]));
         }
-        std::string _key = Util::JavaToString(env, key);
-        context->Global()->Set(String::NewFromUtf8(runtime->isolate_, _key.c_str()), array);
+
+        string _key = Util::JavaToString(env, key);
+        context->Global()->Set(Util::ConvertToV8String(_key), array);
     }
 
     extern "C" JNIEXPORT jobject JNICALL
