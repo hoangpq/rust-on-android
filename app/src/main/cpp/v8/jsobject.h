@@ -32,7 +32,7 @@ namespace node {
             static void Init(Isolate *isolate);
             static void New(const FunctionCallbackInfo<Value> &args);
             static void Call(const FunctionCallbackInfo<Value> &args);
-            static Handle<Object> NewInstance(Isolate*, jclass, string method_ = "");
+            static Handle<Object> NewInstance(Isolate*, jclass);
 
         public:
             static Persistent<FunctionTemplate> constructor_;
@@ -40,6 +40,7 @@ namespace node {
 
         public: // getters
             jclass GetObjectClass() { return class_; }
+            static void TypeOf(const FunctionCallbackInfo<Value> &args);
 
         private:
             jclass class_;

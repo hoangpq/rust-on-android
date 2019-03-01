@@ -106,9 +106,18 @@ public class MainActivity extends AppCompatActivity {
                 Integer[] array = result.toIntegerArray();
                 Log.i("V8 Runtime ", Arrays.toString(array));
 
+                ctx.eval("function typeOf(obj) {" +
+                        "  if (Reflect.has(obj, 'typeOf')) {" +
+                        "    return obj.typeOf();" +
+                        "  } else {" +
+                        "    return (typeof obj);" +
+                        "  }" +
+                        "}");
+
                 V8Result integerResult = ctx.eval("$doubleList.map(double).reduce((s, i) => s + i, 0);");
                 Log.i("V8 Runtime ", String.valueOf(integerResult.toInteger()));
-                Log.i("V8 Runtime", ctx.eval("Class.forName('java.util.ArrayList').invoke()").toString());
+                Log.i("V8 Runtime", ctx.eval("" +
+                        "const c = Class.forName('java.util.ArrayList'); typeOf(c);").toString());
             }).start();
 
             requestApi();

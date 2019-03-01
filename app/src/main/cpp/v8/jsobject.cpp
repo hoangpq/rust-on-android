@@ -38,6 +38,7 @@ namespace node {
             it_->SetInternalFieldCount(1);
             it_->SetNamedPropertyHandler(NamedGetter);
             it_->SetCallAsFunctionHandler(Call, Handle<Value>());
+            it_->Set(Util::ConvertToV8String("typeOf"), FunctionTemplate::New(isolate, TypeOf));
             constructor_.Reset(isolate, ft_);
         }
 
@@ -52,7 +53,7 @@ namespace node {
         }
 
         Handle<Object>
-        JSObject::NewInstance(Isolate *isolate_, jclass class_, string method_) {
+        JSObject::NewInstance(Isolate *isolate_, jclass class_) {
             Handle<FunctionTemplate> _function_template =
                     Local<FunctionTemplate>::New(isolate_, constructor_);
 
@@ -62,7 +63,6 @@ namespace node {
             JavaType::InitEnvironment(isolate_, &wrapper->env_);
 
             wrapper->Wrap(instance_);
-
             return instance_;
         }
 
@@ -87,6 +87,11 @@ namespace node {
             auto type_ = Util::GetPackageName(env, wrapper->class_);
             wrapper->type_ = type_;
             args.GetReturnValue().Set(Util::ConvertToV8String(type_));
+        }
+
+        void JSObject::TypeOf(const FunctionCallbackInfo<Value> &args) {
+            auto wrapper = ObjectWrap::Unwrap<JSObject>(args.Holder());
+            args.GetReturnValue().Set(Util::ConvertToV8String(wrapper->type_));
         }
 
     }
