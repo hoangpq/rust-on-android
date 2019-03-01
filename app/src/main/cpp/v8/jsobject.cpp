@@ -1,4 +1,5 @@
 #include <v8.h>
+#include <utility>
 #include "jsobject.h"
 #include "../java/java.h"
 #include "v8context.h"
@@ -29,8 +30,6 @@ namespace node {
 
         JSObject::JSObject(jclass c) : class_(c) {};
 
-        JSObject::JSObject(jclass c, string method) : class_(c), method_(method) {};
-
         JSObject::~JSObject() = default;
 
         void JSObject::Init(Isolate *isolate) {
@@ -59,11 +58,11 @@ namespace node {
 
             Local<Object> instance_ = _function_template->GetFunction()->NewInstance();
 
-            auto *wrapper = !method_.empty()
-                            ? new JSObject(class_, method_)
-                            : new JSObject(class_);
+            auto *wrapper = new JSObject(class_);
+            JavaType::InitEnvironment(isolate_, &wrapper->env_);
 
             wrapper->Wrap(instance_);
+
             return instance_;
         }
 
@@ -72,10 +71,9 @@ namespace node {
             String::Utf8Value m(key->ToString());
             string method_(*m);
 
-            auto *parent = ObjectWrap::Unwrap<JSObject>(info.Holder());
-            jclass class_ = parent->GetObjectClass();
+            auto *wrapper = ObjectWrap::Unwrap<JSObject>(info.Holder());
+            Handle<Object> instance_ = NewInstance(isolate_, wrapper->class_);
 
-            Handle<Object> instance_ = NewInstance(isolate_, class_, method_);
             info.GetReturnValue().Set(instance_);
         }
 
@@ -85,18 +83,10 @@ namespace node {
             JNIEnv *env = nullptr;
             JavaType::InitEnvironment(isolate_, &env);
 
-            jclass utilClass = env->FindClass("com/node/util/JNIUtils");
-            jmethodID getPackageName = env->GetStaticMethodID(
-                    utilClass, "getPackageName", "(Ljava/lang/Class;)Ljava/lang/String;");
-
-            auto *parent = ObjectWrap::Unwrap<JSObject>(args.Holder());
-
-            auto packageName = (jstring) env->CallStaticObjectMethod(
-                    utilClass, getPackageName, parent->GetObjectClass());
-
-            auto packageName_ = Util::JavaToString(env, packageName);
-
-            args.GetReturnValue().Set(Util::ConvertToV8String(packageName_));
+            auto *wrapper = ObjectWrap::Unwrap<JSObject>(args.Holder());
+            auto type_ = Util::GetPackageName(env, wrapper->class_);
+            wrapper->type_ = type_;
+            args.GetReturnValue().Set(Util::ConvertToV8String(type_));
         }
 
     }

@@ -1,5 +1,6 @@
 #include <v8.h>
-#include <utility> #include "java.h"
+#include <utility>
+#include "java.h"
 #include "jobject.h"
 
 NodeContext g_ctx;

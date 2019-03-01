@@ -29,4 +29,15 @@ namespace util {
         return String::NewFromUtf8(isolate, s.c_str());
     }
 
+    string Util::GetPackageName(JNIEnv *env, jclass class_) {
+        jclass utilClass = env->FindClass("com/node/util/JNIUtils");
+        jmethodID getPackageName = env->GetStaticMethodID(
+                utilClass, "getPackageName", "(Ljava/lang/Class;)Ljava/lang/String;");
+
+        auto packageName = (jstring) env->CallStaticObjectMethod(
+                utilClass, getPackageName, class_);
+
+        return JavaToString(env, packageName);
+    }
+
 }

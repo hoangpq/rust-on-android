@@ -27,7 +27,6 @@ namespace node {
         class JSObject : public ObjectWrap {
         public:
             explicit JSObject(jclass);
-            explicit JSObject(jclass, string);
             ~JSObject() override;
 
             static void Init(Isolate *isolate);
@@ -44,7 +43,8 @@ namespace node {
 
         private:
             jclass class_;
-            string method_;
+            string type_;
+            JNIEnv *env_;
 
         };
 
