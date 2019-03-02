@@ -19,6 +19,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
+import com.node.util.ScriptUtils;
 import com.node.v8.V8Context;
 
 import java.io.BufferedReader;
@@ -106,18 +107,13 @@ public class MainActivity extends AppCompatActivity {
                 Integer[] array = result.toIntegerArray();
                 Log.i("V8 Runtime ", Arrays.toString(array));
 
-                ctx.eval("function typeOf(obj) {" +
-                        "  if (Reflect.has(obj, 'typeOf')) {" +
-                        "    return obj.typeOf();" +
-                        "  } else {" +
-                        "    return (typeof obj);" +
-                        "  }" +
-                        "}");
+                String script = ScriptUtils
+                        .readFileFromRawDirectory(getApplicationContext(), R.raw.main);
 
-                V8Result integerResult = ctx.eval("$doubleList.map(double).reduce((s, i) => s + i, 0);");
-                Log.i("V8 Runtime ", String.valueOf(integerResult.toInteger()));
-                Log.i("V8 Runtime", ctx.eval("" +
-                        "const c = Class.forName('java.util.ArrayList'); typeOf(c);").toString());
+                ctx.eval(script);
+                Log.i("V8 Runtime", ctx.eval(
+                        "const c = Class.forName('java.util.ArrayList');\n" +
+                                "getJavaSig([2, 3, 'a', c, {}])").toString());
             }).start();
 
             requestApi();
