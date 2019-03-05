@@ -70,7 +70,7 @@ namespace node {
             EscapableHandleScope scope(isolate);
 
             JNIEnv *env = nullptr;
-            JavaType::InitEnvironment(isolate, &env);
+            Util::InitEnvironment(isolate, &env);
 
             if (args.Length() < 1) {
                 isolate->ThrowException(Exception::TypeError(
@@ -170,16 +170,6 @@ namespace node {
             this->_jinstance = env->NewObject(_klass, constructor);
         }
 
-        void JavaType::InitEnvironment(Isolate *isolate, JNIEnv **env) {
-            jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
-            if (res != JNI_OK) {
-                res = g_ctx.javaVM->AttachCurrentThread(&(*env), nullptr);
-                if (JNI_OK != res) {
-                    isolate->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
-                }
-            }
-        }
-
         void JavaType::Call(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate = args.GetIsolate();
             HandleScope scope(isolate);
@@ -201,13 +191,8 @@ namespace node {
             String::Utf8Value m(key->ToString());
             std::string methodName(*m);
 
-            if (methodName == "toString") {
-                info.GetReturnValue().Set(
-                        scope.Escape(FunctionTemplate::New(isolate, ToString)->GetFunction()));
-            } else {
-                info.GetReturnValue().Set(
-                        scope.Escape(JavaNameGetter(g_ctx.env, info, methodName)));
-            }
+            info.GetReturnValue().Set(
+                    scope.Escape(JavaNameGetter(g_ctx.env, info, methodName)));
         }
 
         void JavaType::NamedSetter(Local<String> key, Local<Value> value,

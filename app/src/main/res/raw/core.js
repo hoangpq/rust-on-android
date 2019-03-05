@@ -13,11 +13,11 @@ function getJavaSig(args) {
             case 'number':
                 return 'I';
             case 'string':
-                return 'java/lang/String;';
+                return 'Ljava/lang/String;';
             case 'object':
-                return 'java/lang/Object;';
+                return 'Ljava/lang/Object;';
             default:
-                return type;
+                return typeof type;
         }
     }).join('');
 }

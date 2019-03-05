@@ -32,14 +32,19 @@ namespace node {
 
         JSObject::~JSObject() = default;
 
-        void JSObject::Init(Isolate *isolate) {
-            Local<FunctionTemplate> ft_ = FunctionTemplate::New(isolate, New);
+        void JSObject::Init(Isolate *isolate_) {
+            Local<FunctionTemplate> ft_ = FunctionTemplate::New(isolate_, New);
             Local<ObjectTemplate> it_ = ft_->InstanceTemplate();
             it_->SetInternalFieldCount(1);
             it_->SetNamedPropertyHandler(NamedGetter);
             it_->SetCallAsFunctionHandler(Call, Handle<Value>());
-            it_->Set(Util::ConvertToV8String("typeOf"), FunctionTemplate::New(isolate, TypeOf));
-            constructor_.Reset(isolate, ft_);
+
+            JNIEnv *env_ = nullptr;
+            Util::InitEnvironment(isolate_, &env_);
+            Local<External> jenvRef = External::New(isolate_, env_);
+
+            it_->Set(Util::ConvertToV8String("typeOf"), FunctionTemplate::New(isolate_, TypeOf, jenvRef));
+            constructor_.Reset(isolate_, ft_);
         }
 
         void JSObject::New(const FunctionCallbackInfo<Value> &args) {
@@ -56,11 +61,12 @@ namespace node {
         JSObject::NewInstance(Isolate *isolate_, jclass class_) {
             Handle<FunctionTemplate> _function_template =
                     Local<FunctionTemplate>::New(isolate_, constructor_);
-
             Local<Object> instance_ = _function_template->GetFunction()->NewInstance();
 
             auto *wrapper = new JSObject(class_);
-            JavaType::InitEnvironment(isolate_, &wrapper->env_);
+            Util::InitEnvironment(isolate_, &wrapper->env_);
+            auto type_ = Util::GetPackageName(wrapper->env_, wrapper->class_);
+            wrapper->type_ = type_;
 
             wrapper->Wrap(instance_);
             return instance_;
@@ -79,14 +85,7 @@ namespace node {
 
         void JSObject::Call(const FunctionCallbackInfo<Value> &args) {
             Isolate *isolate_ = args.GetIsolate();
-
-            JNIEnv *env = nullptr;
-            JavaType::InitEnvironment(isolate_, &env);
-
-            auto *wrapper = ObjectWrap::Unwrap<JSObject>(args.Holder());
-            auto type_ = Util::GetPackageName(env, wrapper->class_);
-            wrapper->type_ = type_;
-            args.GetReturnValue().Set(Util::ConvertToV8String(type_));
+            args.GetReturnValue().Set(String::NewFromUtf8(isolate_, "[Call]"));
         }
 
         void JSObject::TypeOf(const FunctionCallbackInfo<Value> &args) {

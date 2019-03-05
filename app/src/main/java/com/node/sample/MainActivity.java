@@ -30,10 +30,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static com.node.v8.V8Context.V8Result;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -94,30 +91,36 @@ public class MainActivity extends AppCompatActivity {
 
         initNodeJS();
 
+        runV8Script();
+
         // Generate image activity
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
 
-        buttonVersions.setOnClickListener(v -> {
+        buttonVersions.setOnClickListener(v -> requestApi());
+
+    }
+
+    private void runV8Script() {
+        new Thread(() -> {
+
+            try {
+                Thread.sleep(2_000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             V8Context ctx = V8Context.create();
             ctx.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-            new Thread(() -> {
-                V8Result result = ctx.eval("const double = i => Math.pow(i, 2); $doubleList = $list.map(double);");
-                Integer[] array = result.toIntegerArray();
-                Log.i("V8 Runtime ", Arrays.toString(array));
+            String script = ScriptUtils
+                    .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
 
-                String script = ScriptUtils
-                        .readFileFromRawDirectory(getApplicationContext(), R.raw.main);
-
-                ctx.eval(script);
-                Log.i("V8 Runtime", ctx.eval(
-                        "const c = Class.forName('java.util.ArrayList');\n" +
-                                "getJavaSig([2, 3, 'a', c, {}])").toString());
-            }).start();
-
-            requestApi();
-        });
+            ctx.eval(script);
+            Log.i("V8 Runtime", ctx.eval(
+                    "const c = Class.forName('java.util.ArrayList');\n" +
+                            "getJavaSig([2, 3, 'a', c, {}])").toString());
+        }).start();
 
     }
 

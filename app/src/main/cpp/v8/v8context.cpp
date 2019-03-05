@@ -29,52 +29,57 @@ namespace node {
 
     using jvm::JSObject;
 
-    void forName(const FunctionCallbackInfo<Value> &args) {
+    void ForName(const FunctionCallbackInfo<Value> &args) {
         Isolate *isolate_ = args.GetIsolate();
+        JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
 
-        JNIEnv *env = nullptr;
-        jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
-        if (res != JNI_OK) {
-            res = g_ctx.javaVM->AttachCurrentThread(&env, nullptr);
-            if (JNI_OK != res) {
-                isolate_->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
-            }
-        }
+        jclass utilClass = env_->FindClass("com/node/util/JNIUtils");
 
-        jclass utilClass = env->FindClass("com/node/util/JNIUtils");
-
-        jmethodID getClassMethodList = env->GetStaticMethodID(
+        jmethodID getClassMethodList = env_->GetStaticMethodID(
                 utilClass, "getClassMethodList", "(Ljava/lang/String;)[Ljava/lang/String;");
 
-        jmethodID getClass = env->GetStaticMethodID(
+        jmethodID getClass = env_->GetStaticMethodID(
                 utilClass, "getClass", "(Ljava/lang/String;)Ljava/lang/Class;");
 
         Local<String> className = args[0]->ToString();
         String::Utf8Value s(className);
 
-        auto classStr = env->NewStringUTF(*s);
+        auto classStr = env_->NewStringUTF(*s);
 
-        auto arr = (jobjectArray) env->CallStaticObjectMethod(
+        auto arr = (jobjectArray) env_->CallStaticObjectMethod(
                 utilClass, getClassMethodList, classStr);
 
-        jsize arrLength = env->GetArrayLength(arr);
+        jsize arrLength = env_->GetArrayLength(arr);
         int len = int(arrLength);
 
         Local<Array> array = Array::New(isolate_, len);
         for (int i = 0; i < len; i++) {
-            auto methodName = (jstring) env->GetObjectArrayElement(arr, static_cast<jsize>(i));
+            auto methodName = (jstring) env_->GetObjectArrayElement(arr, static_cast<jsize>(i));
+
             array->Set(static_cast<uint32_t>(i),
-                       Util::ConvertToV8String(Util::JavaToString(env, methodName)));
+                       Util::ConvertToV8String(
+                               Util::JavaToString(env_, methodName)));
         }
 
-        auto class_ = (jclass) env->CallStaticObjectMethod(utilClass, getClass, classStr);
+        auto class_ = (jclass) env_->CallStaticObjectMethod(utilClass, getClass, classStr);
 
         args.GetReturnValue().Set(
                 JSObject::NewInstance(isolate_, class_));
     }
 
+    JNIEnv *env_ = nullptr;
+
     Isolate *InitV8Isolate() {
         if (g_ctx.isolate_ != nullptr) return g_ctx.isolate_;
+
+        jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env_), JNI_VERSION_1_6);
+        if (res != JNI_OK) {
+            res = g_ctx.javaVM->AttachCurrentThread(&env_, nullptr);
+            if (JNI_OK != res) {
+                g_ctx.isolate_->ThrowException(
+                        Util::ConvertToV8String("Unable to invoke activity!"));
+            }
+        }
 
         // Create a new Isolate and make it the current one.
         Isolate::CreateParams create_params;
@@ -86,12 +91,15 @@ namespace node {
         HandleScope handle_scope(isolate_);
 
         Local<ObjectTemplate> globalObject = ObjectTemplate::New(isolate_);
-
         Local<ObjectTemplate> class_ = ObjectTemplate::New(isolate_);
-        class_->Set(Util::ConvertToV8String("forName"),
-                    FunctionTemplate::New(isolate_, forName));
+
+        Local<External> envRef_ = External::New(isolate_, env_);
+
+        class_->Set(Util::ConvertToV8String("forName"), FunctionTemplate::New(
+                isolate_, ForName, envRef_));
 
         globalObject->Set(Util::ConvertToV8String("Class"), class_);
+
         Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
 
         g_ctx.isolate_ = isolate_;
@@ -103,23 +111,7 @@ namespace node {
         return g_ctx.isolate_;
     }
 
-    jlong CreateRuntime() {
-        auto *runtime = new V8Runtime();
-        runtime->isolate_ = InitV8Isolate();
-
-        Locker locker(runtime->isolate_);
-        Isolate::Scope isolate_scope(runtime->isolate_);
-        HandleScope handle_scope(runtime->isolate_);
-
-        Local<Context> context = Context::New(
-                runtime->isolate_, nullptr, g_ctx.globalObject_.Get(runtime->isolate_));
-        runtime->context_.Reset(runtime->isolate_, context);
-        Context::Scope contextScope(context);
-
-        return reinterpret_cast<jlong>(runtime);
-    }
-
-    Handle<Object> RunScript(Isolate *isolate, Local<Context> context, string _script) {
+    Handle<Object> RunScript(Isolate *isolate, Local<Context> context, const string &_script) {
         Local<String> source =
                 String::NewFromUtf8(isolate, _script.c_str(),
                                     NewStringType::kNormal).ToLocalChecked();
@@ -137,9 +129,20 @@ namespace node {
 
     extern "C" jobject JNICALL
     Java_com_node_v8_V8Context_create(JNIEnv *env, jclass klass) {
-        jlong ptr = CreateRuntime();
+        auto *runtime = new V8Runtime();
+        runtime->isolate_ = InitV8Isolate();
+
+        Locker locker(runtime->isolate_);
+        Isolate::Scope isolate_scope(runtime->isolate_);
+        HandleScope handle_scope(runtime->isolate_);
+
+        Local<Context> context = Context::New(
+                runtime->isolate_, nullptr, g_ctx.globalObject_.Get(runtime->isolate_));
+        runtime->context_.Reset(runtime->isolate_, context);
+        Context::Scope contextScope(context);
+
         jmethodID constructor = env->GetMethodID(klass, "<init>", "(J)V");
-        return env->NewObject(klass, constructor, ptr);
+        return env->NewObject(klass, constructor, reinterpret_cast<jlong>(runtime));
     }
 
     extern "C" JNIEXPORT void JNICALL

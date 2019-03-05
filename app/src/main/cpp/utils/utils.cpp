@@ -40,4 +40,14 @@ namespace util {
         return JavaToString(env, packageName);
     }
 
+    void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
+        jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+        if (res != JNI_OK) {
+            res = g_ctx.javaVM->AttachCurrentThread(&(*env), nullptr);
+            if (JNI_OK != res) {
+                isolate->ThrowException(Util::ConvertToV8String("Unable to invoke activity!"));
+            }
+        }
+    }
+
 }

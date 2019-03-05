@@ -32,6 +32,7 @@ namespace util {
         static string JavaToString(JNIEnv *env, jstring str);
         static Local<String> ConvertToV8String(const string &s);
         static string GetPackageName(JNIEnv *env, jclass class_);
+        static void InitEnvironment(Isolate *isolate, JNIEnv **env);
     };
 }
 

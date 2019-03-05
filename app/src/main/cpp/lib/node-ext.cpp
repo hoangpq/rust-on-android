@@ -34,7 +34,7 @@ namespace node {
 
         void AndroidToast(const FunctionCallbackInfo<Value> &args) {
             JNIEnv *env;
-            JavaType::InitEnvironment(args.GetIsolate(), &env);
+            Util::InitEnvironment(args.GetIsolate(), &env);
             Local<String> str = args[0]->ToString();
             const char *msg = ToCString(str);
 

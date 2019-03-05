@@ -29,16 +29,14 @@ namespace node {
             explicit JSObject(jclass);
             ~JSObject() override;
 
+            static Persistent<FunctionTemplate> constructor_;
             static void Init(Isolate *isolate);
             static void New(const FunctionCallbackInfo<Value> &args);
             static void Call(const FunctionCallbackInfo<Value> &args);
             static Handle<Object> NewInstance(Isolate*, jclass);
-
-        public:
-            static Persistent<FunctionTemplate> constructor_;
             static void NamedGetter(Local<String>, const PropertyCallbackInfo<Value> &);
 
-        public: // getters
+            // getters
             jclass GetObjectClass() { return class_; }
             static void TypeOf(const FunctionCallbackInfo<Value> &args);
 
