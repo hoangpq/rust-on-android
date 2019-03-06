@@ -71,15 +71,7 @@ namespace node {
 
     Isolate *InitV8Isolate() {
         if (g_ctx.isolate_ != nullptr) return g_ctx.isolate_;
-
-        jint res = g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&env_), JNI_VERSION_1_6);
-        if (res != JNI_OK) {
-            res = g_ctx.javaVM->AttachCurrentThread(&env_, nullptr);
-            if (JNI_OK != res) {
-                g_ctx.isolate_->ThrowException(
-                        Util::ConvertToV8String("Unable to invoke activity!"));
-            }
-        }
+        Util::InitEnvironment(g_ctx.isolate_, &env_);
 
         // Create a new Isolate and make it the current one.
         Isolate::CreateParams create_params;
@@ -95,8 +87,8 @@ namespace node {
 
         Local<External> envRef_ = External::New(isolate_, env_);
 
-        class_->Set(Util::ConvertToV8String("forName"), FunctionTemplate::New(
-                isolate_, ForName, envRef_));
+        class_->Set(Util::ConvertToV8String("forName"),
+                FunctionTemplate::New(isolate_, ForName, envRef_));
 
         globalObject->Set(Util::ConvertToV8String("Class"), class_);
 

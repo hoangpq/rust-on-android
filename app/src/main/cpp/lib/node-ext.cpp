@@ -33,17 +33,16 @@ namespace node {
         }
 
         void AndroidToast(const FunctionCallbackInfo<Value> &args) {
-            JNIEnv *env;
-            Util::InitEnvironment(args.GetIsolate(), &env);
             Local<String> str = args[0]->ToString();
             const char *msg = ToCString(str);
 
-            jmethodID methodId = env->GetMethodID(
+            JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
+            jmethodID methodId = env_->GetMethodID(
                     g_ctx.mainActivityClz, "subscribe", "(Ljava/lang/String;)V");
 
-            jstring javaMsg = env->NewStringUTF(msg);
-            env->CallVoidMethod(g_ctx.mainActivityObj, methodId, javaMsg);
-            env->DeleteLocalRef(javaMsg);
+            jstring javaMsg = env_->NewStringUTF(msg);
+            env_->CallVoidMethod(g_ctx.mainActivityObj, methodId, javaMsg);
+            env_->DeleteLocalRef(javaMsg);
             args.GetReturnValue().Set(str);
         }
 
@@ -86,36 +85,37 @@ namespace node {
                                    Local<Context> context,
                                    void *priv) {
 
-                // VM for android main thread
-                if (g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&g_ctx.env), JNI_VERSION_1_6) !=
-                    JNI_OK) {
-                    return;
-                }
+                Isolate *isolate_ = target->GetIsolate();
 
-                Isolate *isolate = target->GetIsolate();
-
-                JavaType::Init(isolate);
-                JavaFunctionWrapper::Init(isolate);
+                JavaType::Init(isolate_);
+                JavaFunctionWrapper::Init(isolate_);
 
                 ModuleWrap::Initialize(target, unused, context);
 
                 // define function in global context
                 Local<Object> global = context->Global();
 
-                auto toastFn = FunctionTemplate::New(isolate, loader::AndroidToast)->GetFunction();
-                global->Set(Util::ConvertToV8String("$toast"), toastFn);
+                JNIEnv *env_;
+                Util::InitEnvironment(isolate_, &env_);
+                Util::InitEnvironment(isolate_, &g_ctx.env);
 
-                auto logFn = FunctionTemplate::New(isolate, loader::AndroidLog)->GetFunction();
-                global->Set(Util::ConvertToV8String("$log"), logFn);
+                Local<External> jEnvRef = External::New(isolate_, env_);
 
-                auto errFn = FunctionTemplate::New(isolate, loader::AndroidError)->GetFunction();
-                global->Set(Util::ConvertToV8String("$error"), errFn);
+                global->Set(Util::ConvertToV8String("$toast"),
+                            FunctionTemplate::New(isolate_, loader::AndroidToast,
+                                                  jEnvRef)->GetFunction());
 
-                Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate);
+                global->Set(Util::ConvertToV8String("$log"),
+                            FunctionTemplate::New(isolate_, loader::AndroidLog)->GetFunction());
+
+                global->Set(Util::ConvertToV8String("$error"),
+                            FunctionTemplate::New(isolate_, loader::AndroidError)->GetFunction());
+
+                Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate_);
                 Local<Object> javaVM = javaVMTemplate->NewInstance();
 
                 auto javaTypeFn = FunctionTemplate::New(
-                        isolate, JavaType::NewInstance)->GetFunction();
+                        isolate_, JavaType::NewInstance)->GetFunction();
 
                 javaVM->Set(Util::ConvertToV8String("type"), javaTypeFn);
                 global->Set(Util::ConvertToV8String("Java"), javaVM);
