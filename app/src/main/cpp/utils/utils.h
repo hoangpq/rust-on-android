@@ -14,6 +14,7 @@ typedef struct NodeContext {
     JNIEnv *env;
     jclass mainActivityClz;
     jobject mainActivityObj;
+    jobject mainActivity;
     Isolate *isolate_;
     Persistent<Context> globalContext_;
     Persistent<ObjectTemplate> globalObject_;

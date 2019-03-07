@@ -91,8 +91,6 @@ public class MainActivity extends AppCompatActivity {
 
         initNodeJS();
 
-        runV8Script();
-
         // Generate image activity
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
@@ -101,27 +99,16 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void runV8Script() {
-        new Thread(() -> {
+    public void onNodeServerLoaded() {
+        V8Context ctx_ = V8Context.create();
+        ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+        String script = ScriptUtils
+                .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
 
-            try {
-                Thread.sleep(2_000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            V8Context ctx = V8Context.create();
-            ctx.set("$list", new int[]{11, 12, 13, 14, 15, 16});
-
-            String script = ScriptUtils
-                    .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
-
-            ctx.eval(script);
-            Log.i("V8 Runtime", ctx.eval(
-                    "const c = Class.forName('java.util.ArrayList');\n" +
-                            "getJavaSig([2, 3, 'a', c, {}])").toString());
-        }).start();
-
+        ctx_.eval(script);
+        Log.i("V8 Runtime", ctx_.eval(
+                "const c = Class.forName('java.util.ArrayList');\n" +
+                        "getJavaSig([2, 3, 'a', c, {}])").toString());
     }
 
     private void _initVM() {
@@ -162,7 +149,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                     String args[] = {"node", nodeDir + "/main.js"};
                     startNodeWithArguments(args);
-                    _startedNodeAlready.compareAndSet(false, true);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

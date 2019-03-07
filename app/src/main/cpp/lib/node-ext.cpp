@@ -1,5 +1,6 @@
 #include "node-ext.h"
 
+
 namespace node {
 
     using v8::Context;
@@ -70,6 +71,16 @@ namespace node {
             LOGE("%s", jsonString);
         }
 
+        void OnLoad(const FunctionCallbackInfo<Value> &args) {
+            JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
+
+            if (g_ctx.mainActivity) {
+                jclass activityClass = env_->FindClass("com/node/sample/MainActivity");
+                jmethodID methodId = env_->GetMethodID(activityClass, "onNodeServerLoaded", "()V");
+                env_->CallVoidMethod(g_ctx.mainActivity, methodId);
+            }
+        }
+
         // Override header
         class ModuleWrap {
         public:
@@ -111,6 +122,10 @@ namespace node {
                 global->Set(Util::ConvertToV8String("$error"),
                             FunctionTemplate::New(isolate_, loader::AndroidError)->GetFunction());
 
+                global->Set(Util::ConvertToV8String("$load"),
+                            FunctionTemplate::New(isolate_, loader::OnLoad,
+                                                  jEnvRef)->GetFunction());
+
                 Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate_);
                 Local<Object> javaVM = javaVMTemplate->NewInstance();
 
@@ -148,25 +163,29 @@ JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *) {
 extern "C" void JNICALL
 Java_com_node_sample_MainActivity_initVM(
         JNIEnv *env,
-        jobject klass,
+        jobject instance,
         jobject callback) {
 
     // init objects
     jclass clz = env->GetObjectClass(callback);
     g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
     g_ctx.mainActivityObj = env->NewGlobalRef(callback);
+    g_ctx.mainActivity = env->NewGlobalRef(instance);
 }
 
 extern "C" void JNICALL
 Java_com_node_sample_MainActivity_releaseVM(
         JNIEnv *env,
-        jobject /* this */) {
+        jobject instance) {
 
     // release allocated objects
     env->DeleteGlobalRef(g_ctx.mainActivityObj);
     env->DeleteGlobalRef(g_ctx.mainActivityClz);
+    env->DeleteGlobalRef(g_ctx.mainActivity);
+
     g_ctx.mainActivityObj = nullptr;
     g_ctx.mainActivityClz = nullptr;
+    g_ctx.mainActivity = nullptr;
 }
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap, node::loader::AndroidModuleWrap::Initialize);
