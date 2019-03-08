@@ -1,6 +1,5 @@
 #include "node-ext.h"
 
-
 namespace node {
 
     using v8::Context;
@@ -72,12 +71,9 @@ namespace node {
         }
 
         void OnLoad(const FunctionCallbackInfo<Value> &args) {
-            JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
-
             if (g_ctx.mainActivity) {
-                jclass activityClass = env_->FindClass("com/node/sample/MainActivity");
-                jmethodID methodId = env_->GetMethodID(activityClass, "onNodeServerLoaded", "()V");
-                env_->CallVoidMethod(g_ctx.mainActivity, methodId);
+                JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
+                onNodeServerLoaded(&env_, g_ctx.mainActivity);
             }
         }
 
