@@ -2,8 +2,6 @@ use std::os::raw;
 use std::ffi::CString;
 
 #[allow(non_camel_case_types)]
-pub type c_va_list = raw::c_void;
-#[allow(non_camel_case_types)]
 pub type c_int = raw::c_int;
 #[allow(non_camel_case_types)]
 pub type c_char = raw::c_char;

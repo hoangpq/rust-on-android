@@ -39,10 +39,12 @@ extern "C" {
 
 pub unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_uint) -> JValue<'b> {
     let config = env.call_static_method(
-        "android/graphics/Bitmap$Config", "nativeToConfig",
-        "(I)Landroid/graphics/Bitmap$Config;", &[JValue::from(5)]).unwrap();
+        "android/graphics/Bitmap$Config", "nativeToConfig","(I)Landroid/graphics/Bitmap$Config;", 
+        &[JValue::from(5)]).unwrap();
+
     let jbitmap = env.call_static_method(
         "android/graphics/Bitmap", "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
         &[JValue::from(width as jint), JValue::from(height as jint), config]).unwrap();
-    return jbitmap;
+    
+    jbitmap
 }

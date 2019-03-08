@@ -20,18 +20,19 @@
 #include "../java/jobject.h"
 
 extern "C" jlong JNICALL Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
-extern "C" void JNICALL Java_com_node_sample_MainActivity_dropPointer(JNIEnv *, jobject, jlong);
 extern "C" jstring JNICALL Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
-extern "C" jobject JNICALL Java_com_node_sample_MainActivity_getNativeObject(JNIEnv *, jobject);
 extern "C" void onNodeServerLoaded(JNIEnv **, jobject);
+extern "C" jobject createTimeoutHandler(JNIEnv **);
 
 namespace node {
+
     namespace loader {
         void AndroidToast(const FunctionCallbackInfo<Value> &args);
         void AndroidLog(const FunctionCallbackInfo<Value> &args);
         void AndroidError(const FunctionCallbackInfo<Value> &args);
         void OnLoad(const FunctionCallbackInfo<Value> &args);
     }
+
 }
 
 #endif

@@ -15,22 +15,20 @@ use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::{jint, jlong, jobject, jstring};
+use jni::sys::{jint, jlong, jstring};
 
 use std::ffi::CString;
 
 use jni_graphics::create_bitmap;
 use jni_graphics::{Color, AndroidBitmapInfo};
-use jni_graphics::{AndroidBitmap_getInfo,
-                   AndroidBitmap_lockPixels,
-                   AndroidBitmap_unlockPixels};
+use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
 #[no_mangle]
 pub extern "C" fn init_module() {}
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_asyncComputation(
+pub unsafe extern "C" fn Java_com_node_sample_MainActivity_asyncComputation(
     env: JNIEnv,
     _class: JClass,
     callback: JObject,
@@ -106,39 +104,10 @@ pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_createPointer(
-    env: JNIEnv, _class: JClass,
-) -> jlong {
-    let info = AndroidBitmapInfo { ..Default::default() };
-    Box::into_raw(Box::new(info)) as jlong
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_dropPointer(
-    env: JNIEnv, _class: JClass, info_ptr: jlong,
-) {
-    let mut info = info_ptr as *mut AndroidBitmapInfo;
-    drop(Box::from_raw(info));
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getUtf8String(env: JNIEnv, _class: JClass) -> jstring {
     let ptr = CString::new("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned()).unwrap();
     let output = env.new_string(ptr.to_str().unwrap()).expect("Couldn't create java string!");
     output.into_inner()
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getNativeObject(env: JNIEnv, _class: JClass) -> jobject {
-    let c: Color = Color {
-        red: 255,
-        green: 255,
-        blue: 0,
-    };
-    JObject::null().into_inner()
 }
 
 #[no_mangle]
@@ -189,4 +158,16 @@ pub unsafe extern "C" fn getAndroidVersion(env: &JNIEnv) -> i32 {
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
     env.call_method(activity, "onNodeServerLoaded", "()V", &[]).unwrap();
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> JObject {
+    let looper = env.call_static_method(
+        "android/os/Looper", "getMainLooper", "()Landroid/os/Looper;", &[]).unwrap();
+
+    let timeoutHandler = env.new_object(
+        "android/os/Handler", "(Landroid/os/Looper;)V", &[looper]).unwrap();
+
+    timeoutHandler
 }

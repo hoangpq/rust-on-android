@@ -101,14 +101,19 @@ public class MainActivity extends AppCompatActivity {
 
     public void onNodeServerLoaded() {
         V8Context ctx_ = V8Context.create();
-        ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+
         String script = ScriptUtils
                 .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
 
         ctx_.eval(script);
+        ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+
         Log.i("V8 Runtime", ctx_.eval(
                 "const c = Class.forName('java.util.ArrayList');\n" +
                         "getJavaSig([2, 3, 'a', c, {}])").toString());
+
+        Log.i("V8 Runtime", ctx_.eval(
+                "setTimeout();").toString());
     }
 
     private void _initVM() {

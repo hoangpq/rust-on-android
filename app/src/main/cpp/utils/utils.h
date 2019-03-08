@@ -18,6 +18,7 @@ typedef struct NodeContext {
     Isolate *isolate_;
     Persistent<Context> globalContext_;
     Persistent<ObjectTemplate> globalObject_;
+    jobject handler_;
 } NodeContext;
 
 typedef struct JFunc {

@@ -1,4 +1,5 @@
 #include "v8context.h"
+#include "../lib/node-ext.h"
 #include <unistd.h>
 
 #define LockV8Context(env, instance) \
@@ -67,10 +68,16 @@ namespace node {
                 JSObject::NewInstance(isolate_, class_));
     }
 
+    void SetTimeOut(const FunctionCallbackInfo<Value> &args) {
+        // jobject handler_ = static_cast<jobject>(args.Data().As<External>()->Value());
+        args.GetReturnValue().Set(Util::ConvertToV8String("Not implemented yet"));
+    }
+
     JNIEnv *env_ = nullptr;
 
     Isolate *InitV8Isolate() {
         if (g_ctx.isolate_ != nullptr) return g_ctx.isolate_;
+
         Util::InitEnvironment(g_ctx.isolate_, &env_);
 
         // Create a new Isolate and make it the current one.
@@ -85,12 +92,18 @@ namespace node {
         Local<ObjectTemplate> globalObject = ObjectTemplate::New(isolate_);
         Local<ObjectTemplate> class_ = ObjectTemplate::New(isolate_);
 
-        Local<External> envRef_ = External::New(isolate_, env_);
+        Local<External> handlerRef = External::New(isolate_, g_ctx.handler_);
+        globalObject->Set(Util::ConvertToV8String("setTimeout"),
+                          FunctionTemplate::New(isolate_, SetTimeOut, handlerRef));
 
+        Local<External> envRef_ = External::New(isolate_, env_);
         class_->Set(Util::ConvertToV8String("forName"),
-                FunctionTemplate::New(isolate_, ForName, envRef_));
+                    FunctionTemplate::New(isolate_, ForName, envRef_));
 
         globalObject->Set(Util::ConvertToV8String("Class"), class_);
+
+        globalObject->Set(Util::ConvertToV8String("$log"),
+                          FunctionTemplate::New(isolate_, node::loader::AndroidLog));
 
         Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
 
@@ -110,10 +123,6 @@ namespace node {
         Local<Script> script = Script::Compile(context, source).ToLocalChecked();
         Local<Value> value = script->Run(context).ToLocalChecked();
         return value->ToObject();
-    }
-
-    void SetV8Key(Isolate *isolate, Local<Context> context, const string &key, Local<Value> value) {
-        context->Global()->Set(String::NewFromUtf8(isolate, key.c_str()), value);
     }
 
     extern "C" void JNICALL
