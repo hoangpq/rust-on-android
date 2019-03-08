@@ -2,8 +2,8 @@
 #define _node_extension_h_
 
 #include <jni.h>
-#include <stddef.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <cstdlib>
 #include <pthread.h>
@@ -23,6 +23,7 @@ extern "C" jlong JNICALL Java_com_node_sample_MainActivity_createPointer(JNIEnv 
 extern "C" void JNICALL Java_com_node_sample_MainActivity_dropPointer(JNIEnv *, jobject, jlong);
 extern "C" jstring JNICALL Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
 extern "C" jobject JNICALL Java_com_node_sample_MainActivity_getNativeObject(JNIEnv *, jobject);
+extern "C" void onNodeServerLoaded(JNIEnv **, jobject);
 
 namespace node {
     namespace loader {
