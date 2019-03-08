@@ -187,14 +187,6 @@ pub unsafe extern "C" fn getAndroidVersion(env: &JNIEnv) -> i32 {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn onNodeServerLoaded<'l>(env: &JNIEnv<'l>, activity: JObject<'l>) {
-    let jvm = env.get_java_vm().unwrap();
-    let activityRef = env.new_global_ref(activity).unwrap();
-    let (tx, rx) = mpsc::channel();
-    let _ = thread::spawn(move || {
-        tx.send(()).unwrap();
-        let env = jvm.attach_current_thread().unwrap();
-        let activity_ = activityRef.as_obj();
-    });
-    rx.recv().unwrap();
+pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
+    env.call_method(activity, "onNodeServerLoaded", "()V", &[]).unwrap();
 }
