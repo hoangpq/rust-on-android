@@ -3,14 +3,14 @@
 
 #include <android/log.h>
 #include <jni.h>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "node.h"
 #include "node_object_wrap.h"
 #include "v8.h"
 
-#include "../utils/utils.h"
 #include "java.h"
+#include "../utils/utils.h"
 
 namespace node {
 
@@ -47,7 +47,6 @@ private:
 };
 
 } // namespace jvm
-
 } // namespace node
 
 #endif

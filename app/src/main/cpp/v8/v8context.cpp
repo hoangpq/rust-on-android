@@ -88,7 +88,7 @@ void Log(const FunctionCallbackInfo<Value> &args) {
   LOGI("V8 Runtime %s", jsonString);
 }
 
-void SetTimeOut(const FunctionCallbackInfo<Value> &args) {
+void CreateTimer(const FunctionCallbackInfo<Value> &args, int type) {
   Isolate *isolate_ = args.GetIsolate();
   Local<Context> context = isolate_->GetCurrentContext();
 
@@ -97,9 +97,17 @@ void SetTimeOut(const FunctionCallbackInfo<Value> &args) {
   auto *fn = new Persistent<Function>(isolate_, func);
 
   auto handler_ = createTimeoutHandler(&env);
-  double duration = args[1]->NumberValue(context).FromMaybe(0);
+  double t = args[1]->NumberValue(context).FromMaybe(0);
+  postDelayed(&env, handler_, reinterpret_cast<jlong>(fn), (jlong)t, type);
+}
 
-  postDelayed(&env, handler_, reinterpret_cast<jlong>(fn), (jlong)duration);
+void SetTimeOut(const FunctionCallbackInfo<Value> &args) {
+  CreateTimer(args, 1);
+  args.GetReturnValue().Set(Util::ConvertToV8String("Not implemented yet"));
+}
+
+void SetInterval(const FunctionCallbackInfo<Value> &args) {
+  CreateTimer(args, 2);
   args.GetReturnValue().Set(Util::ConvertToV8String("Not implemented yet"));
 }
 
@@ -130,6 +138,9 @@ Isolate *InitV8Isolate() {
 
   globalObject->Set(Util::ConvertToV8String("setTimeout"),
                     FunctionTemplate::New(isolate_, SetTimeOut, envRef_));
+
+  globalObject->Set(Util::ConvertToV8String("setInterval"),
+                    FunctionTemplate::New(isolate_, SetInterval, envRef_));
 
   globalObject->Set(Util::ConvertToV8String("$log"),
                     FunctionTemplate::New(isolate_, Log));
@@ -215,8 +226,8 @@ Java_com_node_v8_V8Context_eval(JNIEnv *env, jobject instance, jstring script) {
   return env->NewObject(resultClass, constructor, resultPtr, runtimePtr);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_node_v8_V8Context_callFn(JNIEnv *env, jobject instance, jlong fn) {
+extern "C" JNIEXPORT void JNICALL Java_com_node_v8_V8Context_callFn(
+    JNIEnv *env, jobject instance, jlong fn, jboolean interval, jlong time) {
 
   LockV8Context(env, instance);
   LockIsolate(runtimePtr);
@@ -224,7 +235,14 @@ Java_com_node_v8_V8Context_callFn(JNIEnv *env, jobject instance, jlong fn) {
   Local<Function> func = Local<Function>::New(
       g_ctx.isolate_, *reinterpret_cast<Persistent<Function> *>(fn));
 
+  // Blocking call
   func->Call(context, Null(g_ctx.isolate_), 0, nullptr);
+
+  // Interval call
+  if (JNI_TRUE == interval) {
+    auto handler_ = createTimeoutHandler(&env);
+    postDelayed(&env, handler_, fn, time, 2);
+  }
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
@@ -286,5 +304,4 @@ Java_com_node_v8_V8Context_00024V8Result_toJavaString(JNIEnv *env,
 }
 
 } // namespace av8
-
 } // namespace node

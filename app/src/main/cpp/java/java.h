@@ -5,7 +5,7 @@
 #include <jni.h>
 #include <map>
 
-#include <string.h>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -79,7 +79,6 @@ private:
 };
 
 } // namespace jvm
-
 } // namespace node
 
 #endif

@@ -10,10 +10,11 @@
 #include <uv.h>
 #include <v8.h>
 
-#include "../utils/utils.h"
 #include "jsobject.h"
+#include "../utils/utils.h"
 
-extern "C" void postDelayed(JNIEnv **, jobject, jlong, jlong);
+extern "C" jobject createTimeoutHandler(JNIEnv **);
+extern "C" void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 
 namespace node {
 

@@ -220,27 +220,32 @@ pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, t: jlong) {
+pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d: jlong, t: jint) {
     let ctx = env.call_static_method(
         "com/node/v8/V8Context",
-        "create",
+        "getCurrent",
         "()Lcom/node/v8/V8Context;",
         &[],
-    ).unwrap();
+    ).expect("Can not get current context");
 
-    let runnable = env.new_object(
+    let runnable = env.call_static_method(
         "com/node/v8/V8Runnable",
-        "(Lcom/node/v8/V8Context;J)V",
-        &[JValue::from(ctx), JValue::from(f)],
-    );
+        if t == 1 {
+            "createTimeoutRunnable"
+        } else {
+            "createIntervalRunnable"
+        },
+        "(Lcom/node/v8/V8Context;JJ)Lcom/node/v8/V8Runnable;",
+        &[ctx, JValue::from(f), JValue::from(d)],
+    ).expect("Can not create Runnable by factory!");
 
-    match runnable {
+    match runnable.l() {
         Ok(v) => {
             let result = env.call_method(
                 handler,
                 "postDelayed",
                 "(Ljava/lang/Runnable;J)Z",
-                &[JValue::Object(v), JValue::from(t)],
+                &[JValue::Object(v), JValue::from(d)],
             );
 
             match result {

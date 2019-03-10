@@ -244,5 +244,4 @@ void JavaType::ToStringAccessor(Local<String> property,
 }
 
 } // namespace jvm
-
 } // namespace node

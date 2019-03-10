@@ -24,7 +24,6 @@ Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
 extern "C" jstring JNICALL
 Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
 extern "C" void onNodeServerLoaded(JNIEnv **, jobject);
-extern "C" jobject createTimeoutHandler(JNIEnv **);
 
 namespace node {
 

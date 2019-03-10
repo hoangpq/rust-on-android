@@ -101,29 +101,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onNodeServerLoaded() {
-        V8Context ctx_ = V8Context.create();
 
-        String script = ScriptUtils
-                .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
+        new Thread(() -> {
+            V8Context ctx_ = V8Context.create();
 
-        ctx_.eval(script);
-        ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+            String script = ScriptUtils
+                    .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
 
-        Log.i("V8 Runtime", ctx_.eval(
-                "const c = Class.forName('java.util.ArrayList');\n" +
-                        "getJavaSig([2, 3, 'a', c, {}])").toString());
+            ctx_.eval(script);
+            ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-        String s = TextUtils.join(
-                "\n",
-                Arrays.asList(
-                        "const p = new Promise(function(resolve) { setTimeout(resolve, 9000); })",
-                        "p.then(() => { $log('Promise resolved after 9s'); })",
-                        "setTimeout(function() { $log('$timeout 8s'); }, 8000);",
-                        "setTimeout(function() { $log('$timeout 10s'); }, 10000);",
-                        "setTimeout(function() { $log('$timeout 11s'); }, 11000);",
-                        "setTimeout(function() { $log('$timeout 12s'); }, 12000);"));
+            Log.i("V8 Runtime", ctx_.eval(
+                    "const c = Class.forName('java.util.ArrayList');\n" +
+                            "getJavaSig([2, 3, 'a', c, {}])").toString());
 
-        ctx_.eval(s);
+            String s = TextUtils.join(
+                    "\n",
+                    Arrays.asList(
+                            "const p = new Promise(function(resolve) { setTimeout(resolve, 9000); })",
+                            "setInterval(function() { $log('$interval 2s'); }, 2000);",
+                            "p.then(() => { $log('Promise resolved after 9s'); })",
+                            "setTimeout(function() { $log('$timeout 8s'); }, 8000);",
+                            "setTimeout(function() { $log('$timeout 10s'); }, 10000);",
+                            "setTimeout(function() { $log('$timeout 11s'); }, 11000);",
+                            "setTimeout(function() { $log('$timeout 12s'); }, 12000);"));
+
+            ctx_.eval(s);
+
+        }).start();
+
     }
 
     private void _initVM() {
