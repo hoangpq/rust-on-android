@@ -40,7 +40,7 @@ namespace util {
 
 extern NodeContext g_ctx;
 
-static const char *kTAG = "NodeJS Runtime";
+static const char *kTAG = "V8 Runtime";
 
 #define LOGI(...) \
   ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))

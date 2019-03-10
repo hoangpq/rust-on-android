@@ -13,13 +13,21 @@
 #include "jsobject.h"
 #include "../utils/utils.h"
 
+extern "C" void postDelayed(JNIEnv **, jobject, jlong, jlong);
+
 namespace node {
 
-    class V8Runtime {
-    public:
-        Isolate *isolate_;
-        Persistent<Context> context_;
-    };
+    namespace av8 {
+
+        static JNIEnv *env_ = nullptr;
+
+        class V8Runtime {
+        public:
+            Isolate *isolate_;
+            Persistent<Context> context_;
+        };
+
+    }
 }
 
 #endif

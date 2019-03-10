@@ -145,7 +145,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     }
     g_ctx.javaVM = vm;
     g_ctx.mainActivityObj = nullptr;
-    g_ctx.handler_ = createTimeoutHandler(&env_);
     return JNI_VERSION_1_6;
 }
 

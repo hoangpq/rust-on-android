@@ -15,7 +15,7 @@ use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::{jint, jlong, jstring};
+use jni::sys::{jint, jlong, jstring, jobject};
 
 use std::ffi::CString;
 
@@ -162,12 +162,27 @@ pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> JObject {
-    let looper = env.call_static_method(
-        "android/os/Looper", "getMainLooper", "()Landroid/os/Looper;", &[]).unwrap();
+pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
+    let result = env.call_static_method(
+        "com/node/v8/V8Utils",
+        "getHandler",
+        "()Landroid/os/Handler;",
+        &[]).expect("Can not create handler!");
 
-    let timeoutHandler = env.new_object(
-        "android/os/Handler", "(Landroid/os/Looper;)V", &[looper]).unwrap();
+    return result.l().unwrap().into_inner();
+}
 
-    timeoutHandler
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, t: jlong) {
+    let ctx = env.call_static_method(
+        "com/node/v8/V8Context", "create", "()Lcom/node/v8/V8Context;", &[]).unwrap();
+
+    let runnable = env.new_object(
+        "com/node/v8/V8Runnable", "(Lcom/node/v8/V8Context;J)V",
+        &[JValue::from(ctx), JValue::from(f)]);
+
+    env.call_method(handler, "postDelayed",
+                    "(Ljava/lang/Runnable;J)Z",
+                    &[JValue::Object(runnable.unwrap()), JValue::from(t)]).unwrap();
 }

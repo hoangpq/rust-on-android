@@ -1,7 +1,5 @@
 package com.node.sample;
 
-import android.os.Handler;
-
 public class Observable {
     public void subscribe() {
     }
