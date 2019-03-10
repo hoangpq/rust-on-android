@@ -96,7 +96,6 @@ public class MainActivity extends AppCompatActivity {
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
 
         buttonVersions.setOnClickListener(v -> requestApi());
-
     }
 
     public void onNodeServerLoaded() {
@@ -112,8 +111,8 @@ public class MainActivity extends AppCompatActivity {
                 "const c = Class.forName('java.util.ArrayList');\n" +
                         "getJavaSig([2, 3, 'a', c, {}])").toString());
 
-        Log.i("V8 Runtime", ctx_.eval(
-                "setTimeout();").toString());
+        ctx_.eval("setTimeout(function() { $log('hello from $timeout'); }, 9000);" +
+                "setTimeout(function() { $log('world from $timeout'); }, 10000);");
     }
 
     private void _initVM() {

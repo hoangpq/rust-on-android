@@ -2,19 +2,15 @@ package com.node.v8;
 
 public class V8Context {
 
-    public static native void init();
-
     public static native V8Context create();
-
     public native V8Result eval(String script);
-
     public native void set(String key, int[] arr);
-
-    private long runtime__;
+    public native void callFn(long fn);
 
     public V8Context(long runtime__) {
         this.runtime__ = runtime__;
     }
+    private long runtime__;
 
     public static class V8Result {
         long result__;
