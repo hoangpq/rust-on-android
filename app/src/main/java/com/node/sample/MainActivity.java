@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
@@ -30,6 +31,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity {
@@ -111,8 +114,15 @@ public class MainActivity extends AppCompatActivity {
                 "const c = Class.forName('java.util.ArrayList');\n" +
                         "getJavaSig([2, 3, 'a', c, {}])").toString());
 
-        ctx_.eval("setTimeout(function() { $log('hello from $timeout'); }, 9000);" +
-                "setTimeout(function() { $log('world from $timeout'); }, 10000);");
+        String s = TextUtils.join(
+                "\n",
+                Arrays.asList(
+                        "setTimeout(function() { $log('$timeout 9s'); }, 9000);",
+                        "setTimeout(function() { $log('$timeout 10s'); }, 10000);",
+                        "setTimeout(function() { $log('$timeout 11s'); }, 11000);",
+                        "setTimeout(function() { $log('$timeout 12s'); }, 12000);"));
+
+        ctx_.eval(s);
     }
 
     private void _initVM() {
