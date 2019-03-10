@@ -32,19 +32,37 @@ pub struct Color {
 
 #[allow(non_snake_case)]
 extern "C" {
-    pub fn AndroidBitmap_getInfo(env: *mut jni::sys::JNIEnv, jbitmap: jobject, info: *mut AndroidBitmapInfo) -> c_int;
-    pub fn AndroidBitmap_lockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject, addrPtr: *mut *mut c_void) -> c_int;
+    pub fn AndroidBitmap_getInfo(
+        env: *mut jni::sys::JNIEnv,
+        jbitmap: jobject,
+        info: *mut AndroidBitmapInfo,
+    ) -> c_int;
+    pub fn AndroidBitmap_lockPixels(
+        env: *mut jni::sys::JNIEnv,
+        jbitmap: jobject,
+        addrPtr: *mut *mut c_void,
+    ) -> c_int;
     pub fn AndroidBitmap_unlockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject) -> c_int;
 }
 
 pub unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_uint) -> JValue<'b> {
     let config = env.call_static_method(
-        "android/graphics/Bitmap$Config", "nativeToConfig","(I)Landroid/graphics/Bitmap$Config;", 
-        &[JValue::from(5)]).unwrap();
+        "android/graphics/Bitmap$Config",
+        "nativeToConfig",
+        "(I)Landroid/graphics/Bitmap$Config;",
+        &[JValue::from(5)],
+    ).unwrap();
 
     let jbitmap = env.call_static_method(
-        "android/graphics/Bitmap", "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
-        &[JValue::from(width as jint), JValue::from(height as jint), config]).unwrap();
-    
+        "android/graphics/Bitmap",
+        "createBitmap",
+        "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
+        &[
+            JValue::from(width as jint),
+            JValue::from(height as jint),
+            config,
+        ],
+    ).unwrap();
+
     jbitmap
 }

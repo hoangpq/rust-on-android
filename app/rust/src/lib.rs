@@ -1,3 +1,5 @@
+#![feature(stmt_expr_attributes)]
+
 #[macro_use]
 extern crate itertools;
 extern crate jni;
@@ -42,9 +44,7 @@ pub unsafe extern "C" fn Java_com_node_sample_MainActivity_asyncComputation(
         let callback = callback.as_obj();
         for i in 0..10_000 {
             let progress = i as jint;
-            env.call_method(
-                callback, "subscribe",
-                "(I)V", &[progress.into()])
+            env.call_method(callback, "subscribe", "(I)V", &[progress.into()])
                 .unwrap();
             thread::sleep(Duration::from_millis(300));
         }
@@ -58,7 +58,11 @@ fn generate_palette() -> Vec<Color> {
     let mut goffset = 16;
     let mut boffset = 0;
     for i in 0..256 {
-        palette.push(Color { red: roffset, green: goffset, blue: boffset });
+        palette.push(Color {
+            red: roffset,
+            green: goffset,
+            blue: boffset,
+        });
         if i < 64 {
             roffset += 3;
         } else if i < 128 {
@@ -70,7 +74,14 @@ fn generate_palette() -> Vec<Color> {
     return palette;
 }
 
-pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f64, x0: f64, y0: f64) {
+pub fn draw_mandelbrot(
+    buffer: &mut [u8],
+    width: i64,
+    height: i64,
+    pixel_size: f64,
+    x0: f64,
+    y0: f64,
+) {
     println!("Pixel size: {:?} - x0: {:?} - y0: {:?}", pixel_size, x0, y0);
     let palette: Vec<Color> = generate_palette();
     iproduct!((0..width), (0..height)).foreach(|(i, j)| {
@@ -104,16 +115,28 @@ pub fn draw_mandelbrot(buffer: &mut [u8], width: i64, height: i64, pixel_size: f
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getUtf8String(env: JNIEnv, _class: JClass) -> jstring {
-    let ptr = CString::new("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned()).unwrap();
-    let output = env.new_string(ptr.to_str().unwrap()).expect("Couldn't create java string!");
+pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getUtf8String(
+    env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    let ptr = CString::new(
+        "ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned(),
+    ).unwrap();
+    let output = env.new_string(ptr.to_str().unwrap()).expect(
+        "Couldn't create java string!",
+    );
     output.into_inner()
 }
 
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
-    env: JNIEnv<'b>, _class: JObject, imageView: JObject, pixel_size: f64, x0: f64, y0: f64,
+    env: JNIEnv<'b>,
+    _class: JObject,
+    imageView: JObject,
+    pixel_size: f64,
+    x0: f64,
+    y0: f64,
 ) {
     let jvm = env.get_java_vm().unwrap();
     let imageViewRef = env.new_global_ref(imageView).unwrap();
@@ -134,30 +157,46 @@ pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBi
         // Lock pixel for draw
         AndroidBitmap_lockPixels(jenv, bitmap, &mut pixels);
         let pixels = ::std::slice::from_raw_parts_mut(
-            pixels as *mut u8, (info.stride * info.height) as usize);
-        draw_mandelbrot(pixels, info.width as i64, info.height as i64, pixel_size, x0, y0);
+            pixels as *mut u8,
+            (info.stride * info.height) as usize,
+        );
+        draw_mandelbrot(
+            pixels,
+            info.width as i64,
+            info.height as i64,
+            pixel_size,
+            x0,
+            y0,
+        );
         AndroidBitmap_unlockPixels(jenv, bitmap);
         // detach current thread
-        env.call_method(imageView, "setImageBitmap", "(Landroid/graphics/Bitmap;)V",
-                        &[JValue::from(JObject::from(bitmap))]).unwrap();
+        env.call_method(
+            imageView,
+            "setImageBitmap",
+            "(Landroid/graphics/Bitmap;)V",
+            &[JValue::from(JObject::from(bitmap))],
+        ).unwrap();
         tx.send(()).unwrap();
     });
     rx.recv().unwrap();
     env.call_method(_class, "showToast", "()V", &[]).unwrap();
 }
 
-/** Android Version**/
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn getAndroidVersion(env: &JNIEnv) -> i32 {
+    // Android Version
     env.get_static_field("android/os/Build$VERSION", "SDK_INT", "I")
-        .unwrap().i().unwrap() as i32
+        .unwrap()
+        .i()
+        .unwrap() as i32
 }
 
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
-    env.call_method(activity, "onNodeServerLoaded", "()V", &[]).unwrap();
+    env.call_method(activity, "onNodeServerLoaded", "()V", &[])
+        .unwrap();
 }
 
 #[no_mangle]
@@ -167,22 +206,54 @@ pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
         "com/node/v8/V8Utils",
         "getHandler",
         "()Landroid/os/Handler;",
-        &[]).expect("Can not create handler!");
+        &[],
+    ).expect("Can not create handler!");
 
-    return result.l().unwrap().into_inner();
+    match result.l() {
+        Ok(v) => v.into_inner(),
+        Err(e) => {
+            jni_log::debug(format!("{:?}", e));
+            panic!(e)
+        }
+    }
 }
 
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, t: jlong) {
     let ctx = env.call_static_method(
-        "com/node/v8/V8Context", "create", "()Lcom/node/v8/V8Context;", &[]).unwrap();
+        "com/node/v8/V8Context",
+        "create",
+        "()Lcom/node/v8/V8Context;",
+        &[],
+    ).unwrap();
 
     let runnable = env.new_object(
-        "com/node/v8/V8Runnable", "(Lcom/node/v8/V8Context;J)V",
-        &[JValue::from(ctx), JValue::from(f)]);
+        "com/node/v8/V8Runnable",
+        "(Lcom/node/v8/V8Context;J)V",
+        &[JValue::from(ctx), JValue::from(f)],
+    );
 
-    env.call_method(handler, "postDelayed",
-                    "(Ljava/lang/Runnable;J)Z",
-                    &[JValue::Object(runnable.unwrap()), JValue::from(t)]).unwrap();
+    match runnable {
+        Ok(v) => {
+            let result = env.call_method(
+                handler,
+                "postDelayed",
+                "(Ljava/lang/Runnable;J)Z",
+                &[JValue::Object(v), JValue::from(t)],
+            );
+
+            match result {
+                Ok(_v) => {}
+                Err(e) => {
+                    jni_log::debug(format!("{:?}", e));
+                    panic!(e);
+                }
+            }
+        }
+        Err(e) => {
+            jni_log::debug(format!("{:?}", e));
+            panic!(e);
+        }
+    };
 }

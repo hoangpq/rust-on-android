@@ -13,18 +13,13 @@ pub enum LogPriority {
 }
 
 extern "C" {
-    pub fn __android_log_print(prio: c_int,
-                               tag: *const c_char,
-                               fmt: *const c_char,
-                               ...)
-                               -> c_int;
+    pub fn __android_log_print(prio: c_int, tag: *const c_char, fmt: *const c_char, ...) -> c_int;
 }
 
 pub fn debug(msg: String) {
-    let tag = CString::new("Rust").expect("CString::new failed");
+    let tag = CString::new("Rust Runtime").expect("CString::new failed");
     let msg = CString::new(msg).expect("CString::new failed");
     unsafe {
-        __android_log_print(LogPriority::DEBUG as c_int,
-                            tag.as_ptr(), msg.as_ptr());
+        __android_log_print(LogPriority::DEBUG as c_int, tag.as_ptr(), msg.as_ptr());
     }
 }

@@ -31,7 +31,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -117,7 +116,9 @@ public class MainActivity extends AppCompatActivity {
         String s = TextUtils.join(
                 "\n",
                 Arrays.asList(
-                        "setTimeout(function() { $log('$timeout 9s'); }, 9000);",
+                        "const p = new Promise(function(resolve) { setTimeout(resolve, 9000); })",
+                        "p.then(() => { $log('Promise resolved after 9s'); })",
+                        "setTimeout(function() { $log('$timeout 8s'); }, 8000);",
                         "setTimeout(function() { $log('$timeout 10s'); }, 10000);",
                         "setTimeout(function() { $log('$timeout 11s'); }, 11000);",
                         "setTimeout(function() { $log('$timeout 12s'); }, 12000);"));
