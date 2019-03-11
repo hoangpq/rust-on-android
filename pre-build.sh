@@ -24,9 +24,13 @@ rm -f ./target/x86/librust.a
 rm -f ./target/arm64-v8a/librust.a
 rm -f ./target/armeabi-v7a/librust.a
 
-cargo +nightly build --target aarch64-linux-android --release
-cargo +nightly build --target armv7-linux-androideabi --release
-cargo +nightly build --target i686-linux-android --release
+export PATH="$PATH":"$NDK_STANDALONE/arm64/bin":"$NDK_STANDALONE/arm/bin":"$NDK_STANDALONE/x86/bin"
+export I686_LINUX_ANDROID_OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl/include
+export I686_LINUX_ANDROID_OPENSSL_DIR=/usr/local/opt/openssl
+
+# RUST_BACKTRACE=1 cargo +nightly build --target aarch64-linux-android --release
+# RUST_BACKTRACE=1 cargo +nightly build --target armv7-linux-androideabi --release
+RUST_BACKTRACE=1 cargo +nightly build --target i686-linux-android --release
 
 mkdir -p ./target/x86
 mkdir -p ./target/arm64-v8a

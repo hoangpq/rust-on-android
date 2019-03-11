@@ -7,12 +7,16 @@ authors = ["Hoang Phan <pquochoang2007@gmail.com>"]
 name = "rust"
 crate-type = ["staticlib"]
 
+rustc-link-search = ["./lib"]
+rustc-link-lib = ["curl"]
+
 [target.'cfg(target_os="android")'.dependencies]
 num-complex = "0.2"
 itertools = "*"
 libc = "0.2"
 num = "0.2.0"
 jni = { version = "0.10.2", default-features = false }
+curl = "0.4.17"
 
 [dependencies]
 num-complex = "0.2"

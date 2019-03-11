@@ -16,7 +16,6 @@ include_directories(libnode/include/node/)
 
 # add imported target
 add_library(imp_lib_rust STATIC IMPORTED)
-
 # point the imported target at the real file
 set_property(TARGET imp_lib_rust PROPERTY
         IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/target/${ANDROID_ABI}/librust.a)
@@ -63,13 +62,13 @@ find_library( # Sets the name of the path variable.
 # build script, prebuilt third-party libraries, or system libraries.
 target_link_libraries( # Specifies the target library.
         native-lib
+        libcurl
         imp_lib_rust
         jnigraphics
         libnode
         # Links the target library to the log library
         # included in the NDK.
         ${log-lib})
-
 
 # add imported target
 add_library(image-gen SHARED src/main/cpp/lib/image-gen.cpp)

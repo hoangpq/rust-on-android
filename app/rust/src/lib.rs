@@ -25,6 +25,10 @@ use jni_graphics::create_bitmap;
 use jni_graphics::{Color, AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
+extern crate curl;
+use std::io::{stdout, Write};
+use curl::easy::Easy;
+
 #[no_mangle]
 pub extern "C" fn init_module() {}
 
@@ -202,6 +206,16 @@ pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
+
+    let mut easy = Easy::new();
+    easy.url("https://www.rust-lang.org/").unwrap();
+    easy.write_function(|data| {
+        Ok(stdout().write(data).unwrap())
+    }).unwrap();
+    easy.perform().unwrap();
+
+    jni_log::debug(format!("{}", easy.response_code().unwrap()));
+
     let result = env.call_static_method(
         "com/node/v8/V8Utils",
         "getHandler",
