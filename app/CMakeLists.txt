@@ -4,7 +4,7 @@
 # Sets the minimum version of CMake required to build the native library.
 cmake_minimum_required(VERSION 3.4.1)
 
-project(android_nodejs)
+project(android)
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
@@ -15,9 +15,9 @@ project(android_nodejs)
 include_directories(libnode/include/node/)
 
 # add imported target
-add_library(imp_lib_rust STATIC IMPORTED)
+add_library(librust STATIC IMPORTED)
 # point the imported target at the real file
-set_property(TARGET imp_lib_rust PROPERTY
+set_property(TARGET librust PROPERTY
         IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/target/${ANDROID_ABI}/librust.a)
 
 add_library( # Sets the name of the library.
@@ -62,8 +62,7 @@ find_library( # Sets the name of the path variable.
 # build script, prebuilt third-party libraries, or system libraries.
 target_link_libraries( # Specifies the target library.
         native-lib
-        libcurl
-        imp_lib_rust
+        librust
         jnigraphics
         libnode
         # Links the target library to the log library
@@ -73,4 +72,4 @@ target_link_libraries( # Specifies the target library.
 # add imported target
 add_library(image-gen SHARED src/main/cpp/lib/image-gen.cpp)
 
-target_link_libraries(image-gen jnigraphics ${log-lib} imp_lib_rust)
+target_link_libraries(image-gen jnigraphics ${log-lib} librust)

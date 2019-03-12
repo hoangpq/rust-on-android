@@ -207,14 +207,28 @@ pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
 
-    let mut easy = Easy::new();
-    easy.url("https://www.rust-lang.org/").unwrap();
-    easy.write_function(|data| {
+    let mut handle = Easy::new();
+    handle.ssl_verify_peer(false).unwrap();
+    handle.url("https://api.github.com/users/hoangpq/").unwrap();
+    handle.write_function(|data| {
         Ok(stdout().write(data).unwrap())
     }).unwrap();
-    easy.perform().unwrap();
 
-    jni_log::debug(format!("{}", easy.response_code().unwrap()));
+    match handle.perform() {
+        Ok(_) => {
+            match handle.content_type_bytes() {
+                Ok(data) => {
+                    jni_log::debug(format!("{:?}", data));
+                },
+                Err(e) => {
+                    jni_log::debug(format!("{:?}", e));
+                }
+            }
+        },
+        Err(e) => {
+            jni_log::debug(format!("{:?}", e));
+        }
+    };
 
     let result = env.call_static_method(
         "com/node/v8/V8Utils",

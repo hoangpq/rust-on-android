@@ -36,8 +36,8 @@ mkdir -p ./target/x86
 mkdir -p ./target/arm64-v8a
 mkdir -p ./target/armeabi-v7a
 
-cp ./target/aarch64-linux-android/release/librust.a ./target/arm64-v8a/librust.a
-cp ./target/armv7-linux-androideabi/release/librust.a ./target/armeabi-v7a/librust.a
+# cp ./target/aarch64-linux-android/release/librust.a ./target/arm64-v8a/librust.a
+# cp ./target/armv7-linux-androideabi/release/librust.a ./target/armeabi-v7a/librust.a
 cp ./target/i686-linux-android/release/librust.a ./target/x86/librust.a
 
 rustc +nightly --target wasm32-unknown-unknown -O src/main.rs
