@@ -12,8 +12,11 @@ num-complex = "0.2"
 itertools = "*"
 libc = "0.2"
 num = "0.2.0"
-jni = { version = "0.10.2", default-features = false }
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
 curl = "0.4.17"
+jni = { version = "0.10.2", default-features = false }
 
 [dependencies]
 num-complex = "0.2"
