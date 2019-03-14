@@ -6,7 +6,6 @@ use jni::objects::JValue;
 use jni::sys::{jint, jobject};
 
 use std::os::raw::{c_int, c_void, c_uint};
-use jni_log;
 
 #[repr(C)]
 #[derive(Debug, Default)]
@@ -20,7 +19,7 @@ pub struct AndroidBitmapInfo {
 
 impl Drop for AndroidBitmapInfo {
     fn drop(&mut self) {
-        jni_log::debug(format!("Drop bitmap info {:?}", self))
+        adb_debug!(format!("Drop bitmap info {:?}", self));
     }
 }
 

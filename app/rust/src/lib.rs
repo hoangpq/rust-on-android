@@ -5,8 +5,10 @@ extern crate itertools;
 extern crate jni;
 extern crate libc;
 
+#[macro_use]
+pub mod jni_log;
+#[macro_use]
 mod jni_graphics;
-mod jni_log;
 
 use std::cmp;
 use std::thread;
@@ -228,7 +230,7 @@ fn fetch_json() {
     assert_eq!(200, handle.response_code().unwrap());
     // let s = std::str::from_utf8(&json).unwrap().to_string();
     let u: User = serde_json::from_slice(&json).unwrap();
-    jni_log::debug(format!("{:?}", u.name));
+    adb_debug!(u.name);
 }
 
 #[no_mangle]
@@ -251,10 +253,7 @@ pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
 
     match result.l() {
         Ok(v) => v.into_inner(),
-        Err(e) => {
-            jni_log::debug(format!("{:?}", e));
-            panic!(e)
-        }
+        Err(e) => panic!(e),
     }
 }
 
@@ -290,15 +289,9 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
 
             match result {
                 Ok(_v) => {}
-                Err(e) => {
-                    jni_log::debug(format!("{:?}", e));
-                    panic!(e);
-                }
+                Err(e) => panic!(e),
             }
         }
-        Err(e) => {
-            jni_log::debug(format!("{:?}", e));
-            panic!(e);
-        }
+        Err(e) => panic!(e),
     };
 }
