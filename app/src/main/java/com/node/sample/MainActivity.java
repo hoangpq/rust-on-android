@@ -113,24 +113,20 @@ public class MainActivity extends AppCompatActivity {
 
             Log.i("V8 Runtime", ctx_.eval(
                     "const c = Class.forName('java.util.ArrayList');\n" +
-                            "getJavaSig([2, 3, 'a', c, {}])").toString());
+                            "getJavaSig([2, 'a', c, {}])").toString());
 
             String s = TextUtils.join(
                     "\n",
                     Arrays.asList(
-                            "const p = new Promise(function(resolve) { setTimeout(resolve, 9000); })",
-                            // "setInterval(function() { $log('$interval 2s'); }, 2000);",
+                            "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); })",
                             "p.then(() => { $log('Promise resolved after 9s'); })",
-                            "setTimeout(function() { $log('$timeout 8s'); }, 8000);",
-                            "setTimeout(function() { $log('$timeout 10s'); }, 10000);",
-                            "setTimeout(function() { $log('$timeout 11s'); }, 11000);",
-                            "setTimeout(function() { $log('$timeout 12s'); }, 12000);"));
+                            "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
+                            "setTimeout(function() { $log('$timeout 10s'); }, 1e4);"));
 
             ctx_.eval(s);
 
-            Log.i("V8 Runtime", ctx_.eval(
-                    "const buf = new TextEncoder().encode('\uD83E\uDD81'); " +
-                            "new TextDecoder().decode(buf)").toString());
+            ctx_.eval("const buf = new TextEncoder()" +
+                    ".encode(JSON.stringify({ name: 'Hoàng Phan' }));");
 
             Log.i("V8 Runtime", ctx_.eval(
                     "const ab = new ArrayBuffer(buf.length);" +
