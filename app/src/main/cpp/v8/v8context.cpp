@@ -96,7 +96,8 @@ void Send(const FunctionCallbackInfo<Value> &args) {
   auto ab = Local<ArrayBuffer>::Cast(v);
   auto contents = ab->GetContents();
 
-  char* str = workerSendBytes(contents.Data(), ab->ByteLength());
+  void* raw_cb = createCallback();
+  char* str = workerSendBytes(contents.Data(), ab->ByteLength(), raw_cb);
   args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
 }
 

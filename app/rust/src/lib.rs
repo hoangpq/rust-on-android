@@ -5,39 +5,40 @@
 extern crate itertools;
 extern crate jni;
 extern crate libc;
+extern crate core;
+extern crate curl;
+
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
+extern crate bytes;
 
 #[macro_use]
 pub mod jni_log;
 #[macro_use]
 mod jni_graphics;
 
-use std::{cmp, mem, thread};
-use std::sync::mpsc;
-use std::time::Duration;
-use itertools::Itertools;
-
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
 use jni::sys::{jint, jlong, jstring, jobject};
 use std::ffi::CString;
 
+use libc::size_t;
+use std::os::raw::{c_void, c_char};
+use std::{cmp, mem, thread};
+use std::sync::mpsc;
+use std::time::Duration;
+
+use itertools::Itertools;
+use core::borrow::BorrowMut;
+use bytes::Bytes;
+
 use jni_graphics::create_bitmap;
 use jni_graphics::{Color, AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
-extern crate curl;
 use curl::easy::Easy;
-
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate core;
-
-use libc::size_t;
-use std::os::raw::{c_char, c_void, c_int};
-use std::ffi::CStr;
-use core::borrow::BorrowMut;
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -299,14 +300,36 @@ fn fetch_user() -> User {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn workerSendBytes(_buf: *mut c_void, _len: size_t) -> *const u8 {
+pub extern "C" fn workerSendBytes(
+    _buf: *mut c_void,
+    _len: size_t,
+    raw_cb: *mut fn(Bytes) -> Box<Bytes>,
+) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
         _contents = mem::transmute(_buf);
-        // let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
+        let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
+        let slice_bytes = Bytes::from(slice);
+
+        adb_debug!(format!("Received: {:?}", (*raw_cb)(slice_bytes)));
+
         let u: User = fetch_user();
-        format!("{}\0", u.name).as_ptr()
+        let s = CString::new(u.name).unwrap();
+        let p = s.as_ptr();
+        mem::forget(s);
+        p
     }
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn createCallback() -> *mut fn(Bytes) -> Box<Bytes> {
+    let _recv_cb = move |incoming_data: Bytes| {
+        adb_debug!(incoming_data);
+        let data = Bytes::from(&b"reply"[..]);
+        Box::new(data)
+    };
+    Box::into_raw(Box::new(_recv_cb))
 }
 
 fn main() {}
