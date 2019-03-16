@@ -23,8 +23,6 @@ extern "C" jint JNICALL
 Java_com_node_sample_MainActivity_startNodeWithArguments(
     JNIEnv *env, jobject /* this */, jobjectArray arguments) {
 
-  // invoke function to load module to JVM
-  init_module();
   // argc
   jsize argument_count = env->GetArrayLength(arguments);
   // Compute byte size need for all arguments in contiguous memory.

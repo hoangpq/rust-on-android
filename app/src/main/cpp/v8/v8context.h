@@ -10,11 +10,18 @@
 #include <uv.h>
 #include <v8.h>
 
-#include "jsobject.h"
 #include "../utils/utils.h"
+#include "jsobject.h"
+
+struct buf_s {
+  void *data;
+  size_t len;
+};
+typedef struct buf_s buf;
 
 extern "C" jobject createTimeoutHandler(JNIEnv **);
 extern "C" void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
+extern "C" char* workerSendBytes(void *data, size_t len);
 
 namespace node {
 

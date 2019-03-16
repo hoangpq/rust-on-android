@@ -88,6 +88,18 @@ void Log(const FunctionCallbackInfo<Value> &args) {
   LOGI("V8 Runtime %s", jsonString);
 }
 
+void Send(const FunctionCallbackInfo<Value> &args) {
+  Isolate *isolate_ = args.GetIsolate();
+  Local<Value> v = args[0];
+  assert(v->IsArrayBuffer());
+
+  auto ab = Local<ArrayBuffer>::Cast(v);
+  auto contents = ab->GetContents();
+
+  char* str = workerSendBytes(contents.Data(), ab->ByteLength());
+  args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
+}
+
 void CreateTimer(const FunctionCallbackInfo<Value> &args, int type) {
   Isolate *isolate_ = args.GetIsolate();
   Local<Context> context = isolate_->GetCurrentContext();
@@ -144,6 +156,9 @@ Isolate *InitV8Isolate() {
 
   globalObject->Set(Util::ConvertToV8String("$log"),
                     FunctionTemplate::New(isolate_, Log));
+
+  globalObject->Set(Util::ConvertToV8String("$send"),
+                    FunctionTemplate::New(isolate_, Send));
 
   Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
 

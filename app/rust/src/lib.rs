@@ -1,3 +1,4 @@
+#![allow(improper_ctypes)]
 #![feature(stmt_expr_attributes)]
 
 #[macro_use]
@@ -10,17 +11,14 @@ pub mod jni_log;
 #[macro_use]
 mod jni_graphics;
 
-use std::cmp;
-use std::thread;
+use std::{cmp, mem, thread};
 use std::sync::mpsc;
-use std::os::raw::c_void;
 use std::time::Duration;
 use itertools::Itertools;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
 use jni::sys::{jint, jlong, jstring, jobject};
-
 use std::ffi::CString;
 
 use jni_graphics::create_bitmap;
@@ -35,8 +33,9 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-#[no_mangle]
-pub extern "C" fn init_module() {}
+use libc::size_t;
+use std::os::raw::{c_char, c_void, c_int};
+use std::ffi::CStr;
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -125,7 +124,7 @@ pub fn draw_mandelbrot(
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getUtf8String(
+pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
     env: JNIEnv,
     _class: JClass,
 ) -> jstring {
@@ -140,7 +139,7 @@ pub unsafe extern "system" fn Java_com_node_sample_MainActivity_getUtf8String(
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "system" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
+pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
     env: JNIEnv<'b>,
     _class: JObject,
     imageView: JObject,
@@ -295,3 +294,19 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
         Err(e) => panic!(e),
     };
 }
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn workerSendBytes(_buf: *mut c_void, _len: size_t) -> *const u8 {
+    let _contents: *mut u8;
+    unsafe {
+        _contents = mem::transmute(_buf);
+        let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
+        format!(
+            "{}\0",
+            std::str::from_utf8(&slice).expect("Can not create string")
+        ).as_ptr()
+    }
+}
+
+fn main() {}

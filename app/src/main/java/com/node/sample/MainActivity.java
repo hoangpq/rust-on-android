@@ -119,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
                     "\n",
                     Arrays.asList(
                             "const p = new Promise(function(resolve) { setTimeout(resolve, 9000); })",
-                            "setInterval(function() { $log('$interval 2s'); }, 2000);",
+                            // "setInterval(function() { $log('$interval 2s'); }, 2000);",
                             "p.then(() => { $log('Promise resolved after 9s'); })",
                             "setTimeout(function() { $log('$timeout 8s'); }, 8000);",
                             "setTimeout(function() { $log('$timeout 10s'); }, 10000);",
@@ -127,6 +127,15 @@ public class MainActivity extends AppCompatActivity {
                             "setTimeout(function() { $log('$timeout 12s'); }, 12000);"));
 
             ctx_.eval(s);
+
+            Log.i("V8 Runtime", ctx_.eval(
+                    "const buf = new TextEncoder().encode('\uD83E\uDD81'); " +
+                            "new TextDecoder().decode(buf)").toString());
+
+            Log.i("V8 Runtime", ctx_.eval(
+                    "const ab = new ArrayBuffer(buf.length);" +
+                            "const bufView = new Uint8Array(ab);" +
+                            "bufView.set(buf, 0); $send(ab)").toString());
 
         }).start();
 
