@@ -111,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
 
             ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-            Log.i("V8 Runtime", ctx_.eval(
+            Log.d("V8 Runtime", ctx_.eval(
                     "const c = Class.forName('java.util.ArrayList');\n" +
                             "getJavaSig([2, 'a', c, {}])").toString());
 
@@ -128,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
             ctx_.eval("const buf = new TextEncoder()" +
                     ".encode(JSON.stringify({ name: 'Hoàng Phan' }));");
 
-            /*Log.i("V8 Runtime", ctx_.eval(
+            /*Log.d("V8 Runtime", ctx_.eval(
                     "const ab = new ArrayBuffer(buf.length);" +
                             "const bufView = new Uint8Array(ab);" +
                             "bufView.set(buf, 0); $send(ab)").toString());*/

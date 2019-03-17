@@ -314,15 +314,11 @@ pub extern "C" fn workerSendBytes(
         let slice_bytes = Bytes::from(slice);
         // adb_debug!(format!("Received: {:?}", (*raw_cb)(slice_bytes)));
 
-        let v = Vec::from_raw_parts(_buf, _len as usize, _len as usize);
-        adb_debug!(v);
-        buffer::load_user(v);
-
-        let u: User = fetch_user();
-        let s = CString::new(u.name).unwrap();
-        let p = s.as_ptr();
+        let name = buffer::load_user_buf(slice).unwrap();
+        let s = CString::new(name).unwrap();
+        let ptr = s.as_ptr();
         mem::forget(s);
-        p
+        ptr
     }
 }
 

@@ -54,7 +54,7 @@ void AndroidLog(const FunctionCallbackInfo<Value> &args) {
   Local<String> result = handle_scope.Escape(
       JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
   const char *jsonString = ToCString(result);
-  LOGI("V8 Runtime %s", jsonString);
+  LOGD("%s", jsonString);
 }
 
 void AndroidError(const FunctionCallbackInfo<Value> &args) {

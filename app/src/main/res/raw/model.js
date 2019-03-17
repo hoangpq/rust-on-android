@@ -1,4 +1,4 @@
-function createUser(name) {
+function createUser(name, age = 10) {
   try {
     const builder = new flatbuffers.Builder(0);
     const _name = builder.createString(name);
@@ -6,7 +6,7 @@ function createUser(name) {
     const User = users.User;
     User.startUser(builder);
     User.addName(builder, _name);
-    User.addAge(builder, 20);
+    User.addAge(builder, age);
 
     const offset = User.endUser(builder);
     builder.finish(offset);
@@ -17,7 +17,7 @@ function createUser(name) {
     const bufView = new Uint8Array(ab);
     bufView.set(bytes, 0);
 
-    $send(ab)
+    $log($send(ab));
 
   } catch (e) {
     $log(e.message);
