@@ -18,6 +18,7 @@ extern crate bytes;
 pub mod jni_log;
 #[macro_use]
 mod jni_graphics;
+mod proto;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
@@ -301,17 +302,21 @@ fn fetch_user() -> User {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn workerSendBytes(
-    _buf: *mut c_void,
+    _buf: *mut u8,
     _len: size_t,
     raw_cb: *mut fn(Bytes) -> Box<Bytes>,
 ) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
         _contents = mem::transmute(_buf);
+
         let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
         let slice_bytes = Bytes::from(slice);
+        // adb_debug!(format!("Received: {:?}", (*raw_cb)(slice_bytes)));
 
-        adb_debug!(format!("Received: {:?}", (*raw_cb)(slice_bytes)));
+        let v = Vec::from_raw_parts(_buf, _len as usize, _len as usize);
+        adb_debug!(v);
+        proto::load_user_proto(v);
 
         let u: User = fetch_user();
         let s = CString::new(u.name).unwrap();

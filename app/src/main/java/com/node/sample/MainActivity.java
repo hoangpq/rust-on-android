@@ -128,10 +128,12 @@ public class MainActivity extends AppCompatActivity {
             ctx_.eval("const buf = new TextEncoder()" +
                     ".encode(JSON.stringify({ name: 'Hoàng Phan' }));");
 
-            Log.i("V8 Runtime", ctx_.eval(
+            /*Log.i("V8 Runtime", ctx_.eval(
                     "const ab = new ArrayBuffer(buf.length);" +
                             "const bufView = new Uint8Array(ab);" +
-                            "bufView.set(buf, 0); $send(ab)").toString());
+                            "bufView.set(buf, 0); $send(ab)").toString());*/
+
+            ctx_.eval("createUser('Vampire Phan [Hoàng Phan]')");
 
         }).start();
 

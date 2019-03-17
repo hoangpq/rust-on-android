@@ -1,0 +1,7 @@
+namespace users;
+
+table User {
+  name : string;
+}
+
+root_type User;
