@@ -18,7 +18,7 @@ extern crate bytes;
 pub mod jni_log;
 #[macro_use]
 mod jni_graphics;
-mod proto;
+mod buffer;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
@@ -316,7 +316,7 @@ pub extern "C" fn workerSendBytes(
 
         let v = Vec::from_raw_parts(_buf, _len as usize, _len as usize);
         adb_debug!(v);
-        proto::load_user_proto(v);
+        buffer::load_user(v);
 
         let u: User = fetch_user();
         let s = CString::new(u.name).unwrap();

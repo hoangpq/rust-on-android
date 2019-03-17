@@ -105,10 +105,10 @@ public class MainActivity extends AppCompatActivity {
         new Thread(() -> {
             V8Context ctx_ = V8Context.create();
 
-            String script = ScriptUtils
-                    .readFileFromRawDirectory(getApplicationContext(), R.raw.core);
+            ScriptUtils.require(getApplicationContext(), ctx_, R.raw.core);
+            ScriptUtils.require(getApplicationContext(), ctx_, R.raw.user);
+            ScriptUtils.require(getApplicationContext(), ctx_, R.raw.model);
 
-            ctx_.eval(script);
             ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
             Log.i("V8 Runtime", ctx_.eval(

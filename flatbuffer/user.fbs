@@ -2,6 +2,7 @@ namespace users;
 
 table User {
   name : string;
+  age: int;
 }
 
 root_type User;

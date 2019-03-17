@@ -2,6 +2,8 @@ package com.node.util;
 
 import android.content.Context;
 
+import com.node.v8.V8Context;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,5 +25,9 @@ public class ScriptUtils {
         }
         assert byteStream != null;
         return byteStream.toString();
+    }
+
+    public static void require(Context ctx_, V8Context v8ctx_, int resourceId) {
+        v8ctx_.eval(readFileFromRawDirectory(ctx_, resourceId));
     }
 }
