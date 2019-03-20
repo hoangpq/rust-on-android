@@ -13,16 +13,12 @@
 #include "../utils/utils.h"
 #include "jsobject.h"
 
-struct buf_s {
-  void *data;
-  size_t len;
+extern "C" {
+jobject createTimeoutHandler(JNIEnv **);
+void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
+char *workerSendBytes(void *, size_t, void *);
+void *createCallback();
 };
-typedef struct buf_s buf;
-
-extern "C" jobject createTimeoutHandler(JNIEnv **);
-extern "C" void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
-extern "C" char* workerSendBytes(void*, size_t, void*);
-extern "C" void* createCallback();
 
 namespace node {
 
