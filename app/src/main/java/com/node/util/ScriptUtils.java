@@ -7,6 +7,8 @@ import com.node.v8.V8Context;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Optional;
 
 public class ScriptUtils {
 
@@ -29,5 +31,10 @@ public class ScriptUtils {
 
     public static void require(Context ctx_, V8Context v8ctx_, int resourceId) {
         v8ctx_.eval(readFileFromRawDirectory(ctx_, resourceId));
+    }
+
+    public static void bulkEval(V8Context v8ctx_, String ...scripts) {
+        Optional<String> script = Arrays.stream(scripts).reduce((sc, c) -> sc + c + "\n");
+        script.ifPresent(v8ctx_::eval);
     }
 }
