@@ -11,8 +11,6 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
-import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -31,7 +29,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity {
@@ -101,7 +98,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onNodeServerLoaded() {
-
         new Thread(() -> {
             V8Context ctx_ = V8Context.create();
 
@@ -111,32 +107,18 @@ public class MainActivity extends AppCompatActivity {
 
             ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-            Log.d("V8 Runtime", ctx_.eval(
-                    "const c = Class.forName('java.util.ArrayList');\n" +
-                            "getJavaSig([2, 'a', c, {}])").toString());
+            ScriptUtils.bulkEval(ctx_,
+                    "const c = Class.forName('java.util.ArrayList');",
+                    "$log(getJavaSig([2, 'a', c, {}]));");
 
-            String s = TextUtils.join(
-                    "\n",
-                    Arrays.asList(
-                            "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); })",
-                            "p.then(() => { $log('Promise resolved after 9s'); })",
-                            "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
-                            "setTimeout(function() { $log('$timeout 10s'); }, 1e4);"));
-
-            ctx_.eval(s);
-
-            ctx_.eval("const buf = new TextEncoder()" +
-                    ".encode(JSON.stringify({ name: 'Hoàng Phan' }));");
-
-            /*Log.d("V8 Runtime", ctx_.eval(
-                    "const ab = new ArrayBuffer(buf.length);" +
-                            "const bufView = new Uint8Array(ab);" +
-                            "bufView.set(buf, 0); $send(ab)").toString());*/
+            ScriptUtils.bulkEval(ctx_,
+                    "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); });",
+                    "p.then(() => { $log('Promise resolved after 9s'); });",
+                    "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
+                    "setTimeout(function() { $log('$timeout 10s'); }, 1e4);");
 
             ctx_.eval("createUser('Vampire Phan [Hoàng Phan]')");
-
         }).start();
-
     }
 
     private void _initVM() {
