@@ -244,13 +244,15 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
         &[],
     ).expect("Can not get current context");
 
+    let timer_sig = if t == 1 {
+        "createTimeoutRunnable"
+    } else {
+        "createIntervalRunnable"
+    };
+
     let runnable = env.call_static_method(
         "com/node/v8/V8Runnable",
-        if t == 1 {
-            "createTimeoutRunnable"
-        } else {
-            "createIntervalRunnable"
-        },
+        timer_sig,
         "(Lcom/node/v8/V8Context;JJ)Lcom/node/v8/V8Runnable;",
         &[ctx, JValue::from(f), JValue::from(d)],
     ).expect("Can not create Runnable by factory!");
@@ -325,12 +327,12 @@ pub extern "C" fn workerSendBytes(
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn createCallback() -> *mut fn(Bytes) -> Box<Bytes> {
-    let _recv_cb = move |incoming_data: Bytes| {
+    let cb = move |incoming_data: Bytes| {
         adb_debug!(incoming_data);
         let data = Bytes::from(&b"reply"[..]);
         Box::new(data)
     };
-    Box::into_raw(Box::new(_recv_cb))
+    Box::into_raw(Box::new(cb))
 }
 
 fn main() {}
