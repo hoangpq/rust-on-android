@@ -17,7 +17,10 @@ function createUser(name, age = 10) {
     const bufView = new Uint8Array(ab);
     bufView.set(bytes, 0);
 
-    $log($send(ab));
+    $send(ab, function(buf) {
+      const ar = new Uint8Array(buf);
+      $log(`Received: ${new TextDecoder().decode(ar)}`);
+    });
 
   } catch (e) {
     $log(e.message);

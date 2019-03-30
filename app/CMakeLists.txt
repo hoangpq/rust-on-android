@@ -12,7 +12,7 @@ project(android)
 # Gradle automatically packages shared libraries with your APK.
 
 #Includes node's header files.
-include_directories(libnode/include/node/)
+include_directories(rust/libnode/include/node/)
 
 # add imported target
 add_library(librust STATIC IMPORTED)
@@ -44,7 +44,7 @@ set_target_properties( # Specifies the target library.
         # Specifies the parameter you want to define.
         PROPERTIES IMPORTED_LOCATION
         # Provides the path to the library you want to import.
-        ${CMAKE_SOURCE_DIR}/libnode/bin/${ANDROID_ABI}/libnode.so)
+        ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libnode.so)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by

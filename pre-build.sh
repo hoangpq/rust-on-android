@@ -7,7 +7,9 @@ export I686_LINUX_ANDROID_OPENSSL_LIB_DIR="`pwd`/app/rust/openssl/lib"
 export I686_LINUX_ANDROID_OPENSSL_DIR="`pwd`/app/rust/openssl"
 
 NDK_STANDALONE=$HOME/ndk-standalone
-export PATH="$PATH":"$NDK_STANDALONE/arm64/bin":"$NDK_STANDALONE/arm/bin":"$NDK_STANDALONE/x86/bin"
+# export PATH="$PATH":"$NDK_STANDALONE/arm64/bin"
+# export PATH="$PATH":"$NDK_STANDALONE/arm/bin"
+export PATH="$PATH":"$NDK_STANDALONE/x86/bin"
 
 create_standalone_ndk() {
     rustup default nightly

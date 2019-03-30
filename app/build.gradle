@@ -40,7 +40,7 @@ android {
     // to include the directory of your prebuilt .so files as follows.
     sourceSets {
         main {
-            jniLibs.srcDirs 'libnode/bin/'
+            jniLibs.srcDirs 'rust/libnode/bin/'
         }
     }
 

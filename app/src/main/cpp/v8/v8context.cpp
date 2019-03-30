@@ -90,14 +90,15 @@ void Log(const FunctionCallbackInfo<Value> &args) {
 
 void Send(const FunctionCallbackInfo<Value> &args) {
   Isolate *isolate_ = args.GetIsolate();
-  Local<Value> v = args[0];
-  assert(v->IsArrayBuffer());
 
-  auto ab = Local<ArrayBuffer>::Cast(v);
+  assert(args[0]->IsArrayBuffer());
+  auto ab = Local<ArrayBuffer>::Cast(args[0]);
   auto contents = ab->GetContents();
 
-  void *raw_cb = createCallback();
-  char *str = workerSendBytes(contents.Data(), ab->ByteLength(), raw_cb);
+  assert(args[1]->IsFunction());
+  auto cb = Local<Function>::Cast(args[1]);
+
+  char *str = workerSendBytes(contents.Data(), ab->ByteLength(), cb);
   args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
 }
 
