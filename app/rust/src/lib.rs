@@ -309,7 +309,7 @@ pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, cb: &Value) -> *c
     let _contents: *mut u8;
     unsafe {
         let cb: Function = Function::Cast(cb);
-        let mut ab: ArrayBuffer = ArrayBuffer::New(&b"Invoked from Rust"[..]);
+        let mut ab: ArrayBuffer = ArrayBuffer::New(&"💖 from Rust".as_bytes());
 
         let mut argv = vec![ab];
         cb.Call(1, &mut argv);
