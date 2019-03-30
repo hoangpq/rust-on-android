@@ -16,6 +16,7 @@ extern crate bytes;
 
 #[macro_use]
 pub mod jni_log;
+pub mod v8;
 #[macro_use]
 mod jni_graphics;
 mod buffer;
@@ -40,6 +41,7 @@ use jni_graphics::{Color, AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
 use curl::easy::Easy;
+use v8::{Context, Function, ArrayBuffer, Value};
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -303,18 +305,19 @@ fn fetch_user() -> User {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn workerSendBytes(
-    _buf: *mut u8,
-    _len: size_t,
-    raw_cb: *mut fn(Bytes) -> Box<Bytes>,
-) -> *const c_char {
+pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, cb: &Value) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
+        let cb: Function = Function::Cast(cb);
+        let mut ab: ArrayBuffer = ArrayBuffer::New(&b"Invoked from Rust"[..]);
+
+        let mut argv = vec![ab];
+        cb.Call(1, &mut argv);
+
         _contents = mem::transmute(_buf);
 
         let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
         let slice_bytes = Bytes::from(slice);
-        // adb_debug!(format!("Received: {:?}", (*raw_cb)(slice_bytes)));
 
         let name = buffer::load_user_buf(slice).unwrap();
         let s = CString::new(name).unwrap();
@@ -322,17 +325,6 @@ pub extern "C" fn workerSendBytes(
         mem::forget(s);
         ptr
     }
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub extern "C" fn createCallback() -> *mut fn(Bytes) -> Box<Bytes> {
-    let cb = move |incoming_data: Bytes| {
-        adb_debug!(incoming_data);
-        let data = Bytes::from(&b"reply"[..]);
-        Box::new(data)
-    };
-    Box::into_raw(Box::new(cb))
 }
 
 fn main() {}

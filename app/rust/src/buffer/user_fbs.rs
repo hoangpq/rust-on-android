@@ -26,26 +26,25 @@ pub mod users {
         type Inner = User<'a>;
         #[inline]
         fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-            Self {
-                _tab: flatbuffers::Table { buf: buf, loc: loc },
-            }
+            Self { _tab: flatbuffers::Table { buf: buf, loc: loc } }
         }
     }
 
     impl<'a> User<'a> {
         #[inline]
         pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-            User {
-                _tab: table,
-            }
+            User { _tab: table }
         }
         #[allow(unused_mut)]
         pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
             _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-            args: &'args UserArgs<'args>) -> flatbuffers::WIPOffset<User<'bldr>> {
+            args: &'args UserArgs<'args>,
+        ) -> flatbuffers::WIPOffset<User<'bldr>> {
             let mut builder = UserBuilder::new(_fbb);
             builder.add_age(args.age);
-            if let Some(x) = args.name { builder.add_name(x); }
+            if let Some(x) = args.name {
+                builder.add_name(x);
+            }
             builder.finish()
         }
 
@@ -54,7 +53,10 @@ pub mod users {
 
         #[inline]
         pub fn name(&self) -> Option<&'a str> {
-            self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(User::VT_NAME, None)
+            self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                User::VT_NAME,
+                None,
+            )
         }
         #[inline]
         pub fn age(&self) -> i32 {
@@ -63,16 +65,13 @@ pub mod users {
     }
 
     pub struct UserArgs<'a> {
-        pub name: Option<flatbuffers::WIPOffset<&'a  str>>,
+        pub name: Option<flatbuffers::WIPOffset<&'a str>>,
         pub age: i32,
     }
     impl<'a> Default for UserArgs<'a> {
         #[inline]
         fn default() -> Self {
-            UserArgs {
-                name: None,
-                age: 0,
-            }
+            UserArgs { name: None, age: 0 }
         }
     }
     pub struct UserBuilder<'a: 'b, 'b> {
@@ -81,8 +80,11 @@ pub mod users {
     }
     impl<'a: 'b, 'b> UserBuilder<'a, 'b> {
         #[inline]
-        pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b  str>) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(User::VT_NAME, name);
+        pub fn add_name(&mut self, name: flatbuffers::WIPOffset<&'b str>) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                User::VT_NAME,
+                name,
+            );
         }
         #[inline]
         pub fn add_age(&mut self, age: i32) {
@@ -116,12 +118,16 @@ pub mod users {
     #[inline]
     pub fn finish_user_buffer<'a, 'b>(
         fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-        root: flatbuffers::WIPOffset<User<'a>>) {
+        root: flatbuffers::WIPOffset<User<'a>>,
+    ) {
         fbb.finish(root, None);
     }
 
     #[inline]
-    pub fn finish_size_prefixed_user_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<User<'a>>) {
+    pub fn finish_size_prefixed_user_buffer<'a, 'b>(
+        fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+        root: flatbuffers::WIPOffset<User<'a>>,
+    ) {
         fbb.finish_size_prefixed(root, None);
     }
-}  // pub mod users
+} // pub mod users
