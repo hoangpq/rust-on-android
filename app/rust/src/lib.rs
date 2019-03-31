@@ -41,7 +41,7 @@ use jni_graphics::{Color, AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
 use curl::easy::Easy;
-use v8::{Context, Function, ArrayBuffer, Value};
+use v8::{Context, Function, ArrayBuffer, Value, CallbackInfo};
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -309,9 +309,10 @@ pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, cb: &Value) -> *c
     let _contents: *mut u8;
     unsafe {
         let cb: Function = Function::Cast(cb);
-        let mut ab: ArrayBuffer = ArrayBuffer::New(&"💖 from Rust".as_bytes());
 
+        let ab: ArrayBuffer = ArrayBuffer::New(&"💖".as_bytes());
         let mut argv = vec![ab];
+
         cb.Call(1, &mut argv);
 
         _contents = mem::transmute(_buf);
@@ -325,6 +326,13 @@ pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, cb: &Value) -> *c
         mem::forget(s);
         ptr
     }
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn Perform(args: &CallbackInfo) {
+    let f: Function = Function::Cast(&args.Get(0));
+    f.CallV();
 }
 
 fn main() {}

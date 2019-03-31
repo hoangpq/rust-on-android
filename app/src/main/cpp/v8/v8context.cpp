@@ -162,6 +162,9 @@ Isolate *InitV8Isolate() {
   globalObject->Set(Util::ConvertToV8String("$send"),
                     FunctionTemplate::New(isolate_, Send));
 
+  globalObject->Set(Util::ConvertToV8String("$perform"),
+                    FunctionTemplate::New(isolate_, Perform));
+
   Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
 
   g_ctx.isolate_ = isolate_;

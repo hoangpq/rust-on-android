@@ -19,7 +19,11 @@ function createUser(name, age = 10) {
 
     $send(ab, function(buf) {
       const ar = new Uint8Array(buf);
-      $log(`Received ${new TextDecoder().decode(ar)}`);
+      $log(`Received ${new TextDecoder().decode(ar)} from Rust`);
+    });
+
+    $perform(function() {
+      $log('runTest');
     });
 
   } catch (e) {
