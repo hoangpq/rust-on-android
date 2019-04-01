@@ -305,21 +305,15 @@ fn fetch_user() -> User {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, cb: &Value) -> *const c_char {
+pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, _cb: Value) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
-        let cb: Function = Function::Cast(cb);
-
         let ab: ArrayBuffer = ArrayBuffer::New(&"💖".as_bytes());
-        let mut argv = vec![ab];
-
-        cb.Call(1, &mut argv);
+        let _cb: Function = Function::Cast(_cb);
+        _cb.Call(vec![ab]);
 
         _contents = mem::transmute(_buf);
-
         let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
-        let slice_bytes = Bytes::from(slice);
-
         let name = buffer::load_user_buf(slice).unwrap();
         let s = CString::new(name).unwrap();
         let ptr = s.as_ptr();
@@ -331,8 +325,8 @@ pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, cb: &Value) -> *c
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn Perform(args: &CallbackInfo) {
-    let f: Function = Function::Cast(&args.Get(0));
-    f.CallV();
+    let f: Function = Function::Cast(args.Get(0));
+    f.Call(vec![] as Vec<Value>);
 }
 
 fn main() {}
