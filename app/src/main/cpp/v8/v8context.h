@@ -16,7 +16,7 @@
 extern "C" {
 jobject createTimeoutHandler(JNIEnv **);
 void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
-char *workerSendBytes(void *, size_t, Local<Function> val);
+char *workerSendBytes(void *, size_t, Local<Value> val);
 void Perform(const FunctionCallbackInfo<Value>&);
 };
 
