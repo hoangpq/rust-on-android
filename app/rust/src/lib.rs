@@ -41,7 +41,7 @@ use jni_graphics::{Color, AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
 use curl::easy::Easy;
-use v8::{Context, Function, ArrayBuffer, Value, CallbackInfo};
+use v8::{Function, ArrayBuffer, Value, CallbackInfo};
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -327,6 +327,7 @@ pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, _cb: Value) -> *c
 pub extern "C" fn Perform(args: &CallbackInfo) {
     let f: Function = Function::Cast(args.Get(0));
     f.Call(vec![] as Vec<Value>);
+    args.SetReturn();
 }
 
 fn main() {}

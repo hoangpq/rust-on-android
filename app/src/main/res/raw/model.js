@@ -22,9 +22,11 @@ function createUser(name, age = 10) {
       $log(`Received ${new TextDecoder().decode(ar)} from Rust`);
     });
 
-    $perform(function() {
-      $log('runTest');
+    const $result = $perform(function() {
+      $log('$performed');
     });
+
+    $log($result);
 
   } catch (e) {
     $log(e.message);
