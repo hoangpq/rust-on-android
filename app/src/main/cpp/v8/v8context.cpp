@@ -92,13 +92,12 @@ void Send(const FunctionCallbackInfo<Value> &args) {
   Isolate *isolate_ = args.GetIsolate();
 
   assert(args[0]->IsArrayBuffer());
+  assert(args[1]->IsFunction());
+
   auto ab = Local<ArrayBuffer>::Cast(args[0]);
   auto contents = ab->GetContents();
 
-  assert(args[1]->IsFunction());
-  auto cb = Local<Function>::Cast(args[1]);
-
-  char *str = workerSendBytes(contents.Data(), ab->ByteLength(), cb);
+  char *str = workerSendBytes(contents.Data(), ab->ByteLength(), args[1]);
   args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
 }
 
