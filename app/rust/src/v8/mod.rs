@@ -1,8 +1,11 @@
 extern crate libc;
 
-use libc::size_t;
-use std::os::raw::c_void;
+use libc::{c_char, size_t};
+use std::borrow::Cow;
+use std::ffi::CString;
+use std::marker::PhantomData;
 use std::mem;
+use std::os::raw::c_void;
 
 extern "C" {
     fn v8_function_cast(v: Value) -> Function;
@@ -10,7 +13,8 @@ extern "C" {
     fn v8_function_call(f: Function, argc: i32, argv: *mut c_void);
     fn v8_function_callback_info_get(info: &FunctionCallbackInfo, index: i32) -> Value;
     fn v8_function_callback_length(info: &FunctionCallbackInfo) -> i32;
-    fn v8_return(info: &FunctionCallbackInfo);
+    fn v8_set_return_value(info: &FunctionCallbackInfo, val: &Value);
+    fn v8_string_new_from_utf8(data: *const libc::c_char) -> String;
 }
 
 pub trait ValueT {
@@ -30,6 +34,7 @@ macro_rules! value_method (
 #[repr(C)]
 #[derive(Debug)]
 pub struct Value(*mut Value);
+value_method!(Value);
 
 #[repr(C)]
 #[derive(Debug)]
@@ -81,17 +86,21 @@ impl CallbackInfo {
     pub fn Len(&self) -> i32 {
         unsafe { v8_function_callback_length(&self.info) }
     }
-    pub fn SetReturn(&self) {
+    pub fn SetReturnValue<T: ValueT>(&self, v: T) {
         unsafe {
-            v8_return(&self.info);
+            v8_set_return_value(&self.info, v.as_val())
         }
     }
-    pub fn SetReturnValue<T>(&self, v: T)
-        where
-            T: ValueT,
-    {
-        unsafe {
-            // set_return_value(&self.info, v.as_val());
-        }
+}
+
+#[repr(C)]
+pub struct String(*mut String);
+value_method!(String);
+
+#[allow(non_snake_case)]
+impl String {
+    pub fn NewFromUtf8(data: &str) -> String {
+        let data = CString::new(data).unwrap();
+        unsafe { v8_string_new_from_utf8(data.as_ptr()) }
     }
 }

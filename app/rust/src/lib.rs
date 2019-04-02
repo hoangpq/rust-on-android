@@ -327,7 +327,7 @@ pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, _cb: Value) -> *c
 pub extern "C" fn Perform(args: &CallbackInfo) {
     let f: Function = Function::Cast(args.Get(0));
     f.Call(vec![] as Vec<Value>);
-    args.SetReturn();
+    args.SetReturnValue(v8::String::NewFromUtf8("Message from Rust!"));
 }
 
 fn main() {}

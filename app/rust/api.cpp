@@ -44,9 +44,14 @@ extern "C" void v8_utf8_string_new(Local<String> *out, const uint8_t *data,
       .ToLocal(out);
 }
 
-extern "C" void v8_return(FunctionCallbackInfo<Value> *info) {
+extern "C" void v8_set_return_value(FunctionCallbackInfo<Value> *info, Local<Value> *value) {
   Isolate *isolate_ = Isolate::GetCurrent();
-  info->GetReturnValue().Set(String::NewFromUtf8(isolate_, "Hello, World"));
+  info->GetReturnValue().Set(*value);
+}
+
+extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  return String::NewFromUtf8(isolate_, data);
 }
 
 #ifdef __cplusplus
