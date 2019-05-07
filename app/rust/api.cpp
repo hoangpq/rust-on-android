@@ -45,13 +45,18 @@ extern "C" void v8_utf8_string_new(Local<String> *out, const uint8_t *data,
 }
 
 extern "C" void v8_set_return_value(FunctionCallbackInfo<Value> *info, Local<Value> *value) {
-  Isolate *isolate_ = Isolate::GetCurrent();
   info->GetReturnValue().Set(*value);
 }
 
 extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
   Isolate *isolate_ = Isolate::GetCurrent();
   return String::NewFromUtf8(isolate_, data);
+}
+
+extern "C" void v8_register_ft(Local<ObjectTemplate> t, const char *name, FunctionCallback callback) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  Local<String> v8name = String::NewFromUtf8(isolate_, name);
+  t->Set(v8name, FunctionTemplate::New(isolate_, callback));
 }
 
 #ifdef __cplusplus

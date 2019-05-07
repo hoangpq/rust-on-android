@@ -1,9 +1,7 @@
 extern crate libc;
 
-use libc::{c_char, size_t};
-use std::borrow::Cow;
+use libc::size_t;
 use std::ffi::CString;
-use std::marker::PhantomData;
 use std::mem;
 use std::os::raw::c_void;
 
@@ -87,9 +85,7 @@ impl CallbackInfo {
         unsafe { v8_function_callback_length(&self.info) }
     }
     pub fn SetReturnValue<T: ValueT>(&self, v: T) {
-        unsafe {
-            v8_set_return_value(&self.info, v.as_val())
-        }
+        unsafe { v8_set_return_value(&self.info, v.as_val()) }
     }
 }
 

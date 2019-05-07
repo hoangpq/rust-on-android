@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -44,16 +45,16 @@ public class MainActivity extends AppCompatActivity {
 
     public native void releaseVM();
 
-    public native void asyncComputation(Observable callbackObj);
+    public native void asyncComputation(V8Context context_);
 
     public native String getUtf8String();
 
     AtomicBoolean _startedNodeAlready = new AtomicBoolean(false);
 
-    @SuppressLint("StaticFieldLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
 
         final Button buttonVersions = findViewById(R.id.btVersions);
@@ -67,14 +68,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Init VM
         _initVM();
-
-        // Async counter watcher
-        asyncComputation(new Observable() {
-            @Override
-            public void subscribe(int arg) {
-                runOnUiThread(() -> txtCounter.setText(String.valueOf(arg)));
-            }
-        });
 
         // Video
         MediaController vidControl = new MediaController(this);
@@ -99,25 +92,27 @@ public class MainActivity extends AppCompatActivity {
 
     public void onNodeServerLoaded() {
         new Thread(() -> {
-            V8Context ctx_ = V8Context.create();
+            try {
+                V8Context context_ = V8Context.Companion.create();
+                asyncComputation(context_);
 
-            ScriptUtils.require(getApplicationContext(), ctx_, R.raw.core);
-            ScriptUtils.require(getApplicationContext(), ctx_, R.raw.user);
-            ScriptUtils.require(getApplicationContext(), ctx_, R.raw.model);
+                ScriptUtils.require(getApplicationContext(), context_, R.raw.core);
+                ScriptUtils.require(getApplicationContext(), context_, R.raw.user);
+                ScriptUtils.require(getApplicationContext(), context_, R.raw.model);
 
-            ctx_.set("$list", new int[]{11, 12, 13, 14, 15, 16});
+                context_.setKey("$list", new int[]{11, 12, 13, 14, 15, 16});
 
-            ScriptUtils.bulkEval(ctx_,
-                    "const c = Class.forName('java.util.ArrayList');",
-                    "$log(getJavaSig([2, 'a', c, {}]));");
+                ScriptUtils.bulkEval(context_,
+                        "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); });",
+                        "p.then(() => { $log('Promise resolved after 9s'); });",
+                        "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
+                        "setTimeout(function() { $log('$timeout 10s'); }, 1e4);");
 
-            ScriptUtils.bulkEval(ctx_,
-                    "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); });",
-                    "p.then(() => { $log('Promise resolved after 9s'); });",
-                    "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
-                    "setTimeout(function() { $log('$timeout 10s'); }, 1e4);");
+                Log.i("wtf", context_.eval("createUser('Vampire Phan [Hoàng Phan]')").toString());
 
-            ctx_.eval("createUser('Vampire Phan [Hoàng Phan]')");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }).start();
     }
 
@@ -157,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
                         saveLastUpdateTime();
                     }
-                    String args[] = {"node", nodeDir + "/main.js"};
+                    String[] args = {"node", nodeDir + "/main.js"};
                     startNodeWithArguments(args);
                 } catch (Exception e) {
                     e.printStackTrace();

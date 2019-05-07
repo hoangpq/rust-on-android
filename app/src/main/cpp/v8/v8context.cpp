@@ -207,7 +207,7 @@ extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,
   return env->NewObject(klass, constructor, reinterpret_cast<jlong>(runtime));
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_node_v8_V8Context_set(
+extern "C" JNIEXPORT void JNICALL Java_com_node_v8_V8Context_setKey(
     JNIEnv *env, jobject instance, jstring key, jintArray data) {
 
   LockV8Context(env, instance);
@@ -310,7 +310,7 @@ Java_com_node_v8_V8Context_00024V8Result_toInteger(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_node_v8_V8Context_00024V8Result_toJavaString(JNIEnv *env,
+Java_com_node_v8_V8Context_00024V8Result_toNativeString(JNIEnv *env,
                                                       jobject instance) {
   LockV8Result(env, instance);
   LockIsolate(runtimePtr);
@@ -318,8 +318,8 @@ Java_com_node_v8_V8Context_00024V8Result_toJavaString(JNIEnv *env,
   Handle<Object> result = Local<Object>::New(
       runtime->isolate_, *reinterpret_cast<Persistent<Object> *>(resultPtr));
 
-  String::Utf8Value s(result->ToString());
-  return env->NewStringUTF(*s);
+  String::Utf8Value str(result->ToString());
+  return env->NewStringUTF(*str);
 }
 
 } // namespace av8

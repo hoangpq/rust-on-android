@@ -23,21 +23,18 @@ mod buffer;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::{jint, jlong, jstring, jobject};
+use jni::sys::{jint, jlong, jobject};
 use std::ffi::CString;
 
 use libc::size_t;
 use std::os::raw::{c_void, c_char};
-use std::{cmp, mem, thread};
+use std::{mem, thread};
 use std::sync::mpsc;
-use std::time::Duration;
 
-use itertools::Itertools;
 use core::borrow::BorrowMut;
-use bytes::Bytes;
 
-use jni_graphics::create_bitmap;
-use jni_graphics::{Color, AndroidBitmapInfo};
+use jni_graphics::{create_bitmap, draw_mandelbrot};
+use jni_graphics::{ AndroidBitmapInfo};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
 use curl::easy::Easy;
@@ -48,99 +45,33 @@ use v8::{Function, ArrayBuffer, Value, CallbackInfo};
 pub unsafe extern "C" fn Java_com_node_sample_MainActivity_asyncComputation(
     env: JNIEnv,
     _class: JClass,
-    callback: JObject,
+    _ctx: JObject,
 ) {
-    let jvm = env.get_java_vm().unwrap();
-    let callback = env.new_global_ref(callback).unwrap();
-    let (tx, rx) = mpsc::channel();
-    let _ = thread::spawn(move || {
-        tx.send(()).unwrap();
-        let env = jvm.attach_current_thread().unwrap();
-        let callback = callback.as_obj();
-        for i in 0..10_000 {
-            let progress = i as jint;
-            env.call_method(callback, "subscribe", "(I)V", &[progress.into()])
-                .unwrap();
-            thread::sleep(Duration::from_millis(300));
+    let script = env.new_string(r#"
+        let count = 0;
+        function update() {
+            $log(++count);
         }
-    });
-    rx.recv().unwrap();
-}
+        setInterval(update, 1e3);
+    "#);
 
-fn generate_palette() -> Vec<Color> {
-    let mut palette: Vec<Color> = vec![];
-    let mut roffset = 24;
-    let mut goffset = 16;
-    let mut boffset = 0;
-    for i in 0..256 {
-        palette.push(Color {
-            red: roffset,
-            green: goffset,
-            blue: boffset,
-        });
-        if i < 64 {
-            roffset += 3;
-        } else if i < 128 {
-            goffset += 3;
-        } else if i < 192 {
-            boffset += 3;
-        }
-    }
-    return palette;
-}
+    match script {
+        Ok(s) => {
 
-pub fn draw_mandelbrot(
-    buffer: &mut [u8],
-    width: i64,
-    height: i64,
-    pixel_size: f64,
-    x0: f64,
-    y0: f64,
-) {
-    println!("Pixel size: {:?} - x0: {:?} - y0: {:?}", pixel_size, x0, y0);
-    let palette: Vec<Color> = generate_palette();
-    iproduct!((0..width), (0..height)).foreach(|(i, j)| {
-        let cr = x0 + pixel_size * (i as f64);
-        let ci = y0 + pixel_size * (j as f64);
-        let (mut zr, mut zi) = (0.0, 0.0);
+            let obj: JObject = s.into();
+            let result = env.call_method(
+                _ctx,
+                "eval",
+                "(Ljava/lang/String;)Lcom/node/v8/V8Context$V8Result;",
+                &[JValue::from(obj)]);
 
-        let k = (0..256)
-            .take_while(|_| {
-                let (zrzi, zr2, zi2) = (zr * zi, zr * zr, zi * zi);
-                zr = zr2 - zi2 + cr;
-                zi = zrzi + zrzi + ci;
-                zi2 + zr2 < 2.0
-            })
-            .count();
-        let k = cmp::min(255, k) as u8;
-        let idx = (4 * (j * width + i)) as usize;
-
-        let result = palette.get(k as usize);
-        match result {
-            Some(color) => {
-                buffer[idx] = color.red;
-                buffer[idx + 1] = color.green;
-                buffer[idx + 2] = color.blue;
-                buffer[idx + 3] = 255;
-            }
-            None => {}
-        }
-    });
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
-    env: JNIEnv,
-    _class: JClass,
-) -> jstring {
-    let ptr = CString::new(
-        "ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned(),
-    ).unwrap();
-    let output = env.new_string(ptr.to_str().unwrap()).expect(
-        "Couldn't create java string!",
-    );
-    output.into_inner()
+            match result {
+                Ok(r) => adb_debug!(r),
+                Err(e) => adb_debug!(e)
+            };
+        },
+        Err(e) => adb_debug!(e)
+    };
 }
 
 #[no_mangle]
@@ -277,6 +208,7 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
     };
 }
 
+#[allow(dead_code)]
 fn fetch_user() -> User {
     let mut handle = Easy::new();
     handle.ssl_verify_peer(false).unwrap();
@@ -330,4 +262,5 @@ pub extern "C" fn Perform(args: &CallbackInfo) {
     args.SetReturnValue(v8::String::NewFromUtf8("Send 💖 to JS world!"));
 }
 
+#[allow(dead_code)]
 fn main() {}
