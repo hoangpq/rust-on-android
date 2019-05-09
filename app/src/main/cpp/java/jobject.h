@@ -2,15 +2,15 @@
 #define _jobject_h_
 
 #include <android/log.h>
-#include <jni.h>
 #include <cstdlib>
+#include <jni.h>
 
 #include "node.h"
 #include "node_object_wrap.h"
 #include "v8.h"
 
-#include "java.h"
 #include "../utils/utils.h"
+#include "java.h"
 
 namespace node {
 

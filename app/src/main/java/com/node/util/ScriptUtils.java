@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public class ScriptUtils {
 
-    public static String readFileFromRawDirectory(Context context, int resourceId) {
+    private static String readFileFromRawDirectory(Context context, int resourceId) {
         InputStream iStream = context.getResources().openRawResource(resourceId);
         ByteArrayOutputStream byteStream = null;
         try {

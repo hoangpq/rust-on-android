@@ -4,7 +4,6 @@
 #include <libplatform/libplatform.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <cstdlib>
 #include <string>
 #include <unistd.h>
 #include <uv.h>

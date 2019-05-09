@@ -20,6 +20,7 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.node.util.ScriptUtils;
+import com.node.v8.UIUpdater;
 import com.node.v8.V8Context;
 
 import java.io.BufferedReader;
@@ -32,7 +33,7 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements UIUpdater {
 
     static {
         System.loadLibrary("native-lib");
@@ -50,18 +51,19 @@ public class MainActivity extends AppCompatActivity {
     public native String getUtf8String();
 
     AtomicBoolean _startedNodeAlready = new AtomicBoolean(false);
+    private TextView txtCounter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+        txtCounter = findViewById(R.id.txtCounter);
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
         final VideoView mVideoView = findViewById(R.id.videoView);
         final Button mButtonPlayVideo = findViewById(R.id.btnPlayVideo);
-        final TextView txtCounter = findViewById(R.id.txtCounter);
         final TextView txtMessage = findViewById(R.id.txtMessage);
 
         txtMessage.setText(getUtf8String());
@@ -94,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 V8Context context_ = V8Context.Companion.create();
+                // context_.setParent(this);
                 asyncComputation(context_);
 
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.core);
@@ -108,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
                         "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
                         "setTimeout(function() { $log('$timeout 10s'); }, 1e4);");
 
-                Log.i("wtf", context_.eval("createUser('Vampire Phan [Hoàng Phan]')").toString());
+                context_.eval("createUser('Vampire Phan [Hoàng Phan]')");
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -296,5 +299,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         releaseVM();
         super.onDestroy();
+    }
+
+    @Override
+    public void update(int val) {
+        runOnUiThread(() -> txtCounter.setText(String.valueOf(val)));
     }
 }

@@ -119,14 +119,14 @@ public:
                 FunctionTemplate::New(isolate_, loader::OnLoad, jEnvRef)
                     ->GetFunction());
 
-    Local<ObjectTemplate> javaVMTemplate = ObjectTemplate::New(isolate_);
-    Local<Object> javaVM = javaVMTemplate->NewInstance();
+    Local<ObjectTemplate> vmTemplate = ObjectTemplate::New(isolate_);
+    Local<Object> vm = vmTemplate->NewInstance();
 
     auto javaTypeFn =
         FunctionTemplate::New(isolate_, JavaType::NewInstance)->GetFunction();
 
-    javaVM->Set(Util::ConvertToV8String("type"), javaTypeFn);
-    global->Set(Util::ConvertToV8String("Java"), javaVM);
+    vm->Set(Util::ConvertToV8String("type"), javaTypeFn);
+    global->Set(Util::ConvertToV8String("Java"), vm);
   }
 };
 

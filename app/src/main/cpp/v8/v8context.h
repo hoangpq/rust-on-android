@@ -17,12 +17,17 @@ extern "C" {
 jobject createTimeoutHandler(JNIEnv **);
 void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 char *workerSendBytes(void *, size_t, Local<Value> val);
-void Perform(const FunctionCallbackInfo<Value>&);
+void Perform(const FunctionCallbackInfo<Value> &);
 };
 
 namespace node {
 
 namespace av8 {
+
+struct JNIHolder {
+  jobject context_;
+  JNIEnv *env_;
+};
 
 static JNIEnv *env_ = nullptr;
 
@@ -30,6 +35,7 @@ class V8Runtime {
 public:
   Isolate *isolate_;
   Persistent<Context> context_;
+  static Persistent<Function> constructor_;
 };
 
 } // namespace av8

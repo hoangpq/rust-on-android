@@ -11,10 +11,16 @@ class V8Context(private val runtime__: Long) {
         hash_?.put(++current_index, this)
     }
 
+    fun updateUI(num: Int) {
+        // parent?.update(num)
+    }
+
     class V8Result(internal var result__: Long, internal var runtime__: Long) {
         private external fun toNativeString(): String
         override fun toString(): String = toNativeString()
     }
+
+    var parent: UIUpdater? = null
 
     companion object {
         @JvmStatic

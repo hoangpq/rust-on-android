@@ -18,8 +18,9 @@ fn main() {
 
     cfg.out_dir(&build)
         .cpp(true)
+        .flag_if_supported("-w")
         .flag_if_supported("-Wno-unused-parameter")
         .include("libnode/include/node")
-        .file("api.cpp")
+        .file("build/api.cpp")
         .compile("api");
 }

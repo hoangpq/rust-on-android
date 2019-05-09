@@ -33,6 +33,8 @@ namespace av8 {
 
 using jvm::JSObject;
 
+Persistent<Function> V8Runtime::constructor_;
+
 const char *ToCString(Local<String> str) {
   String::Utf8Value value(str);
   return *value ? *value : "<string conversion failed>";
@@ -124,6 +126,55 @@ void SetInterval(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(Util::ConvertToV8String("Not implemented yet"));
 }
 
+void New(const FunctionCallbackInfo<Value> &args) {
+  args.GetReturnValue().Set(args.Holder());
+}
+
+void CreateExternal(const FunctionCallbackInfo<Value> &args) {
+  Isolate *isolate = args.GetIsolate();
+  Local<Context> context = isolate->GetCurrentContext();
+
+  Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
+  tpl->InstanceTemplate()->SetInternalFieldCount(1);
+
+  Local<Object> obj =
+      tpl->GetFunction()->NewInstance(context, 0, nullptr).ToLocalChecked();
+
+  assert(obj->InternalFieldCount() > 0);
+
+  auto holder = static_cast<JNIHolder *>(args.Data().As<External>()->Value());
+  obj->SetAlignedPointerInInternalField(0, holder);
+
+  args.GetReturnValue().Set(obj);
+}
+
+void InvokeRef(const FunctionCallbackInfo<Value> &args) {
+  Isolate *isolate = args.GetIsolate();
+  Local<Object> handle = args[0]->ToObject();
+  assert(handle->InternalFieldCount() > 0);
+
+  assert(args[1]->IsNumber());
+
+  void *ptr = handle->GetAlignedPointerFromInternalField(0);
+  auto *holder = static_cast<JNIHolder *>(ptr);
+
+  int res = g_ctx.javaVM->AttachCurrentThread(&holder->env_, nullptr);
+  if (JNI_OK != res) {
+    isolate->ThrowException(
+            Util::ConvertToV8String("Unable to invoke activity!"));
+  }
+
+  jclass clz = holder->env_->FindClass("com/node/v8/V8Context");
+
+  jmethodID method =
+      holder->env_->GetMethodID(clz, "updateUI", "(Ljava/lang/String;)V");
+
+  /*holder->env_->CallVoidMethod(holder->context_, method,
+                               (jint)args[1]->Int32Value());*/
+
+  return args.GetReturnValue().Set(Number::New(isolate, 1.0));
+}
+
 Isolate *InitV8Isolate() {
   if (g_ctx.isolate_ != nullptr)
     return g_ctx.isolate_;
@@ -140,6 +191,7 @@ Isolate *InitV8Isolate() {
   Isolate::Scope isolate_scope(isolate_);
   HandleScope handle_scope(isolate_);
 
+  // Init helpers function
   Local<External> envRef_ = External::New(isolate_, env_);
   Local<ObjectTemplate> globalObject = ObjectTemplate::New(isolate_);
   Local<ObjectTemplate> class_ = ObjectTemplate::New(isolate_);
@@ -163,6 +215,9 @@ Isolate *InitV8Isolate() {
 
   globalObject->Set(Util::ConvertToV8String("$perform"),
                     FunctionTemplate::New(isolate_, Perform));
+
+  globalObject->Set(Util::ConvertToV8String("$invokeRef"),
+                    FunctionTemplate::New(isolate_, InvokeRef));
 
   Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
 
@@ -198,13 +253,31 @@ extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,
   Isolate::Scope isolate_scope(runtime->isolate_);
   HandleScope handle_scope(runtime->isolate_);
 
-  Local<Context> context = Context::New(
-      runtime->isolate_, nullptr, g_ctx.globalObject_.Get(runtime->isolate_));
+  jmethodID constructor = env->GetMethodID(klass, "<init>", "(J)V");
+
+  auto instance = env->NewGlobalRef(
+      env->NewObject(klass, constructor, reinterpret_cast<jlong>(runtime)));
+
+  Local<ObjectTemplate> globalObject =
+      g_ctx.globalObject_.Get(runtime->isolate_);
+
+  auto *holder = new JNIHolder;
+  holder->context_ = instance;
+  holder->env_ = env_;
+
+  Local<External> ref = External::New(runtime->isolate_, holder);
+
+  globalObject->Set(
+      Util::ConvertToV8String("$createRef"),
+      FunctionTemplate::New(runtime->isolate_, CreateExternal, ref));
+
+  Local<Context> context =
+      Context::New(runtime->isolate_, nullptr, globalObject);
+
   runtime->context_.Reset(runtime->isolate_, context);
   Context::Scope contextScope(context);
 
-  jmethodID constructor = env->GetMethodID(klass, "<init>", "(J)V");
-  return env->NewObject(klass, constructor, reinterpret_cast<jlong>(runtime));
+  return instance;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_node_v8_V8Context_setKey(
@@ -252,10 +325,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_node_v8_V8Context_callFn(
   LockIsolate(runtimePtr);
 
   Local<Function> func = Local<Function>::New(
-      g_ctx.isolate_, *reinterpret_cast<Persistent<Function> *>(fn));
+      runtime->isolate_, *reinterpret_cast<Persistent<Function> *>(fn));
 
   // Blocking call
-  func->Call(context, Null(g_ctx.isolate_), 0, nullptr);
+  func->Call(context, Null(runtime->isolate_), 0, nullptr);
 
   // Interval call
   if (JNI_TRUE == interval) {
@@ -311,7 +384,7 @@ Java_com_node_v8_V8Context_00024V8Result_toInteger(JNIEnv *env,
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_node_v8_V8Context_00024V8Result_toNativeString(JNIEnv *env,
-                                                      jobject instance) {
+                                                        jobject instance) {
   LockV8Result(env, instance);
   LockIsolate(runtimePtr);
 

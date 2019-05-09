@@ -64,4 +64,8 @@ public class JNIUtils {
         return class_.getName();
     }
 
+    public static void test(String ...args) {
+
+    }
+
 }

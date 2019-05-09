@@ -27,7 +27,7 @@ Persistent<FunctionTemplate> JavaFunctionWrapper::_func_wrapper;
 
 JavaFunctionWrapper::JavaFunctionWrapper(JavaType *type, jobject instance,
                                          string methodName)
-    : _type(type), _instance(instance), _methodName(methodName) {}
+    : _type(type), _instance(instance), _methodName(std::move(methodName)) {}
 
 JavaFunctionWrapper::~JavaFunctionWrapper() = default;
 
@@ -59,7 +59,7 @@ Local<Value> JavaFunctionWrapper::NewInstance(JavaType *type, Isolate *isolate,
 
   Local<Object> jsinst = _function_template->GetFunction()->NewInstance();
   JavaFunctionWrapper *function_wrapper =
-      new JavaFunctionWrapper(type, jinst, methodName);
+      new JavaFunctionWrapper(type, jinst, std::move(methodName));
 
   function_wrapper->Wrap(jsinst);
   return Local<Value>::New(isolate, jsinst);

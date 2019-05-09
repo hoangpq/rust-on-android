@@ -48,11 +48,16 @@ pub unsafe extern "C" fn Java_com_node_sample_MainActivity_asyncComputation(
     _ctx: JObject,
 ) {
     let script = env.new_string(r#"
-        let count = 0;
-        function update() {
-            $log(++count);
+        try {
+            let count = 0;
+            const $ref = $createRef();
+            function update() {
+                $invokeRef($ref, ++count);
+            }
+            setInterval(update, 1e3);
+        } catch (e) {
+            $log(e.message);
         }
-        setInterval(update, 1e3);
     "#);
 
     match script {

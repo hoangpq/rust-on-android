@@ -53,12 +53,6 @@ extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
   return String::NewFromUtf8(isolate_, data);
 }
 
-extern "C" void v8_register_ft(Local<ObjectTemplate> t, const char *name, FunctionCallback callback) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  Local<String> v8name = String::NewFromUtf8(isolate_, name);
-  t->Set(v8name, FunctionTemplate::New(isolate_, callback));
-}
-
 #ifdef __cplusplus
 #endif
 

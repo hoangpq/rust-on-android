@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-find `pwd` -name "src/**/*.h" | xargs clang-format -i -style=file
-find `pwd` -name "src/**/*.cpp" | xargs clang-format -i -style=file
+dir="`pwd`/app/src/main"
+find ${dir} -name *.h | xargs clang-format -i -style=file
+find ${dir} -name *.cpp | xargs clang-format -i -style=file
