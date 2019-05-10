@@ -120,7 +120,8 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(3000, () => {
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
   if (typeof $load === 'function') $load();
-  $log(`Server is running on port 3000`);
+  $log(`Server is running on port ${PORT}...`);
 });

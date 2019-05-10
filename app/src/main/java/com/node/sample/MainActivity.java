@@ -102,13 +102,13 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
                 context_.setKey("$list", new int[]{11, 12, 13, 14, 15, 16});
 
                 context_.eval("" +
-                        "   try { " +
-                        "       let count = 0;\n" +
-                        "       setInterval(function() { " +
-                        "           $invokeRef(++count); " +
-                        "       }, 1e3);\n" +
-                        "   } catch (e) {\n" +
-                        "       $log(e.message);\n" +
+                        "   try {" +
+                        "       let count = 0;" +
+                        "       setInterval(function() {" +
+                        "           $invokeRef(++count);" +
+                        "       }, 1e3);" +
+                        "   } catch (e) {" +
+                        "       $log(e.message);" +
                         "   }");
 
                 ScriptUtils.bulkEval(context_,
