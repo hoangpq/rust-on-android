@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -74,10 +75,14 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
         mVideoView.setMediaController(vidControl);
 
         mButtonPlayVideo.setOnClickListener(view -> {
-            String url = "http://localhost:3000/stream";
-            Uri uri = Uri.parse(url);
-            mVideoView.setVideoURI(uri);
-            mVideoView.start();
+            try {
+                String url = "http://localhost:3000/stream";
+                Uri uri = Uri.parse(url);
+                mVideoView.setVideoURI(uri);
+                mVideoView.start();
+            } catch (Exception e) {
+                Log.e("Java", e.getMessage());
+            }
         });
 
         initNodeJS();

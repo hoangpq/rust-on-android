@@ -4,6 +4,8 @@ const http = require('http');
 const { TextDecoder } = require('util');
 const { Transform } = require('stream');
 
+const server = require('./server');
+
 const INTERVAL = 3000;
 function ToastQueue() {
   this._queue = [];
@@ -62,66 +64,11 @@ const waBuf = new Uint8Array(fs.readFileSync(path.join(__dirname, 'wa.wasm')));
   }
 })();
 
-function serveFile(req, res) {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  const assetPath = path.join(__dirname, 'sample.mp4');
-  const stat = fs.statSync(assetPath);
-  const fileSize = stat.size;
-  const range = req.headers.range;
-
-  const filterStream = new Transform({
-    transform(chunk, encoding, callback) {
-      this.push(chunk);
-      callback();
-    }
+try {
+  server.serve(() => {
+    if (typeof $load === 'function') $load();
+    $log('Server is running...');
   });
-
-  if (range) {
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-    const chunksize = end - start + 1;
-    const file = fs.createReadStream(assetPath, { start, end });
-
-    res.writeHead(206, {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': 'video/mp4'
-    });
-    file.pipe(filterStream).pipe(res);
-  } else {
-    res.writeHead(200, {
-      'Content-Length': fileSize,
-      'Content-Type': 'video/mp4'
-    });
-    fs.createReadStream(assetPath)
-      .pipe(filterStream)
-      .pipe(res);
-  }
+} catch (e) {
+  $log(e.message);
 }
-
-function handleNodeVersionRequest(req, res) {
-  res.statusCode = 200;
-  res.writeHead(200, {
-    'Content-Type': 'application/json'
-  });
-  $toast(` \nUser-Agent: ${req.headers['user-agent']}\n`);
-  res.end(JSON.stringify({ ...process.versions }));
-}
-
-const server = http.createServer((req, res) => {
-  switch (req.url) {
-    case '/':
-      return handleNodeVersionRequest(req, res);
-    case '/stream':
-      return serveFile(req, res);
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  if (typeof $load === 'function') $load();
-  $log(`Server is running on port ${PORT}...`);
-});
