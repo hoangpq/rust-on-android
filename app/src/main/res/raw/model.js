@@ -27,11 +27,9 @@ function createUser(name, age = 10) {
     });
 
     $log($result);
-
   } catch (e) {
     $log(e.message);
   }
 
   return true;
-
 }

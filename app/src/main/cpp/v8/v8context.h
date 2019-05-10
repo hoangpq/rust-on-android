@@ -10,8 +10,10 @@
 #include <uv.h>
 #include <v8.h>
 
+#include "../lib/node-ext.h"
 #include "../utils/utils.h"
 #include "jsobject.h"
+#include <stdio.h>
 
 extern "C" {
 jobject createTimeoutHandler(JNIEnv **);
@@ -24,19 +26,22 @@ namespace node {
 
 namespace av8 {
 
-struct JNIHolder {
-  jobject context_;
-  JNIEnv *env_;
-};
-
-static JNIEnv *env_ = nullptr;
-
 class V8Runtime {
 public:
+  JNIEnv *env_;
+  jobject holder_;
   Isolate *isolate_;
   Persistent<Context> context_;
-  static Persistent<Function> constructor_;
 };
+
+struct GlobalContext {
+  Isolate *isolate_;
+  Persistent<Context> globalContext_;
+  Persistent<ObjectTemplate> globalObject_;
+  JNIEnv *env_; // Main thread
+};
+
+static GlobalContext ctx_;
 
 } // namespace av8
 } // namespace node

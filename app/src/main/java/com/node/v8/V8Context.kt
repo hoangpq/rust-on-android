@@ -1,5 +1,6 @@
 package com.node.v8
 
+import android.util.Log
 import android.util.SparseArray
 
 class V8Context(private val runtime__: Long) {
@@ -12,7 +13,7 @@ class V8Context(private val runtime__: Long) {
     }
 
     fun updateUI(num: Int) {
-        // parent?.update(num)
+        parent?.update(num.toString())
     }
 
     class V8Result(internal var result__: Long, internal var runtime__: Long) {

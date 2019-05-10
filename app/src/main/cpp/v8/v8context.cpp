@@ -1,5 +1,4 @@
 #include "v8context.h"
-#include "../lib/node-ext.h"
 #include <unistd.h>
 
 #define LockV8Context(env, instance)                                           \
@@ -32,8 +31,6 @@ using namespace util;
 namespace av8 {
 
 using jvm::JSObject;
-
-Persistent<Function> V8Runtime::constructor_;
 
 const char *ToCString(Local<String> str) {
   String::Utf8Value value(str);
@@ -130,104 +127,85 @@ void New(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(args.Holder());
 }
 
-void CreateExternal(const FunctionCallbackInfo<Value> &args) {
-  Isolate *isolate = args.GetIsolate();
-  Local<Context> context = isolate->GetCurrentContext();
-
-  Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
-  tpl->InstanceTemplate()->SetInternalFieldCount(1);
-
-  Local<Object> obj =
-      tpl->GetFunction()->NewInstance(context, 0, nullptr).ToLocalChecked();
-
-  assert(obj->InternalFieldCount() > 0);
-
-  auto holder = static_cast<JNIHolder *>(args.Data().As<External>()->Value());
-  obj->SetAlignedPointerInInternalField(0, holder);
-
-  args.GetReturnValue().Set(obj);
-}
-
 void InvokeRef(const FunctionCallbackInfo<Value> &args) {
   Isolate *isolate = args.GetIsolate();
-  Local<Object> handle = args[0]->ToObject();
-  assert(handle->InternalFieldCount() > 0);
 
-  assert(args[1]->IsNumber());
-
-  void *ptr = handle->GetAlignedPointerFromInternalField(0);
-  auto *holder = static_cast<JNIHolder *>(ptr);
-
-  int res = g_ctx.javaVM->AttachCurrentThread(&holder->env_, nullptr);
-  if (JNI_OK != res) {
-    isolate->ThrowException(
-            Util::ConvertToV8String("Unable to invoke activity!"));
+  V8Runtime *runtime =
+      static_cast<V8Runtime *>(args.Data().As<External>()->Value());
+  if (JNI_OK != runtime->env_) {
+    Util::InitEnvironment(runtime->isolate_, &runtime->env_);
   }
+  jclass clz = runtime->env_->FindClass("com/node/v8/V8Context");
+  jmethodID method = runtime->env_->GetMethodID(clz, "updateUI", "(I)V");
 
-  jclass clz = holder->env_->FindClass("com/node/v8/V8Context");
-
-  jmethodID method =
-      holder->env_->GetMethodID(clz, "updateUI", "(Ljava/lang/String;)V");
-
-  /*holder->env_->CallVoidMethod(holder->context_, method,
-                               (jint)args[1]->Int32Value());*/
-
+  runtime->env_->CallVoidMethod(runtime->holder_, method,
+                                (jint)args[0]->Int32Value());
   return args.GetReturnValue().Set(Number::New(isolate, 1.0));
 }
 
-Isolate *InitV8Isolate() {
-  if (g_ctx.isolate_ != nullptr)
-    return g_ctx.isolate_;
+V8Runtime *createRuntime(JNIEnv **env_) {
+  if (ctx_.isolate_ == nullptr) {
 
-  Util::InitEnvironment(g_ctx.isolate_, &env_);
+    // Create a new Isolate and make it the current one.
+    Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator =
+        ArrayBuffer::Allocator::NewDefaultAllocator();
 
-  // Create a new Isolate and make it the current one.
-  Isolate::CreateParams create_params;
-  create_params.array_buffer_allocator =
-      ArrayBuffer::Allocator::NewDefaultAllocator();
-  Isolate *isolate_ = Isolate::New(create_params);
+    ctx_.isolate_ = Isolate::New(create_params);
 
-  Locker locker(isolate_);
-  Isolate::Scope isolate_scope(isolate_);
-  HandleScope handle_scope(isolate_);
+    Locker locker(ctx_.isolate_);
+    Isolate::Scope isolate_scope(ctx_.isolate_);
+    HandleScope handle_scope(ctx_.isolate_);
+
+    JSObject::Init(ctx_.isolate_);
+  }
+
+  auto *runtime = new V8Runtime();
+  runtime->isolate_ = ctx_.isolate_;
+  runtime->env_ = *env_;
+
+  Locker locker(runtime->isolate_);
+  Isolate::Scope isolate_scope(runtime->isolate_);
+  HandleScope handle_scope(runtime->isolate_);
 
   // Init helpers function
-  Local<External> envRef_ = External::New(isolate_, env_);
-  Local<ObjectTemplate> globalObject = ObjectTemplate::New(isolate_);
-  Local<ObjectTemplate> class_ = ObjectTemplate::New(isolate_);
+  Local<External> envRef_ = External::New(runtime->isolate_, runtime->env_);
+  Local<ObjectTemplate> globalObject = ObjectTemplate::New(runtime->isolate_);
+  Local<ObjectTemplate> class_ = ObjectTemplate::New(runtime->isolate_);
 
   class_->Set(Util::ConvertToV8String("forName"),
-              FunctionTemplate::New(isolate_, ForName, envRef_));
+              FunctionTemplate::New(runtime->isolate_, ForName, envRef_));
 
   globalObject->Set(Util::ConvertToV8String("Class"), class_);
 
-  globalObject->Set(Util::ConvertToV8String("setTimeout"),
-                    FunctionTemplate::New(isolate_, SetTimeOut, envRef_));
+  globalObject->Set(
+      Util::ConvertToV8String("setTimeout"),
+      FunctionTemplate::New(runtime->isolate_, SetTimeOut, envRef_));
 
-  globalObject->Set(Util::ConvertToV8String("setInterval"),
-                    FunctionTemplate::New(isolate_, SetInterval, envRef_));
+  globalObject->Set(
+      Util::ConvertToV8String("setInterval"),
+      FunctionTemplate::New(runtime->isolate_, SetInterval, envRef_));
 
   globalObject->Set(Util::ConvertToV8String("$log"),
-                    FunctionTemplate::New(isolate_, Log));
+                    FunctionTemplate::New(runtime->isolate_, Log));
 
   globalObject->Set(Util::ConvertToV8String("$send"),
-                    FunctionTemplate::New(isolate_, Send));
+                    FunctionTemplate::New(runtime->isolate_, Send));
 
   globalObject->Set(Util::ConvertToV8String("$perform"),
-                    FunctionTemplate::New(isolate_, Perform));
+                    FunctionTemplate::New(runtime->isolate_, Perform));
 
+  Local<External> ref = External::New(runtime->isolate_, runtime);
   globalObject->Set(Util::ConvertToV8String("$invokeRef"),
-                    FunctionTemplate::New(isolate_, InvokeRef));
+                    FunctionTemplate::New(runtime->isolate_, InvokeRef, ref));
 
-  Local<Context> globalContext = Context::New(isolate_, nullptr, globalObject);
+  Local<Context> globalContext =
+      Context::New(ctx_.isolate_, nullptr, globalObject);
 
-  g_ctx.isolate_ = isolate_;
-  g_ctx.globalContext_.Reset(isolate_, globalContext);
-  g_ctx.globalObject_.Reset(isolate_, globalObject);
+  ctx_.globalContext_.Reset(ctx_.isolate_, globalContext);
+  ctx_.globalObject_.Reset(ctx_.isolate_, globalObject);
 
-  JSObject::Init(isolate_);
-
-  return g_ctx.isolate_;
+  return runtime;
 }
 
 Handle<Object> RunScript(Isolate *isolate, Local<Context> context,
@@ -240,15 +218,10 @@ Handle<Object> RunScript(Isolate *isolate, Local<Context> context,
   return value->ToObject();
 }
 
-extern "C" void JNICALL Java_com_node_v8_V8Context_init(JNIEnv *, jclass) {
-  InitV8Isolate();
-}
-
 extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,
                                                              jclass klass) {
-  auto *runtime = new V8Runtime();
-  runtime->isolate_ = InitV8Isolate();
 
+  V8Runtime *runtime = createRuntime(&env);
   Locker locker(runtime->isolate_);
   Isolate::Scope isolate_scope(runtime->isolate_);
   HandleScope handle_scope(runtime->isolate_);
@@ -258,18 +231,10 @@ extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,
   auto instance = env->NewGlobalRef(
       env->NewObject(klass, constructor, reinterpret_cast<jlong>(runtime)));
 
+  runtime->holder_ = instance;
+
   Local<ObjectTemplate> globalObject =
-      g_ctx.globalObject_.Get(runtime->isolate_);
-
-  auto *holder = new JNIHolder;
-  holder->context_ = instance;
-  holder->env_ = env_;
-
-  Local<External> ref = External::New(runtime->isolate_, holder);
-
-  globalObject->Set(
-      Util::ConvertToV8String("$createRef"),
-      FunctionTemplate::New(runtime->isolate_, CreateExternal, ref));
+      ctx_.globalObject_.Get(runtime->isolate_);
 
   Local<Context> context =
       Context::New(runtime->isolate_, nullptr, globalObject);

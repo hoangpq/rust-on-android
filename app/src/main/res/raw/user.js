@@ -38,7 +38,10 @@ users.User.prototype.__init = function(i, bb) {
  * @returns {users.User}
  */
 users.User.getRootAsUser = function(bb, obj) {
-  return (obj || new users.User).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+  return (obj || new users.User()).__init(
+    bb.readInt32(bb.position()) + bb.position(),
+    bb
+  );
 };
 
 /**
@@ -47,7 +50,9 @@ users.User.getRootAsUser = function(bb, obj) {
  */
 users.User.prototype.name = function(optionalEncoding) {
   var offset = this.bb.__offset(this.bb_pos, 4);
-  return offset ? this.bb.__string(this.bb_pos + offset, optionalEncoding) : null;
+  return offset
+    ? this.bb.__string(this.bb_pos + offset, optionalEncoding)
+    : null;
 };
 
 /**

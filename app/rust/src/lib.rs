@@ -50,9 +50,8 @@ pub unsafe extern "C" fn Java_com_node_sample_MainActivity_asyncComputation(
     let script = env.new_string(r#"
         try {
             let count = 0;
-            const $ref = $createRef();
             function update() {
-                $invokeRef($ref, ++count);
+                $invokeRef(++count);
             }
             setInterval(update, 1e3);
         } catch (e) {

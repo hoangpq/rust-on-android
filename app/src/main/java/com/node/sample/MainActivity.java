@@ -11,7 +11,6 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.MediaController;
@@ -45,8 +44,6 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
     public native void initVM(Observable callbackObj);
 
     public native void releaseVM();
-
-    public native void asyncComputation(V8Context context_);
 
     public native String getUtf8String();
 
@@ -95,15 +92,24 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
     public void onNodeServerLoaded() {
         new Thread(() -> {
             try {
-                V8Context context_ = V8Context.Companion.create();
-                // context_.setParent(this);
-                asyncComputation(context_);
+                V8Context context_ = V8Context.create();
+                context_.setParent(this);
 
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.core);
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.user);
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.model);
 
                 context_.setKey("$list", new int[]{11, 12, 13, 14, 15, 16});
+
+                context_.eval("" +
+                        "   try { " +
+                        "       let count = 0;\n" +
+                        "       setInterval(function() { " +
+                        "           $invokeRef(++count); " +
+                        "       }, 1e3);\n" +
+                        "   } catch (e) {\n" +
+                        "       $log(e.message);\n" +
+                        "   }");
 
                 ScriptUtils.bulkEval(context_,
                         "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); });",
@@ -302,7 +308,7 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
     }
 
     @Override
-    public void update(int val) {
-        runOnUiThread(() -> txtCounter.setText(String.valueOf(val)));
+    public void update(String val) {
+        runOnUiThread(() -> txtCounter.setText(val));
     }
 }
