@@ -52,12 +52,5 @@ void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
     }
   }
 }
-
-void Util::ReleaseEnvironment(Isolate *isolate) {
-  if (JNI_OK != g_ctx.javaVM->DetachCurrentThread()) {
-    isolate->ThrowException(
-        Util::ConvertToV8String("Can not detact current thread"));
-  }
-}
-
+  
 } // namespace util
