@@ -56,6 +56,9 @@ impl ArrayBuffer {
 pub struct Function(*mut Function);
 value_method!(Function);
 
+unsafe impl Send for Function {}
+unsafe impl Sync for Function {}
+
 #[allow(non_snake_case)]
 impl Function {
     pub fn Cast(val: Value) -> Function {

@@ -3,26 +3,33 @@
 
 #[macro_use]
 extern crate itertools;
+extern crate serde_derive;
+
 extern crate jni;
 extern crate libc;
 extern crate core;
 extern crate curl;
 
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 extern crate serde_json;
 extern crate bytes;
 
+extern crate futures;
+extern crate tokio;
+extern crate tokio_threadpool;
+extern crate tokio_timer;
+
 #[macro_use]
 pub mod jni_log;
-pub mod v8;
 #[macro_use]
-mod jni_graphics;
-mod buffer;
+pub mod jni_graphics;
 
-use jni::JNIEnv;
-use jni::objects::{JClass, JObject, JValue};
+pub mod buffer;
+pub mod v8;
+pub mod runtime;
+
+use jni::{JNIEnv, JavaVM};
+use jni::objects::{JObject, JValue, JClass};
 use jni::sys::{jint, jlong, jobject};
 use std::ffi::CString;
 
@@ -31,52 +38,12 @@ use std::os::raw::{c_void, c_char};
 use std::{mem, thread};
 use std::sync::mpsc;
 
-use core::borrow::BorrowMut;
-
 use jni_graphics::{create_bitmap, draw_mandelbrot};
-use jni_graphics::{ AndroidBitmapInfo};
+use jni_graphics::AndroidBitmapInfo;
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
-use curl::easy::Easy;
 use v8::{Function, ArrayBuffer, Value, CallbackInfo};
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "C" fn Java_com_node_sample_MainActivity_asyncComputation(
-    env: JNIEnv,
-    _class: JClass,
-    _ctx: JObject,
-) {
-    let script = env.new_string(r#"
-        try {
-            let count = 0;
-            function update() {
-                $invokeRef(++count);
-            }
-            setInterval(update, 1e3);
-        } catch (e) {
-            $log(e.message);
-        }
-    "#);
-
-    match script {
-        Ok(s) => {
-
-            let obj: JObject = s.into();
-            let result = env.call_method(
-                _ctx,
-                "eval",
-                "(Ljava/lang/String;)Lcom/node/v8/V8Context$V8Result;",
-                &[JValue::from(obj)]);
-
-            match result {
-                Ok(r) => adb_debug!(r),
-                Err(e) => adb_debug!(e)
-            };
-        },
-        Err(e) => adb_debug!(e)
-    };
-}
+use runtime::util::Deno;
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -140,12 +107,6 @@ pub unsafe extern "C" fn getAndroidVersion(env: &JNIEnv) -> i32 {
         .unwrap()
         .i()
         .unwrap() as i32
-}
-
-
-#[derive(Debug, Serialize, Deserialize)]
-struct User {
-    name: String,
 }
 
 #[no_mangle]
@@ -212,36 +173,11 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
     };
 }
 
-#[allow(dead_code)]
-fn fetch_user() -> User {
-    let mut handle = Easy::new();
-    handle.ssl_verify_peer(false).unwrap();
-
-    handle
-        .url("https://my-json-server.typicode.com/typicode/demo/profile")
-        .unwrap();
-
-    let mut json = Vec::new();
-    {
-        let mut transfer = handle.transfer();
-        transfer
-            .borrow_mut()
-            .write_function(|data| {
-                json.extend_from_slice(data);
-                Ok(data.len())
-            })
-            .unwrap();
-        transfer.perform().unwrap();
-    }
-
-    let json = json.to_owned();
-    assert_eq!(200, handle.response_code().unwrap());
-    serde_json::from_slice(&json).unwrap()
-}
+type Buf = *mut u8;
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn workerSendBytes(_buf: *mut u8, _len: size_t, _cb: Value) -> *const c_char {
+pub extern "C" fn workerSendBytes(_buf: Buf, _len: size_t, _cb: Value) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
         let ab: ArrayBuffer = ArrayBuffer::New(&"💖".as_bytes());
@@ -264,6 +200,37 @@ pub extern "C" fn Perform(args: &CallbackInfo) {
     let f: Function = Function::Cast(args.Get(0));
     f.Call(vec![] as Vec<Value>);
     args.SetReturnValue(v8::String::NewFromUtf8("Send 💖 to JS world!"));
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn createRuntime() -> *mut Deno {
+    runtime::util::create_runtime()
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn initRuntime(env: &'static JNIEnv, cc: JObject, d: *mut Deno) {
+    runtime::util::init_runtime(env, cc, d);
+}
+
+#[allow(non_snake_case)]
+extern "C" {
+    fn executeFunction(f: Function);
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+#[allow(unused_variables)]
+pub extern "C" fn setInterval(d: *mut Deno) {
+    let mut d = unsafe { *Box::from_raw(d) };
+    let (interval_task, cancel_tx) = runtime::util::create_interval(
+        move || {
+            adb_debug!("Interval");
+        },
+        1_000,
+    );
+    d.rt.spawn(interval_task);
 }
 
 #[allow(dead_code)]

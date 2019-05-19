@@ -52,5 +52,4 @@ void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
     }
   }
 }
-  
 } // namespace util

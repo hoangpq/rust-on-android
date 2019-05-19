@@ -15,16 +15,18 @@
 #include "jsobject.h"
 #include <stdio.h>
 
+namespace node {
+namespace av8 {
+
 extern "C" {
 jobject createTimeoutHandler(JNIEnv **);
 void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 char *workerSendBytes(void *, size_t, Local<Value> val);
 void Perform(const FunctionCallbackInfo<Value> &);
+void *createRuntime();
+void initRuntime(JNIEnv **, jobject, void *);
+void setInterval(void *);
 };
-
-namespace node {
-
-namespace av8 {
 
 class V8Runtime {
 public:
@@ -39,6 +41,7 @@ struct GlobalContext {
   Persistent<Context> globalContext_;
   Persistent<ObjectTemplate> globalObject_;
   JNIEnv *env_; // Main thread
+  void *rt;
 };
 
 static GlobalContext ctx_;

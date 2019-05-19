@@ -15,10 +15,8 @@ typedef struct NodeContext {
   jclass mainActivityClz;
   jobject mainActivityObj;
   jobject mainActivity;
+  jobject contextClass_;
   Isolate *isolate_;
-  Persistent<Context> globalContext_;
-  Persistent<ObjectTemplate> globalObject_;
-  jobject handler_;
 } NodeContext;
 
 typedef struct JFunc {
@@ -35,16 +33,12 @@ public:
   static Local<String> ConvertToV8String(const string &s);
   static string GetPackageName(JNIEnv *env, jclass class_);
   static void InitEnvironment(Isolate *isolate, JNIEnv **env);
-  static void ReleaseEnvironment(Isolate *isolate);
 };
 } // namespace util
 
 extern NodeContext g_ctx;
 
 static const char *kTAG = "V8 Runtime";
-
-#define LOGI(...)                                                              \
-  ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
 
 #define LOGD(...)                                                              \
   ((void)__android_log_print(ANDROID_LOG_DEBUG, kTAG, __VA_ARGS__))

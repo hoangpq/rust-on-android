@@ -119,8 +119,14 @@ void SetTimeOut(const FunctionCallbackInfo<Value> &args) {
 }
 
 void SetInterval(const FunctionCallbackInfo<Value> &args) {
-  CreateTimer(args, 2);
-  args.GetReturnValue().Set(Util::ConvertToV8String("Not implemented yet"));
+  // CreateTimer(args, 2);
+  Isolate *isolate = args.GetIsolate();
+  assert(args[0]->IsFunction());
+  assert(args[1]->IsNumber());
+  Local<Function> func = Local<Function>::Cast(args[0]);
+  // auto *fn = new Persistent<Function>(isolate, func);
+  setInterval(ctx_.rt);
+  args.GetReturnValue().Set(Util::ConvertToV8String("Interval"));
 }
 
 void New(const FunctionCallbackInfo<Value> &args) {
@@ -157,6 +163,7 @@ V8Runtime *createRuntime(JNIEnv **env_) {
     Isolate::Scope isolate_scope(ctx_.isolate_);
     HandleScope handle_scope(ctx_.isolate_);
 
+    ctx_.rt = createRuntime();
     JSObject::Init(ctx_.isolate_);
   }
 
@@ -179,11 +186,11 @@ V8Runtime *createRuntime(JNIEnv **env_) {
   globalObject->Set(Util::ConvertToV8String("Class"), class_);
 
   globalObject->Set(
-      Util::ConvertToV8String("setTimeout"),
+      Util::ConvertToV8String("$timeout"),
       FunctionTemplate::New(runtime->isolate_, SetTimeOut, envRef_));
 
   globalObject->Set(
-      Util::ConvertToV8String("setInterval"),
+      Util::ConvertToV8String("$interval"),
       FunctionTemplate::New(runtime->isolate_, SetInterval, envRef_));
 
   globalObject->Set(Util::ConvertToV8String("$log"),
@@ -216,6 +223,11 @@ Handle<Object> RunScript(Isolate *isolate, Local<Context> context,
   Local<Script> script = Script::Compile(context, source).ToLocalChecked();
   Local<Value> value = script->Run(context).ToLocalChecked();
   return value->ToObject();
+}
+
+extern "C" void JNICALL
+Java_com_node_v8_V8Context_initRuntime(JNIEnv *env, jobject instance) {
+  initRuntime(&env, g_ctx.contextClass_, ctx_.rt);
 }
 
 extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,

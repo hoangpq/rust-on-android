@@ -98,31 +98,21 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
         new Thread(() -> {
             try {
                 V8Context context_ = V8Context.create();
-                context_.setParent(this);
 
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.core);
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.user);
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.model);
 
                 context_.setKey("$list", new int[]{11, 12, 13, 14, 15, 16});
+                // context_.setParent(this);
+                // ScriptUtils.require(getApplicationContext(), context_, R.raw.updater);
 
-                context_.eval("" +
-                        "   try {" +
-                        "       let count = 0;" +
-                        "       setInterval(function() {" +
-                        "           $invokeRef(++count);" +
-                        "       }, 1e3);" +
-                        "   } catch (e) {" +
-                        "       $log(e.message);" +
-                        "   }");
-
+                context_.initRuntime();
                 ScriptUtils.bulkEval(context_,
-                        "const p = new Promise(function(resolve) { setTimeout(resolve, 9e3); });",
-                        "p.then(() => { $log('Promise resolved after 9s'); });",
-                        "setTimeout(function() { $log('$timeout 7s'); }, 7e3);",
-                        "setTimeout(function() { $log('$timeout 10s'); }, 1e4);");
+                        "$timeout(function() { $log('$timeout 7s'); }, 7e3);",
+                        "$timeout(function() { $log('$timeout 10s'); }, 1e4);");
 
-                context_.eval("createUser('Vampire Phan [Hoàng Phan]')");
+                context_.eval("createUser('Vampire')");
 
             } catch (Exception e) {
                 e.printStackTrace();

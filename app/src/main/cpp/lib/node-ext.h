@@ -10,14 +10,15 @@
 #include <string>
 #include <unistd.h>
 
-#include "../java/java.h"
-#include "../java/jobject.h"
-#include "../utils/utils.h"
 #include "env-inl.h"
 #include "env.h"
 #include "node.h"
 #include "node_buffer.h"
 #include "v8.h"
+
+#include "../java/java.h"
+#include "../java/jobject.h"
+#include "../utils/utils.h"
 
 extern "C" jlong JNICALL
 Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
