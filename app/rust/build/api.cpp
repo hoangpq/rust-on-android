@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <v8.h>
+#include <jni.h>
 
 using namespace v8;
 
@@ -59,6 +60,11 @@ extern "C" void executeFunction(void *f) {
   Persistent<Function> *fn = reinterpret_cast<Persistent<Function> *>(f);
   Local<Function> func = fn->Get(isolate_);
   func->Call(isolate_->GetCurrentContext(), Null(isolate_), 0, nullptr);
+}
+
+extern "C" void CallStaticVoidMethod(JNIEnv **env, jclass c, jmethodID m) {
+  (*env)->CallStaticVoidMethod(c, m);
+  // (*env)->FindClass("java/lang/String");
 }
 
 #ifdef __cplusplus

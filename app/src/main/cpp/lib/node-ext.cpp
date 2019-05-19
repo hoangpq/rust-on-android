@@ -137,13 +137,12 @@ public:
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   memset(&g_ctx, 0, sizeof(NodeContext));
   g_ctx.javaVM = vm;
-  if (vm->GetEnv(reinterpret_cast<void **>(&g_ctx.env), JNI_VERSION_1_6) !=
-      JNI_OK) {
+  g_ctx.mainActivityObj = nullptr;
+
+  JNIEnv *env;
+  if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
     return JNI_ERR; // JNI version not supported.
   }
-  g_ctx.mainActivityObj = nullptr;
-  g_ctx.contextClass_ =
-      g_ctx.env->NewGlobalRef(g_ctx.env->FindClass("com/node/v8/V8Context"));
   return JNI_VERSION_1_6;
 }
 

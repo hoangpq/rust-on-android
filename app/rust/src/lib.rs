@@ -210,8 +210,8 @@ pub extern "C" fn createRuntime() -> *mut Deno {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn initRuntime(env: &'static JNIEnv, cc: JObject, d: *mut Deno) {
-    runtime::util::init_runtime(env, cc, d);
+pub extern "C" fn initRuntime(env: &'static JNIEnv, d: *mut Deno) {
+    runtime::util::init_runtime(env, d);
 }
 
 #[allow(non_snake_case)]

@@ -12,8 +12,16 @@ use std::sync::{Mutex, Arc};
 use futures::sync::mpsc::{UnboundedSender, UnboundedReceiver};
 
 use jni::{JNIEnv, JavaVM};
-use main;
-use jni::objects::{JClass, JObject};
+use jni::objects::{JClass, JObject, JStaticMethodID, GlobalRef};
+use std::error::Error;
+use std::fmt::{Debug, Formatter};
+use jni_log::LogPriority::ERROR;
+use std::rc::Rc;
+use std::fmt;
+use serde_json::value::Value::Array;
+use std::ptr::null;
+use std::cell::RefCell;
+use core::borrow::{Borrow, BorrowMut};
 
 fn create_threadpool_runtime() -> tokio::runtime::Runtime {
     use tokio_threadpool::Builder as ThreadPoolBuilder;
@@ -26,6 +34,7 @@ fn create_threadpool_runtime() -> tokio::runtime::Runtime {
         .unwrap()
 }
 
+#[derive(Debug)]
 pub struct Deno {
     pub rt: tokio::runtime::Runtime,
 }
@@ -78,28 +87,56 @@ impl Future for Isolate {
     }
 }
 
-pub fn init_runtime(env: &'static JNIEnv, cc: JObject, d: *mut Deno) {
+struct State<'a> {
+    pub class: GlobalRef,
+    pub method: Rc<JStaticMethodID<'a>>,
+}
+
+unsafe impl<'a> Send for State<'a> {}
+
+fn get_state<'a>(env: &'static JNIEnv<'a>) -> State<'a> {
+    let class = env.find_class("com/node/v8/V8Context").unwrap();
+    let method = env.get_static_method_id("com/node/v8/V8Context", "showItemCount", "()V")
+        .unwrap();
+
+    State {
+        class: env.new_global_ref(JObject::from(class)).unwrap(),
+        method: Rc::new(method),
+    }
+}
+
+extern "C" {
+    fn CallStaticVoidMethod(env: *mut JNIEnv, obj: JObject, m_id: JStaticMethodID);
+}
+
+pub fn init_runtime(env: &'static JNIEnv, d: *mut Deno) {
     let mut d = unsafe { *Box::from_raw(d) };
 
     let mut isolate = Isolate::new();
     let sender = isolate.sender.clone();
 
-    let vm = env.get_java_vm().unwrap();
-    let ccRef = env.new_global_ref(cc).unwrap();
-
     d.rt.executor().spawn(isolate);
+
+    let state = get_state(env);
+    let jvm = env.get_java_vm().unwrap();
 
     let lazy_future = lazy(move || {
         let delay = 5000 as u32;
         let delay = Duration::from_millis(delay.into());
-        match vm.attach_current_thread() {
-            Ok(env) => {},
-            _ => {}
-        }
 
         Interval::new(Instant::now() + delay, delay)
             .for_each(move |_| {
-                adb_debug!(format!("$interval {}s", delay.as_secs()));
+
+                let state = &state;
+                let env = jvm.attach_current_thread_as_daemon().unwrap();
+                unsafe {
+                    CallStaticVoidMethod(
+                        Box::into_raw(Box::new(env)),
+                        state.class.as_obj(),
+                        *state.method.borrow(),
+                    );
+                };
+
                 sender.unbounded_send(delay).unwrap();
                 future::ok(())
             })

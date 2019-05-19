@@ -21,6 +21,7 @@ fn main() {
         .flag_if_supported("-w")
         .flag_if_supported("-Wno-unused-parameter")
         .include("libnode/include/node")
+        .include("build")
         .file("build/api.cpp")
         .compile("api");
 }

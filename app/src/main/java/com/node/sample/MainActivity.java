@@ -10,6 +10,7 @@ import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.multidex.MultiDex;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
@@ -31,6 +32,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity implements UIUpdater {
@@ -53,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        MultiDex.install(this);
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
@@ -107,12 +110,26 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
                 // context_.setParent(this);
                 // ScriptUtils.require(getApplicationContext(), context_, R.raw.updater);
 
-                context_.initRuntime();
                 ScriptUtils.bulkEval(context_,
                         "$timeout(function() { $log('$timeout 7s'); }, 7e3);",
                         "$timeout(function() { $log('$timeout 10s'); }, 1e4);");
 
                 context_.eval("createUser('Vampire')");
+
+                // Fake thread to test event loop
+                new Thread(() -> {
+                    Random random = new Random();
+                    while (true) {
+                        try {
+                            V8Context.Companion.getTOKIO_RUNTIME_ITEMS().add(random.nextInt());
+                            Thread.sleep(2_000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }).start();
+
+                V8Context.initRuntime();
 
             } catch (Exception e) {
                 e.printStackTrace();

@@ -7,7 +7,6 @@ class V8Context(private val runtime__: Long) {
     external fun eval(script: String): V8Result
     external fun setKey(key: String, arr: IntArray)
     external fun callFn(fn: Long, interval: Boolean, time: Long)
-    external fun initRuntime()
 
     init {
         hash_?.put(++current_index, this)
@@ -31,8 +30,12 @@ class V8Context(private val runtime__: Long) {
         external fun create(): V8Context
 
         @JvmStatic
+        external fun initRuntime()
+
+        @JvmStatic
         fun showItemCount() {
-            Log.d("Kotlin", "Item count: ${TOKIO_RUNTIME_ITEMS.size}")
+            Log.d("Kotlin", "Count: ${TOKIO_RUNTIME_ITEMS.size}")
+            current?.eval("log('Count: ${TOKIO_RUNTIME_ITEMS.size}')")
         }
 
         private var hash_: SparseArray<V8Context>? = null

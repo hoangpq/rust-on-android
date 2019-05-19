@@ -24,7 +24,7 @@ void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 char *workerSendBytes(void *, size_t, Local<Value> val);
 void Perform(const FunctionCallbackInfo<Value> &);
 void *createRuntime();
-void initRuntime(JNIEnv **, jobject, void *);
+void initRuntime(JNIEnv **, void *);
 void setInterval(void *);
 };
 
@@ -34,6 +34,10 @@ public:
   jobject holder_;
   Isolate *isolate_;
   Persistent<Context> context_;
+
+public:
+  static jclass V8_CONTEXT_CLASS;
+  static jmethodID V8_CONTEXT_SHOW_ITEM_COUNT_METHOD;
 };
 
 struct GlobalContext {
