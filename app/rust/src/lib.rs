@@ -3,7 +3,8 @@
 
 #[macro_use]
 extern crate itertools;
-extern crate serde_derive;
+#[macro_use]
+extern crate lazy_static;
 
 extern crate jni;
 extern crate libc;
@@ -14,10 +15,12 @@ extern crate serde;
 extern crate serde_json;
 extern crate bytes;
 
+#[macro_use]
 extern crate futures;
 extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
+extern crate serde_derive;
 
 #[macro_use]
 pub mod jni_log;
@@ -28,8 +31,8 @@ pub mod buffer;
 pub mod v8;
 pub mod runtime;
 
-use jni::{JNIEnv, JavaVM};
-use jni::objects::{JObject, JValue, JClass};
+use jni::JNIEnv;
+use jni::objects::{JObject, JValue};
 use jni::sys::{jint, jlong, jobject};
 use std::ffi::CString;
 
@@ -43,7 +46,6 @@ use jni_graphics::AndroidBitmapInfo;
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
 use v8::{Function, ArrayBuffer, Value, CallbackInfo};
-use runtime::util::Deno;
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -204,33 +206,14 @@ pub extern "C" fn Perform(args: &CallbackInfo) {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn createRuntime() -> *mut Deno {
-    runtime::util::create_runtime()
+pub unsafe extern "C" fn initEventLoop(env: &'static JNIEnv, deno: *const libc::c_void) {
+    runtime::util::init_event_loop(env, deno);
 }
 
-#[no_mangle]
-#[allow(non_snake_case)]
-pub extern "C" fn initRuntime(env: &'static JNIEnv, d: *mut Deno) {
-    runtime::util::init_runtime(env, d);
-}
-
+#[allow(dead_code)]
 #[allow(non_snake_case)]
 extern "C" {
     fn executeFunction(f: Function);
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-#[allow(unused_variables)]
-pub extern "C" fn setInterval(d: *mut Deno) {
-    let mut d = unsafe { *Box::from_raw(d) };
-    let (interval_task, cancel_tx) = runtime::util::create_interval(
-        move || {
-            adb_debug!("Interval");
-        },
-        1_000,
-    );
-    d.rt.spawn(interval_task);
 }
 
 #[allow(dead_code)]

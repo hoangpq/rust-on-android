@@ -7,13 +7,14 @@
 #include <iostream>
 #include <jni.h>
 #include <node.h>
+#include <stdio.h>
+
 #include <uv.h>
 #include <v8.h>
 
 #include "../lib/node-ext.h"
 #include "../utils/utils.h"
 #include "jsobject.h"
-#include <stdio.h>
 
 namespace node {
 namespace av8 {
@@ -23,9 +24,27 @@ jobject createTimeoutHandler(JNIEnv **);
 void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 char *workerSendBytes(void *, size_t, Local<Value> val);
 void Perform(const FunctionCallbackInfo<Value> &);
-void *createRuntime();
-void initRuntime(JNIEnv **, void *);
+
+void initEventLoop(JNIEnv **, void *);
 void setInterval(void *);
+};
+
+struct isolate;
+
+class Deno {
+public:
+  Isolate *isolate_;
+  Persistent<Context> context_;
+  Persistent<ObjectTemplate> global_;
+  isolate *rust_isolate_;
+
+  Deno(Isolate *isolate, Local<Context> context, Local<ObjectTemplate> global)
+      : isolate_(isolate) {
+    this->context_.Reset(this->isolate_, context);
+    this->global_.Reset(this->isolate_, global);
+  }
+
+  void *Into() { return reinterpret_cast<void *>(this); }
 };
 
 class V8Runtime {
@@ -34,10 +53,6 @@ public:
   jobject holder_;
   Isolate *isolate_;
   Persistent<Context> context_;
-
-public:
-  static jclass V8_CONTEXT_CLASS;
-  static jmethodID V8_CONTEXT_SHOW_ITEM_COUNT_METHOD;
 };
 
 struct GlobalContext {
@@ -45,7 +60,6 @@ struct GlobalContext {
   Persistent<Context> globalContext_;
   Persistent<ObjectTemplate> globalObject_;
   JNIEnv *env_; // Main thread
-  void *rt;
 };
 
 static GlobalContext ctx_;

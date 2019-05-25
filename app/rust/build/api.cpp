@@ -62,11 +62,6 @@ extern "C" void executeFunction(void *f) {
   func->Call(isolate_->GetCurrentContext(), Null(isolate_), 0, nullptr);
 }
 
-extern "C" void CallStaticVoidMethod(JNIEnv **env, jclass c, jmethodID m) {
-  (*env)->CallStaticVoidMethod(c, m);
-  // (*env)->FindClass("java/lang/String");
-}
-
 #ifdef __cplusplus
 #endif
 

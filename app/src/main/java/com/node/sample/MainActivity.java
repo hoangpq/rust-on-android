@@ -32,7 +32,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity implements UIUpdater {
@@ -106,35 +105,19 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.user);
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.model);
 
-                context_.setKey("$list", new int[]{11, 12, 13, 14, 15, 16});
-                // context_.setParent(this);
-                // ScriptUtils.require(getApplicationContext(), context_, R.raw.updater);
-
                 ScriptUtils.bulkEval(context_,
                         "$timeout(function() { $log('$timeout 7s'); }, 7e3);",
                         "$timeout(function() { $log('$timeout 10s'); }, 1e4);");
 
                 context_.eval("createUser('Vampire')");
 
-                // Fake thread to test event loop
-                new Thread(() -> {
-                    Random random = new Random();
-                    while (true) {
-                        try {
-                            V8Context.Companion.getTOKIO_RUNTIME_ITEMS().add(random.nextInt());
-                            Thread.sleep(2_000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }).start();
-
-                V8Context.initRuntime();
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }).start();
+
+        new Thread(V8Context::initEventLoop).start();
+
     }
 
     private void _initVM() {
@@ -173,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
 
                         saveLastUpdateTime();
                     }
-                    String[] args = {"node", nodeDir + "/main.js"};
+                    String[] args = {"node", "--expose_gc", nodeDir + "/main.js"};
                     startNodeWithArguments(args);
                 } catch (Exception e) {
                     e.printStackTrace();

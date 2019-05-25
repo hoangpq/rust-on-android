@@ -18,6 +18,9 @@ export PATH="$PATH":"$NDK_STANDALONE/x86/bin"
 create_standalone_ndk() {
     rustup default nightly
     rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android
+    rustup target add wasm32-unknown-unknown
+    cargo +nightly install wasm-gc --force
+
     mkdir -p ${NDK_STANDALONE}
     ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 26 --arch arm64\
         --install-dir ${NDK_STANDALONE}/arm64

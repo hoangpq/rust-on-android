@@ -2,6 +2,8 @@ package com.node.v8
 
 import android.util.Log
 import android.util.SparseArray
+import java.lang.Exception
+import java.util.*
 
 class V8Context(private val runtime__: Long) {
     external fun eval(script: String): V8Result
@@ -12,10 +14,6 @@ class V8Context(private val runtime__: Long) {
         hash_?.put(++current_index, this)
     }
 
-    fun updateUI(num: Int) {
-        parent?.update(num.toString())
-    }
-
     class V8Result(internal var result__: Long, internal var runtime__: Long) {
         private external fun toNativeString(): String
         override fun toString(): String = toNativeString()
@@ -24,18 +22,30 @@ class V8Context(private val runtime__: Long) {
     var parent: UIUpdater? = null
 
     companion object {
-        var TOKIO_RUNTIME_ITEMS = mutableListOf<Int>()
+        var TOKIO_RUNTIME_ITEMS = LinkedList<String>()
 
         @JvmStatic
         external fun create(): V8Context
 
         @JvmStatic
-        external fun initRuntime()
+        external fun initEventLoop()
 
         @JvmStatic
-        fun showItemCount() {
-            Log.d("Kotlin", "Count: ${TOKIO_RUNTIME_ITEMS.size}")
-            current?.eval("log('Count: ${TOKIO_RUNTIME_ITEMS.size}')")
+        @Synchronized fun gEval(script: String) {
+            Log.d("Kotlin", script)
+            try {
+                current?.eval(script)
+            } catch (e: Exception) {
+                Log.d("Kotlin", e.message)
+            }
+        }
+
+        @JvmStatic
+        fun popItem() = TOKIO_RUNTIME_ITEMS.pollLast() ?: ""
+
+        @JvmStatic
+        fun pushItem(item: String) {
+            TOKIO_RUNTIME_ITEMS.addFirst(item)
         }
 
         private var hash_: SparseArray<V8Context>? = null
@@ -48,5 +58,6 @@ class V8Context(private val runtime__: Long) {
         @JvmStatic
         val current: V8Context?
             get() = hash_?.get(current_index)
+
     }
 }
