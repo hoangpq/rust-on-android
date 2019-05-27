@@ -118,7 +118,7 @@ function serveRaw(callback) {
     res.json({ ...process.versions });
   });
 
-  app.get('/stream', onRequest);
+  app.get('/stream', function(req, res) {});
   app.listen(PORT, callback);
 }
 
