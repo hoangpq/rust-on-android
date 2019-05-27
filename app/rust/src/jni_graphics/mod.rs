@@ -1,14 +1,14 @@
 extern crate jni;
 extern crate libc;
 
-use jni::JNIEnv;
-use jni::objects::{JValue, JClass};
+use jni::objects::{JClass, JValue};
 use jni::sys::{jint, jobject, jstring};
+use jni::JNIEnv;
 
-use std::os::raw::{c_int, c_void, c_uint};
+use itertools::Itertools;
 use std::cmp;
 use std::ffi::CString;
-use itertools::Itertools;
+use std::os::raw::{c_int, c_uint, c_void};
 
 #[repr(C)]
 #[derive(Debug, Default)]
@@ -48,27 +48,30 @@ extern "C" {
 }
 
 pub unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_uint) -> JValue<'b> {
-    let config = env.call_static_method(
-        "android/graphics/Bitmap$Config",
-        "nativeToConfig",
-        "(I)Landroid/graphics/Bitmap$Config;",
-        &[JValue::from(5)],
-    ).unwrap();
+    let config = env
+        .call_static_method(
+            "android/graphics/Bitmap$Config",
+            "nativeToConfig",
+            "(I)Landroid/graphics/Bitmap$Config;",
+            &[JValue::from(5)],
+        )
+        .unwrap();
 
-    let jbitmap = env.call_static_method(
-        "android/graphics/Bitmap",
-        "createBitmap",
-        "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
-        &[
-            JValue::from(width as jint),
-            JValue::from(height as jint),
-            config,
-        ],
-    ).unwrap();
+    let jbitmap = env
+        .call_static_method(
+            "android/graphics/Bitmap",
+            "createBitmap",
+            "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
+            &[
+                JValue::from(width as jint),
+                JValue::from(height as jint),
+                config,
+            ],
+        )
+        .unwrap();
 
     jbitmap
 }
-
 
 fn generate_palette() -> Vec<Color> {
     let mut palette: Vec<Color> = vec![];
@@ -139,9 +142,10 @@ pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
 ) -> jstring {
     let ptr = CString::new(
         "ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned(),
-    ).unwrap();
-    let output = env.new_string(ptr.to_str().unwrap()).expect(
-        "Couldn't create java string!",
-    );
+    )
+    .unwrap();
+    let output = env
+        .new_string(ptr.to_str().unwrap())
+        .expect("Couldn't create java string!");
     output.into_inner()
 }

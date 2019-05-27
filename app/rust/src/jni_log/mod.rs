@@ -1,5 +1,5 @@
-use std::os::raw;
 use std::ffi::CString;
+use std::os::raw;
 
 #[allow(non_camel_case_types)]
 pub type c_int = raw::c_int;
@@ -27,7 +27,7 @@ pub fn log(msg: String, prio: LogPriority) {
 
 #[macro_export]
 macro_rules! adb_debug {
-    ($msg:expr) => ({
-        $crate::jni_log::log(format!("{:?}",$msg),$crate::jni_log::LogPriority::DEBUG);
-    })
+    ($msg:expr) => {{
+        $crate::jni_log::log(format!("{:?}", $msg), $crate::jni_log::LogPriority::DEBUG);
+    }};
 }

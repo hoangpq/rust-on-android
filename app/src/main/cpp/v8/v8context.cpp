@@ -248,30 +248,7 @@ void Hello(const FunctionCallbackInfo<Value> &args) {}
 
 extern "C" void JNICALL Java_com_node_v8_V8Context_initEventLoop(JNIEnv *env,
                                                                  jclass klass) {
-  // Create a new Isolate and make it the current one.
-  int argc = 1;
-  char *argv[1] = {"--expose_gc"};
-  V8::SetFlagsFromCommandLine(&argc, argv, true);
-
-  Isolate::CreateParams create_params;
-  create_params.array_buffer_allocator =
-      ArrayBuffer::Allocator::NewDefaultAllocator();
-
-  Isolate *isolate_ = Isolate::New(create_params);
-
-  Locker locker(isolate_);
-  Isolate::Scope isolate_scope(isolate_);
-  HandleScope handle_scope(isolate_);
-
-  // Init helpers function
-  Local<ObjectTemplate> global_ = ObjectTemplate::New(isolate_);
-  global_->Set(Util::ConvertToV8String("$hello"),
-               FunctionTemplate::New(isolate_, Hello));
-
-  Local<Context> context_ = Context::New(isolate_, nullptr, global_);
-  auto d = new Deno(isolate_, context_, global_);
-
-  initEventLoop(&env, d->Into());
+  initEventLoop(&env);
 }
 
 extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,

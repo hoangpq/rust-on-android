@@ -1,14 +1,15 @@
-use tokio::runtime;
+use runtime::isolate::Isolate;
 use std::ffi::CString;
 use std::slice;
-use runtime::isolate::Isolate;
+use tokio::runtime;
 
 pub mod isolate;
 pub mod util;
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn initDeno(deno: *const libc::c_void) -> *mut Isolate;
+    fn initIsolate() -> *mut Isolate;
+    fn evalScriptVoid(deno: *const libc::c_void, script: *const libc::c_char);
     fn evalScript(deno: *const libc::c_void, script: *const libc::c_char) -> *mut libc::c_char;
     fn invokeFunction(deno: *const libc::c_void, f: *const libc::c_void);
 }
@@ -32,7 +33,7 @@ fn create_thread_pool_runtime() -> tokio::runtime::Runtime {
     let mut thread_pool_builder = ThreadPoolBuilder::new();
     thread_pool_builder.panic_handler(|err| std::panic::resume_unwind(err));
     #[allow(deprecated)]
-        runtime::Builder::new()
+    runtime::Builder::new()
         .threadpool_builder(thread_pool_builder)
         .build()
         .unwrap()

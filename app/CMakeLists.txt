@@ -20,6 +20,10 @@ add_library(librust STATIC IMPORTED)
 set_property(TARGET librust PROPERTY
         IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/target/${ANDROID_ABI}/librust.a)
 
+add_library(
+        rust-prebuild
+        rust/build/api.cpp)
+
 add_library( # Sets the name of the library.
         native-lib
         # Sets the library as a shared library.

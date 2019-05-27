@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-find `pwd` -name "*.rs" | xargs rustfmt --force --write-mode overwrite
+find `pwd` -name "*.rs" | xargs rustfmt --edition 2018 --color always --verbose

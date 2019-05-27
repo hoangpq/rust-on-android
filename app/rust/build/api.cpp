@@ -4,9 +4,10 @@
 #ifdef __cplusplus
 #endif
 
-#include <assert.h>
+#include <cassert>
+#include <cstdio>
 #include <jni.h>
-#include <stdio.h>
+#include <string>
 #include <v8.h>
 
 using namespace v8;
@@ -29,10 +30,19 @@ public:
   Persistent<ObjectTemplate> global_;
   isolate *rust_isolate_;
 
+  explicit Deno(Isolate *isolate) : isolate_(isolate) {}
+
   Deno(Isolate *isolate, Local<Context> context, Local<ObjectTemplate> global)
       : isolate_(isolate) {
     this->context_.Reset(this->isolate_, context);
     this->global_.Reset(this->isolate_, global);
+  }
+
+  void ResetContext(Local<Context> c) {
+    this->context_.Reset(this->isolate_, c);
+  }
+  void ResetTemplate(Local<ObjectTemplate> t) {
+    this->global_.Reset(this->isolate_, t);
   }
 
   void *Into() { return reinterpret_cast<void *>(this); }
@@ -90,13 +100,13 @@ extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
 
 extern "C" void executeFunction(void *f) {
   Isolate *isolate_ = Isolate::GetCurrent();
-  Persistent<Function> *fn = reinterpret_cast<Persistent<Function> *>(f);
+  auto *fn = reinterpret_cast<Persistent<Function> *>(f);
   Local<Function> func = fn->Get(isolate_);
   func->Call(isolate_->GetCurrentContext(), Null(isolate_), 0, nullptr);
 }
 
 extern "C" const char *fetchEvent(JNIEnv **env, jclass c, jmethodID m) {
-  jstring s = (jstring)(*env)->CallStaticObjectMethod(c, m);
+  auto s = (jstring)(*env)->CallStaticObjectMethod(c, m);
   const char *result = jStringToChar(*env, s);
   (*env)->DeleteLocalRef(s);
   return result;
@@ -109,7 +119,7 @@ const char *ToCString(const String::Utf8Value &value) {
 // Rust bridge
 extern "C" {
 void adb_debug(const char *);
-void create_timer(isolate *, const void *);
+void create_timer(isolate **, const void *);
 isolate *create_isolate(const void *);
 }
 
@@ -126,13 +136,11 @@ void Log(const FunctionCallbackInfo<Value> &args) {
 void Timeout(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsFunction());
   Isolate *isolate = args.GetIsolate();
-  // void *denoPtr = args.Data().As<External>()->Value();
-
   auto deno = static_cast<Deno *>(args.Data().As<External>()->Value());
   auto fn = new Persistent<Function>(isolate, Local<Function>::Cast(args[0]));
-  fn->SetWeak<int>(new int(10), WeakCallback, WeakCallbackType::kParameter);
-
-  create_timer(deno->rust_isolate_, reinterpret_cast<void *>(fn));
+  // fn->SetWeak<int>(new int(10), WeakCallback, WeakCallbackType::kParameter);
+  create_timer(&deno->rust_isolate_, reinterpret_cast<void *>(fn));
+  adb_debug("timeout created");
   // fn->Reset();
   // isolate->RequestGarbageCollectionForTesting(Isolate::kFullGarbageCollection);
 }
@@ -149,28 +157,39 @@ extern "C" void invokeFunction(void *ptr, void *f) {
   cb->Call(context_, Null(deno->isolate_), argc, argv).ToLocalChecked();
 }
 
-extern "C" isolate *initDeno(void *ptr) {
-  auto deno = reinterpret_cast<Deno *>(ptr);
-  Locker locker(deno->isolate_);
-  Isolate::Scope isolate_scope(deno->isolate_);
+extern "C" isolate *initIsolate() {
+  // Create a new Isolate and make it the current one.
+  Isolate::CreateParams create_params;
+  create_params.array_buffer_allocator =
+      ArrayBuffer::Allocator::NewDefaultAllocator();
+
+  Isolate *isolate_ = Isolate::New(create_params);
+
+  Locker locker(isolate_);
+  Isolate::Scope isolate_scope(isolate_);
+  HandleScope handle_scope(isolate_);
+
+  auto deno = new Deno(isolate_);
 
   Local<External> env_ = External::New(deno->isolate_, deno);
+  Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
 
-  Local<ObjectTemplate> global_ = deno->global_.Get(deno->isolate_);
-  global_->Set(String::NewFromUtf8(deno->isolate_, "$timeout"),
-               FunctionTemplate::New(deno->isolate_, Timeout, env_));
+  global_->Set(String::NewFromUtf8(isolate_, "$timeout"),
+               FunctionTemplate::New(isolate_, Timeout, env_));
 
-  global_->Set(String::NewFromUtf8(deno->isolate_, "$log"),
-               FunctionTemplate::New(deno->isolate_, Log, env_));
+  global_->Set(String::NewFromUtf8(isolate_, "$log"),
+               FunctionTemplate::New(isolate_, Log, env_));
 
-  Local<Context> context_ = Context::New(deno->isolate_, nullptr, global_);
-  deno->context_.Reset(deno->isolate_, context_);
-  deno->rust_isolate_ = create_isolate(ptr);
+  Local<Context> context_ = Context::New(isolate_, nullptr, global_);
+  deno->ResetContext(context_);
+  deno->ResetTemplate(global_);
+
+  deno->rust_isolate_ = create_isolate(deno->Into());
   return deno->rust_isolate_;
 }
 
-extern "C" const char *evalScript(void *ptr, const char *s) {
-  auto deno = reinterpret_cast<Deno *>(ptr);
+extern "C" void evalScriptVoid(void *raw, const char *s) {
+  auto deno = reinterpret_cast<Deno *>(raw);
 
   Locker locker(deno->isolate_);
   Isolate::Scope isolate_scope(deno->isolate_);
@@ -181,15 +200,35 @@ extern "C" const char *evalScript(void *ptr, const char *s) {
         Local<Context>::New(deno->isolate_, deno->context_);
 
     Context::Scope scope(context_);
-    // Create a string containing the JavaScript source code.
     Local<String> source =
         String::NewFromUtf8(deno->isolate_, s, NewStringType::kNormal)
             .ToLocalChecked();
-    // Compile the source code.
+
     Local<Script> script = Script::Compile(context_, source).ToLocalChecked();
-    // Run the script to get the result.
+    script->Run(context_);
+  }
+}
+
+extern "C" const char *evalScript(void *raw, const char *s) {
+  auto deno = reinterpret_cast<Deno *>(raw);
+
+  Locker locker(deno->isolate_);
+  Isolate::Scope isolate_scope(deno->isolate_);
+  HandleScope handle_scope(deno->isolate_);
+
+  {
+    TryCatch try_catch(deno->isolate_);
+
+    Local<Context> context_ =
+        Local<Context>::New(deno->isolate_, deno->context_);
+
+    Context::Scope scope(context_);
+    Local<String> source =
+        String::NewFromUtf8(deno->isolate_, s, NewStringType::kNormal)
+            .ToLocalChecked();
+
+    Local<Script> script = Script::Compile(context_, source).ToLocalChecked();
     Local<Value> result = script->Run(context_).ToLocalChecked();
-    // Convert the result to an UTF8 string and print it.
     String::Utf8Value utf8(result);
 
     return ToCString(utf8);

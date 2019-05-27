@@ -1,5 +1,5 @@
-use curl::easy::Easy;
 use core::borrow::BorrowMut;
+use curl::easy::Easy;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct User {

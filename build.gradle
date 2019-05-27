@@ -36,11 +36,11 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-/*task cargo(type: Exec) {
+task cargo(type: Exec) {
     workingDir '.'
     commandLine './pre-build.sh'
-}*/
-
-task cargo() {
-
 }
+
+/*task cargo() {
+
+}*/

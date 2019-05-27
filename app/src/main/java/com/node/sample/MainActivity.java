@@ -10,7 +10,6 @@ import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.multidex.MultiDex;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
@@ -54,7 +53,6 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        MultiDex.install(this);
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);

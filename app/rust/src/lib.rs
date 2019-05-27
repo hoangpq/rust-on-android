@@ -6,21 +6,21 @@ extern crate itertools;
 #[macro_use]
 extern crate lazy_static;
 
-extern crate jni;
-extern crate libc;
 extern crate core;
 extern crate curl;
+extern crate jni;
+extern crate libc;
 
+extern crate bytes;
 extern crate serde;
 extern crate serde_json;
-extern crate bytes;
 
 #[macro_use]
 extern crate futures;
+extern crate serde_derive;
 extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
-extern crate serde_derive;
 
 #[macro_use]
 pub mod jni_log;
@@ -28,24 +28,24 @@ pub mod jni_log;
 pub mod jni_graphics;
 
 pub mod buffer;
-pub mod v8;
 pub mod runtime;
+pub mod v8;
 
-use jni::JNIEnv;
 use jni::objects::{JObject, JValue};
 use jni::sys::{jint, jlong, jobject};
+use jni::JNIEnv;
 use std::ffi::CString;
 
 use libc::size_t;
-use std::os::raw::{c_void, c_char};
-use std::{mem, thread};
+use std::os::raw::{c_char, c_void};
 use std::sync::mpsc;
+use std::{mem, thread};
 
-use jni_graphics::{create_bitmap, draw_mandelbrot};
 use jni_graphics::AndroidBitmapInfo;
+use jni_graphics::{create_bitmap, draw_mandelbrot};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
 
-use v8::{Function, ArrayBuffer, Value, CallbackInfo};
+use v8::{ArrayBuffer, CallbackInfo, Function, Value};
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -69,7 +69,9 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<
         // create new bitmap
         let jbitmap = create_bitmap(&env, 800, 800);
         let bitmap = jbitmap.l().unwrap().into_inner();
-        let mut info = AndroidBitmapInfo { ..Default::default() };
+        let mut info = AndroidBitmapInfo {
+            ..Default::default()
+        };
         // Read bitmap info
         AndroidBitmap_getInfo(jenv, bitmap, &mut info);
         let mut pixels = 0 as *mut c_void;
@@ -94,7 +96,8 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<
             "setImageBitmap",
             "(Landroid/graphics/Bitmap;)V",
             &[JValue::from(JObject::from(bitmap))],
-        ).unwrap();
+        )
+        .unwrap();
         tx.send(()).unwrap();
     });
     rx.recv().unwrap();
@@ -121,12 +124,14 @@ pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
-    let result = env.call_static_method(
-        "com/node/v8/V8Utils",
-        "getHandler",
-        "()Landroid/os/Handler;",
-        &[],
-    ).expect("Can not create handler!");
+    let result = env
+        .call_static_method(
+            "com/node/v8/V8Utils",
+            "getHandler",
+            "()Landroid/os/Handler;",
+            &[],
+        )
+        .expect("Can not create handler!");
 
     match result.l() {
         Ok(v) => v.into_inner(),
@@ -137,12 +142,14 @@ pub unsafe extern "C" fn createTimeoutHandler(env: &JNIEnv) -> jobject {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d: jlong, t: jint) {
-    let ctx = env.call_static_method(
-        "com/node/v8/V8Context",
-        "getCurrent",
-        "()Lcom/node/v8/V8Context;",
-        &[],
-    ).expect("Can not get current context");
+    let ctx = env
+        .call_static_method(
+            "com/node/v8/V8Context",
+            "getCurrent",
+            "()Lcom/node/v8/V8Context;",
+            &[],
+        )
+        .expect("Can not get current context");
 
     let timer_sig = if t == 1 {
         "createTimeoutRunnable"
@@ -150,12 +157,14 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
         "createIntervalRunnable"
     };
 
-    let runnable = env.call_static_method(
-        "com/node/v8/V8Runnable",
-        timer_sig,
-        "(Lcom/node/v8/V8Context;JJ)Lcom/node/v8/V8Runnable;",
-        &[ctx, JValue::from(f), JValue::from(d)],
-    ).expect("Can not create Runnable by factory!");
+    let runnable = env
+        .call_static_method(
+            "com/node/v8/V8Runnable",
+            timer_sig,
+            "(Lcom/node/v8/V8Context;JJ)Lcom/node/v8/V8Runnable;",
+            &[ctx, JValue::from(f), JValue::from(d)],
+        )
+        .expect("Can not create Runnable by factory!");
 
     match runnable.l() {
         Ok(v) => {
@@ -206,8 +215,8 @@ pub extern "C" fn Perform(args: &CallbackInfo) {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn initEventLoop(env: &'static JNIEnv, deno: *const libc::c_void) {
-    runtime::util::init_event_loop(env, deno);
+pub unsafe extern "C" fn initEventLoop(env: &'static JNIEnv) {
+    runtime::util::init_event_loop(env);
 }
 
 #[allow(dead_code)]

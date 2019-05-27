@@ -25,7 +25,7 @@ void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 char *workerSendBytes(void *, size_t, Local<Value> val);
 void Perform(const FunctionCallbackInfo<Value> &);
 
-void initEventLoop(JNIEnv **, void *);
+void initEventLoop(JNIEnv **);
 void setInterval(void *);
 };
 
@@ -36,12 +36,21 @@ public:
   Isolate *isolate_;
   Persistent<Context> context_;
   Persistent<ObjectTemplate> global_;
-  isolate *rust_isolate_;
+  isolate *rust_isolate_{};
+
+  explicit Deno(Isolate *isolate) : isolate_(isolate) {}
 
   Deno(Isolate *isolate, Local<Context> context, Local<ObjectTemplate> global)
       : isolate_(isolate) {
     this->context_.Reset(this->isolate_, context);
     this->global_.Reset(this->isolate_, global);
+  }
+
+  void ResetContext(Local<Context> c) {
+    this->context_.Reset(this->isolate_, c);
+  }
+  void ResetTemplate(Local<ObjectTemplate> t) {
+    this->global_.Reset(this->isolate_, t);
   }
 
   void *Into() { return reinterpret_cast<void *>(this); }
