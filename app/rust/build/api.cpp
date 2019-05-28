@@ -12,6 +12,11 @@
 
 using namespace v8;
 
+// Rust bridge
+extern "C" {
+void adb_debug(const char *);
+}
+
 class V8Runtime {
 public:
   JNIEnv *env_;
@@ -21,14 +26,16 @@ public:
   Persistent<ObjectTemplate> global_;
 };
 
-struct isolate;
+struct rust_isolate;
+typedef void (*deno_recv_cb)(void *isolate_, void *cb, int duration);
 
 class Deno {
 public:
   Isolate *isolate_;
   Persistent<Context> context_;
   Persistent<ObjectTemplate> global_;
-  isolate *rust_isolate_;
+  deno_recv_cb recv_cb_;
+  rust_isolate *rust_isolate_;
 
   explicit Deno(Isolate *isolate) : isolate_(isolate) {}
 
@@ -41,12 +48,32 @@ public:
   void ResetContext(Local<Context> c) {
     this->context_.Reset(this->isolate_, c);
   }
+
   void ResetTemplate(Local<ObjectTemplate> t) {
     this->global_.Reset(this->isolate_, t);
   }
 
+  void SetDenoCallback(deno_recv_cb recv_cb) { this->recv_cb_ = recv_cb; }
+
   void *Into() { return reinterpret_cast<void *>(this); }
 };
+
+extern "C" rust_isolate *set_deno_data(void *raw, rust_isolate *isolate) {
+  auto d = reinterpret_cast<Deno *>(raw);
+  d->rust_isolate_ = isolate;
+  return d->rust_isolate_;
+}
+
+extern "C" void set_deno_callback(void *raw, deno_recv_cb recv_cb) {
+  auto d = reinterpret_cast<Deno *>(raw);
+  d->SetDenoCallback(recv_cb);
+}
+
+extern "C" Isolate *lock_deno_isolate(void *raw) {
+  auto d = reinterpret_cast<Deno *>(raw);
+  HandleScope handle_scope(d->isolate_);
+  return d->isolate_;
+}
 
 const char *jStringToChar(JNIEnv *env, jstring name) {
   const char *str = env->GetStringUTFChars(name, 0);
@@ -116,13 +143,6 @@ const char *ToCString(const String::Utf8Value &value) {
   return *value ? *value : "<string conversion failed>";
 }
 
-// Rust bridge
-extern "C" {
-void adb_debug(const char *);
-void create_timer(isolate **, const void *);
-isolate *create_isolate(const void *);
-}
-
 static void WeakCallback(const WeakCallbackInfo<int> &data) {
   adb_debug("weak callback");
 }
@@ -135,29 +155,25 @@ void Log(const FunctionCallbackInfo<Value> &args) {
 
 void Timeout(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsFunction());
-  Isolate *isolate = args.GetIsolate();
-  auto deno = static_cast<Deno *>(args.Data().As<External>()->Value());
-  auto fn = new Persistent<Function>(isolate, Local<Function>::Cast(args[0]));
-  // fn->SetWeak<int>(new int(10), WeakCallback, WeakCallbackType::kParameter);
-  create_timer(&deno->rust_isolate_, reinterpret_cast<void *>(fn));
-  adb_debug("timeout created");
-  // fn->Reset();
-  // isolate->RequestGarbageCollectionForTesting(Isolate::kFullGarbageCollection);
+  assert(args[1]->IsNumber());
+
+  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
+  auto callback =
+      new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
+
+  int32_t duration = args[1]->Int32Value();
+  d->recv_cb_(d->rust_isolate_, reinterpret_cast<void *>(callback), duration);
 }
 
-extern "C" void invokeFunction(void *ptr, void *f) {
-  auto deno = reinterpret_cast<Deno *>(ptr);
+extern "C" void invoke_function(void *raw, void *f) {
+  auto deno = reinterpret_cast<Deno *>(raw);
   auto fn = reinterpret_cast<Persistent<Function> *>(f);
   Local<Function> cb = fn->Get(deno->isolate_);
   Local<Context> context_ = deno->context_.Get(deno->isolate_);
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = {
-      String::NewFromUtf8(deno->isolate_, "Invoked", NewStringType::kNormal)
-          .ToLocalChecked()};
-  cb->Call(context_, Null(deno->isolate_), argc, argv).ToLocalChecked();
+  cb->Call(context_, Null(deno->isolate_), 0, nullptr).ToLocalChecked();
 }
 
-extern "C" isolate *initIsolate() {
+extern "C" void *deno_init(deno_recv_cb recv_cb) {
   // Create a new Isolate and make it the current one.
   Isolate::CreateParams create_params;
   create_params.array_buffer_allocator =
@@ -183,9 +199,9 @@ extern "C" isolate *initIsolate() {
   Local<Context> context_ = Context::New(isolate_, nullptr, global_);
   deno->ResetContext(context_);
   deno->ResetTemplate(global_);
+  deno->recv_cb_ = recv_cb;
 
-  deno->rust_isolate_ = create_isolate(deno->Into());
-  return deno->rust_isolate_;
+  return deno->Into();
 }
 
 extern "C" void evalScriptVoid(void *raw, const char *s) {

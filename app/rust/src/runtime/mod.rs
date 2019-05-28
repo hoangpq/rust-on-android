@@ -8,7 +8,7 @@ pub mod util;
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn initIsolate() -> *mut Isolate;
+    fn initIsolate() -> *mut libc::c_void;
     fn evalScriptVoid(deno: *const libc::c_void, script: *const libc::c_char);
     fn evalScript(deno: *const libc::c_void, script: *const libc::c_char) -> *mut libc::c_char;
     fn invokeFunction(deno: *const libc::c_void, f: *const libc::c_void);
