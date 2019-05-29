@@ -10,12 +10,12 @@
 #include <string>
 #include <v8.h>
 
-using namespace v8;
+#define lock_isolate(isolate_)                                                 \
+  Locker locker(isolate_);                                                     \
+  Isolate::Scope isolate_scope(isolate_);                                      \
+  HandleScope handle_scope(isolate_);
 
-// Rust bridge
-extern "C" {
-void adb_debug(const char *);
-}
+using namespace v8;
 
 class V8Runtime {
 public:
@@ -27,7 +27,14 @@ public:
 };
 
 struct rust_isolate;
-typedef void (*deno_recv_cb)(void *isolate_, void *cb, int duration);
+typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, void *cb, int duration,
+                                bool interval);
+
+// Rust bridge
+extern "C" {
+void adb_debug(const char *);
+void remove_timer(rust_isolate *isolate_, int32_t timer_id);
+}
 
 class Deno {
 public:
@@ -69,10 +76,9 @@ extern "C" void set_deno_callback(void *raw, deno_recv_cb recv_cb) {
   d->SetDenoCallback(recv_cb);
 }
 
-extern "C" Isolate *lock_deno_isolate(void *raw) {
+extern "C" void lock_deno_isolate(void *raw) {
   auto d = reinterpret_cast<Deno *>(raw);
   HandleScope handle_scope(d->isolate_);
-  return d->isolate_;
 }
 
 const char *jStringToChar(JNIEnv *env, jstring name) {
@@ -125,13 +131,6 @@ extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
   return String::NewFromUtf8(isolate_, data);
 }
 
-extern "C" void executeFunction(void *f) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  auto *fn = reinterpret_cast<Persistent<Function> *>(f);
-  Local<Function> func = fn->Get(isolate_);
-  func->Call(isolate_->GetCurrentContext(), Null(isolate_), 0, nullptr);
-}
-
 extern "C" const char *fetchEvent(JNIEnv **env, jclass c, jmethodID m) {
   auto s = (jstring)(*env)->CallStaticObjectMethod(c, m);
   const char *result = jStringToChar(*env, s);
@@ -157,20 +156,57 @@ void Timeout(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsFunction());
   assert(args[1]->IsNumber());
 
-  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
-  auto callback =
+  auto ptr = args.Data().As<External>()->Value();
+  auto d = reinterpret_cast<Deno *>(ptr);
+  auto cb =
       new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
 
   int32_t duration = args[1]->Int32Value();
-  d->recv_cb_(d->rust_isolate_, reinterpret_cast<void *>(callback), duration);
+  int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void *>(cb),
+                            duration, false);
+
+  args.GetReturnValue().Set(Number::New(d->isolate_, uid));
+}
+
+void Interval(const FunctionCallbackInfo<Value> &args) {
+  assert(args[0]->IsFunction());
+  assert(args[1]->IsNumber());
+
+  auto ptr = args.Data().As<External>()->Value();
+  auto d = reinterpret_cast<Deno *>(ptr);
+  auto cb =
+      new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
+
+  int32_t duration = args[1]->Int32Value();
+  int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void *>(cb),
+                            duration, true);
+
+  args.GetReturnValue().Set(Number::New(d->isolate_, uid));
+}
+
+void ClearTimer(const FunctionCallbackInfo<Value> &args) {
+  assert(args.Length());
+  assert(args[0]->IsNumber());
+
+  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
+  remove_timer(d->rust_isolate_, args[0]->Int32Value());
+
+  args.GetReturnValue().Set(args[0]);
 }
 
 extern "C" void invoke_function(void *raw, void *f) {
   auto deno = reinterpret_cast<Deno *>(raw);
+  lock_isolate(deno->isolate_);
+
   auto fn = reinterpret_cast<Persistent<Function> *>(f);
   Local<Function> cb = fn->Get(deno->isolate_);
   Local<Context> context_ = deno->context_.Get(deno->isolate_);
-  cb->Call(context_, Null(deno->isolate_), 0, nullptr).ToLocalChecked();
+
+  const unsigned argc = 1;
+  Local<Value> argv[argc] = {
+      String::NewFromUtf8(deno->isolate_, "Invoked", NewStringType::kNormal)
+          .ToLocalChecked()};
+  cb->Call(context_, Null(deno->isolate_), argc, argv).ToLocalChecked();
 }
 
 extern "C" void *deno_init(deno_recv_cb recv_cb) {
@@ -180,10 +216,7 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
       ArrayBuffer::Allocator::NewDefaultAllocator();
 
   Isolate *isolate_ = Isolate::New(create_params);
-
-  Locker locker(isolate_);
-  Isolate::Scope isolate_scope(isolate_);
-  HandleScope handle_scope(isolate_);
+  lock_isolate(isolate_);
 
   auto deno = new Deno(isolate_);
 
@@ -192,6 +225,12 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
 
   global_->Set(String::NewFromUtf8(isolate_, "$timeout"),
                FunctionTemplate::New(isolate_, Timeout, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$interval"),
+               FunctionTemplate::New(isolate_, Interval, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$clear"),
+               FunctionTemplate::New(isolate_, ClearTimer, env_));
 
   global_->Set(String::NewFromUtf8(isolate_, "$log"),
                FunctionTemplate::New(isolate_, Log, env_));
@@ -204,12 +243,9 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   return deno->Into();
 }
 
-extern "C" void evalScriptVoid(void *raw, const char *s) {
+extern "C" void eval_script_void(void *raw, const char *s) {
   auto deno = reinterpret_cast<Deno *>(raw);
-
-  Locker locker(deno->isolate_);
-  Isolate::Scope isolate_scope(deno->isolate_);
-  HandleScope handle_scope(deno->isolate_);
+  lock_isolate(deno->isolate_);
 
   {
     Local<Context> context_ =
@@ -225,12 +261,9 @@ extern "C" void evalScriptVoid(void *raw, const char *s) {
   }
 }
 
-extern "C" const char *evalScript(void *raw, const char *s) {
+extern "C" const char *eval_script(void *raw, const char *s) {
   auto deno = reinterpret_cast<Deno *>(raw);
-
-  Locker locker(deno->isolate_);
-  Isolate::Scope isolate_scope(deno->isolate_);
-  HandleScope handle_scope(deno->isolate_);
+  lock_isolate(deno->isolate_);
 
   {
     TryCatch try_catch(deno->isolate_);

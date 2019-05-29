@@ -25,7 +25,7 @@ void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
 char *workerSendBytes(void *, size_t, Local<Value> val);
 void Perform(const FunctionCallbackInfo<Value> &);
 
-void initEventLoop(JNIEnv **);
+void init_event_loop(JNIEnv **);
 void setInterval(void *);
 };
 

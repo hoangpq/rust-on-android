@@ -1,17 +1,23 @@
-use runtime::isolate::Isolate;
+pub mod isolate;
+pub mod timer;
+pub mod util;
+
 use std::ffi::CString;
 use std::slice;
 use tokio::runtime;
 
-pub mod isolate;
-pub mod util;
+#[repr(C)]
+pub struct DenoC {
+    _unused: [u8; 0],
+}
+
+unsafe impl Send for DenoC {}
+unsafe impl Sync for DenoC {}
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn initIsolate() -> *mut libc::c_void;
-    fn evalScriptVoid(deno: *const libc::c_void, script: *const libc::c_char);
-    fn evalScript(deno: *const libc::c_void, script: *const libc::c_char) -> *mut libc::c_char;
-    fn invokeFunction(deno: *const libc::c_void, f: *const libc::c_void);
+    fn eval_script_void(deno: *const DenoC, script: *const libc::c_char);
+    fn eval_script(deno: *const DenoC, script: *const libc::c_char) -> *mut libc::c_char;
 }
 
 unsafe fn ptr_to_string(raw: *mut libc::c_char) -> Option<String> {

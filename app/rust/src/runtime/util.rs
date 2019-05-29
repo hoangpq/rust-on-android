@@ -1,15 +1,7 @@
-use futures::stream::Stream;
-use futures::{future, Async, Future, IntoFuture, Poll};
 use jni::JNIEnv;
-use std::time::{Duration, Instant};
-use tokio::timer::Interval;
 
-use core::borrow::BorrowMut;
-use runtime::isolate::Isolate;
-use runtime::{create_thread_pool_runtime, initIsolate, invokeFunction, ptr_to_string};
-use std::fmt;
-
-use tokio_timer::Delay;
+use crate::runtime::isolate::Isolate;
+use crate::runtime::{create_thread_pool_runtime, ptr_to_string};
 
 #[no_mangle]
 pub unsafe extern "C" fn adb_debug(p: *mut libc::c_char) {
@@ -18,14 +10,24 @@ pub unsafe extern "C" fn adb_debug(p: *mut libc::c_char) {
     }
 }
 
+#[no_mangle]
 pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
     let main_future = futures::lazy(move || {
         let mut isolate = Isolate::new();
         isolate.vexecute(
             r#"
-               $timeout((msg) => {}, 6e3);
-               const data = { msg: 'Hello, World!'};
-               $timeout((msg) => {}, 9e3);
+               const data = { msg: 'Hello, World!' };
+
+               const t1 = $timeout((msg) => { $log('$timeout 5s'); }, 5e3);
+               const t2 = $timeout((msg) => { $log('$timeout 6s'); }, 6e3);
+               const t3 = $timeout((msg) => { $log('$timeout 7s'); }, 7e3);
+
+               // test to clear timeout
+               $timeout((msg) => {
+                  $clear(t1);
+                  $clear(t3);
+               }, 0);
+
                $log(data.msg);
             "#,
         );

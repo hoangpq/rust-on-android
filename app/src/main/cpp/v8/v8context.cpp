@@ -244,11 +244,9 @@ Handle<Object> RunScript(Isolate *isolate, Local<Context> context,
   return value->ToObject();
 }
 
-void Hello(const FunctionCallbackInfo<Value> &args) {}
-
 extern "C" void JNICALL Java_com_node_v8_V8Context_initEventLoop(JNIEnv *env,
                                                                  jclass klass) {
-  initEventLoop(&env);
+  init_event_loop(&env);
 }
 
 extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,

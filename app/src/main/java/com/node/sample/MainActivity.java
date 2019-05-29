@@ -103,11 +103,10 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.user);
                 ScriptUtils.require(getApplicationContext(), context_, R.raw.model);
 
-                ScriptUtils.bulkEval(context_,
+                /*ScriptUtils.bulkEval(context_,
                         "$timeout(function() { $log('$timeout 7s'); }, 7e3);",
                         "$timeout(function() { $log('$timeout 10s'); }, 1e4);");
-
-                context_.eval("createUser('Vampire')");
+                context_.eval("createUser('Vampire')");*/
 
             } catch (Exception e) {
                 e.printStackTrace();
