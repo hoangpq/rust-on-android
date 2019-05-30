@@ -1,5 +1,5 @@
+use crate::runtime::stream_cancel::StreamExt;
 use futures::stream::Stream;
-use futures::sync::oneshot;
 use futures::{future, Future};
 use std::convert::Into;
 use std::time::{Duration, Instant};
@@ -23,15 +23,18 @@ pub fn set_timeout<F>(
 where
     F: FnOnce() -> (),
 {
-    let (tx, rx) = oneshot::channel();
+    let (tx, rx) = futures::sync::oneshot::channel::<()>();
     let duration = Duration::from_millis(delay.into());
 
-    let rx = panic_on_error(rx);
-    let delay_task = panic_on_error(Delay::new(Instant::now() + duration))
+    let delay_task = Delay::new(Instant::now() + duration)
+        .map_err(|err| adb_debug!(format!("Future got unexpected error: {:?}", err)))
         .and_then(|_| {
             cb();
             Ok(())
-        });
+        })
+        .select(rx.map_err(|_| ()))
+        .map(|_| ())
+        .map_err(|_| ());
 
     (delay_task, tx)
 }
@@ -46,11 +49,12 @@ pub fn set_interval<F>(
 where
     F: Fn() -> (),
 {
-    let (tx, rx) = oneshot::channel();
     let delay = Duration::from_millis(delay.into());
+    // let (trigger, tripwire) = Tripwire::new();
 
-    let rx = panic_on_error(rx);
+    let (tx, rx) = futures::sync::oneshot::channel::<()>();
     let interval_task = Interval::new(Instant::now() + delay, delay)
+        .take_until(rx.map_err(|_| ()))
         .for_each(move |_| {
             cb();
             future::ok(())

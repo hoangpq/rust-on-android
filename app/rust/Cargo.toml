@@ -3,7 +3,7 @@ name = "rust"
 version = "0.1.0"
 build = "build.rs"
 authors = ["Hoang Phan <pquochoang2007@gmail.com>"]
-edition = '2018'
+edition = "2018"
 
 [lib]
 name = "rust"

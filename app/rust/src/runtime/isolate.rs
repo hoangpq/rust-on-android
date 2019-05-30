@@ -71,8 +71,6 @@ impl Isolate {
         return ptr_to_string(eval_script(self.deno, string_to_ptr(script)));
     }
 
-    unsafe extern "C" fn clear_timer(ptr: *mut Isolate, id: u32) {}
-
     unsafe extern "C" fn new_timer(
         ptr: *mut Isolate,
         d: *const DenoC,
@@ -83,24 +81,23 @@ impl Isolate {
         let uid = Isolate::next_uuid();
         let isolate = from_c(ptr);
         if interval {
-            let (task, _) = set_interval(
-                move || unsafe {
-                    invoke_function(d, cb);
-                },
-                duration,
-            );
-            // isolate.timers.insert(uid, sender);
-            isolate.pending_ops.push(Box::new(task));
-        } else {
-            let (task, tx) = set_timeout(
+            let (task, trigger) = set_interval(
                 move || {
                     invoke_function(d, cb);
                 },
                 duration,
             );
-            // isolate.timers.insert(uid, sender);
+            isolate.timers.insert(uid, trigger);
             isolate.pending_ops.push(Box::new(task));
-            drop(tx);
+        } else {
+            let (task, trigger) = set_timeout(
+                move || {
+                    invoke_function(d, cb);
+                },
+                duration,
+            );
+            isolate.timers.insert(uid, trigger);
+            isolate.pending_ops.push(Box::new(task));
         };
         return uid;
     }
@@ -118,7 +115,7 @@ impl Future for Isolate {
                 Err(_) => panic!("unexpected op error"),
                 Ok(Ready(None)) => break,
                 Ok(NotReady) => break,
-                Ok(Ready(Some(buf))) => {
+                Ok(Ready(Some(_buf))) => {
                     // adb_debug!(format!("buf: {:?}", buf));
                     break;
                 }
@@ -140,5 +137,8 @@ impl Future for Isolate {
 #[no_mangle]
 fn remove_timer(ptr: *mut Isolate, timer_id: u32) {
     let isolate = from_c(ptr);
-    isolate.timers.remove(&timer_id);
+    if let Some(timer) = isolate.timers.remove(&timer_id) {
+        timer.send(()).unwrap();
+        adb_debug!(format!("Timer {} removed", timer_id));
+    }
 }
