@@ -1,3 +1,4 @@
+pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;
 pub mod timer;

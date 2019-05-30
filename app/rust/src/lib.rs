@@ -10,6 +10,7 @@ extern crate core;
 extern crate curl;
 extern crate jni;
 extern crate libc;
+extern crate reqwest;
 
 extern crate bytes;
 extern crate serde;

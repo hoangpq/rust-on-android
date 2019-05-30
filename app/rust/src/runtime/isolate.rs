@@ -3,6 +3,7 @@ use futures::Async::*;
 use futures::{task, Future, Poll};
 use std::collections::HashMap;
 
+use crate::runtime::fetch::fetch_async;
 use crate::runtime::timer::{set_interval, set_timeout};
 use crate::runtime::{eval_script, eval_script_void, ptr_to_string, string_to_ptr, DenoC};
 
@@ -64,6 +65,7 @@ impl Isolate {
     }
 
     pub unsafe fn vexecute(&mut self, script: &str) {
+        self.pending_ops.push(fetch_async());
         eval_script_void(self.deno, string_to_ptr(script));
     }
 
