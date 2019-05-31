@@ -1,12 +1,15 @@
+use std::ffi::CString;
+use std::slice;
+
+use tokio::runtime;
+
+use crate::runtime::isolate::Isolate;
+
 pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;
 pub mod timer;
 pub mod util;
-
-use std::ffi::CString;
-use std::slice;
-use tokio::runtime;
 
 #[repr(C)]
 pub struct DenoC {
@@ -29,7 +32,10 @@ unsafe fn ptr_to_string(raw: *mut libc::c_char) -> Option<String> {
     )
 }
 
-unsafe fn string_to_ptr(s: &str) -> *const libc::c_char {
+unsafe fn string_to_ptr<T>(s: T) -> *const libc::c_char
+where
+    T: std::convert::Into<std::vec::Vec<u8>>,
+{
     let s = CString::new(s).unwrap();
     let p = s.as_ptr();
     std::mem::forget(s);

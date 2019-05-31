@@ -1,11 +1,11 @@
-use futures::stream::{FuturesUnordered, Stream};
-use futures::Async::*;
-use futures::{task, Future, Poll};
 use std::collections::HashMap;
 
-use crate::runtime::fetch::fetch_async;
+use futures::{Future, Poll, task};
+use futures::Async::*;
+use futures::stream::{FuturesUnordered, Stream};
+
+use crate::runtime::{DenoC, eval_script, eval_script_void, ptr_to_string, string_to_ptr};
 use crate::runtime::timer::{set_interval, set_timeout};
-use crate::runtime::{eval_script, eval_script_void, ptr_to_string, string_to_ptr, DenoC};
 
 pub type OpAsyncFuture = Box<Future<Item = (), Error = ()>>;
 
@@ -27,7 +27,7 @@ extern "C" {
 }
 
 pub struct Isolate {
-    deno: *const DenoC,
+    pub deno: *const DenoC,
     pub have_unpolled_ops: bool,
     pub pending_ops: FuturesUnordered<OpAsyncFuture>,
     pub timers: HashMap<u32, futures::sync::oneshot::Sender<()>>,
@@ -35,11 +35,6 @@ pub struct Isolate {
 
 unsafe impl Send for Isolate {}
 unsafe impl Sync for Isolate {}
-
-fn from_c<'a>(ptr: *mut Isolate) -> &'a mut Isolate {
-    let isolate_box = unsafe { Box::from_raw(ptr) };
-    Box::leak(isolate_box)
-}
 
 static mut UUID: u32 = 0;
 
@@ -50,6 +45,11 @@ impl Isolate {
             UUID = UUID + 1;
             UUID
         }
+    }
+    #[inline]
+    pub fn from_c<'a>(ptr: *mut Isolate) -> &'a mut Isolate {
+        let isolate_box = unsafe { Box::from_raw(ptr) };
+        Box::leak(isolate_box)
     }
     pub unsafe fn new<'a>() -> &'a mut Self {
         let deno = deno_init(Self::new_timer);
@@ -65,7 +65,6 @@ impl Isolate {
     }
 
     pub unsafe fn vexecute(&mut self, script: &str) {
-        self.pending_ops.push(fetch_async());
         eval_script_void(self.deno, string_to_ptr(script));
     }
 
@@ -81,7 +80,7 @@ impl Isolate {
         interval: bool,
     ) -> u32 {
         let uid = Isolate::next_uuid();
-        let isolate = from_c(ptr);
+        let isolate = Isolate::from_c(ptr);
         if interval {
             let (task, trigger) = set_interval(
                 move || {
@@ -138,7 +137,7 @@ impl Future for Isolate {
 
 #[no_mangle]
 fn remove_timer(ptr: *mut Isolate, timer_id: u32) {
-    let isolate = from_c(ptr);
+    let isolate = Isolate::from_c(ptr);
     if let Some(timer) = isolate.timers.remove(&timer_id) {
         timer.send(()).unwrap();
         adb_debug!(format!("Timer {} removed", timer_id));

@@ -1,7 +1,7 @@
 use jni::JNIEnv;
 
-use crate::runtime::isolate::Isolate;
 use crate::runtime::{create_thread_pool_runtime, ptr_to_string};
+use crate::runtime::isolate::Isolate;
 
 #[no_mangle]
 pub unsafe extern "C" fn adb_debug(p: *mut libc::c_char) {
@@ -17,18 +17,29 @@ pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
         isolate.vexecute(
             r#"
                const data = { msg: 'Hello, World!' };
+               const users = ['hoangpq', 'firebase'];
+
+               function fetchUserInfo(user) {
+                  return $fetch(`https://api.github.com/users/${user}`);
+               }
+
+               try {
+                  Promise.all(users.map(fetchUserInfo))
+                     .then(names => $log(names.join(', ')));
+               } catch (e) {
+                  $log(e);
+               }
 
                const t0 = $interval(msg => { $log('$interval 2s'); }, 2e3);
-
                const t1 = $timeout((msg) => { $log('$timeout 5s'); }, 5e3);
                const t2 = $timeout((msg) => { $log('$timeout 6s'); }, 6e3);
 
                // test to clear timeout
                const t3 = $timeout((msg) => {
-                  $interval(() => { $log('$interval 3s'); }, 3e3);
+                  // $interval(() => { $log('$interval 3s'); }, 3e3);
                   $clear(t0);
-                  $log('$timeout 7s');
-               }, 7e3);
+                  $log('$timeout 20s');
+               }, 20e3);
 
                // test to clear timeout
                $timeout((msg) => {

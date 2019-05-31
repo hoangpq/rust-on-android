@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <jni.h>
+#include <map>
 #include <string>
 #include <v8.h>
 
@@ -30,10 +31,16 @@ struct rust_isolate;
 typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, void *cb, int duration,
                                 bool interval);
 
+using ResolverPersistent = Persistent<Promise::Resolver>;
+
+int promise_uuid = 0;
+std::map<int, ResolverPersistent *> promise_map;
+
 // Rust bridge
 extern "C" {
 void adb_debug(const char *);
 void remove_timer(rust_isolate *isolate_, int32_t timer_id);
+void fetch(rust_isolate *isolate_, const char *, int);
 }
 
 class Deno {
@@ -131,7 +138,7 @@ extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
   return String::NewFromUtf8(isolate_, data);
 }
 
-extern "C" const char *fetchEvent(JNIEnv **env, jclass c, jmethodID m) {
+extern "C" const char *fetch_event(JNIEnv **env, jclass c, jmethodID m) {
   auto s = (jstring)(*env)->CallStaticObjectMethod(c, m);
   const char *result = jStringToChar(*env, s);
   (*env)->DeleteLocalRef(s);
@@ -194,6 +201,47 @@ void ClearTimer(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(args[0]);
 }
 
+void Destroyed(const WeakCallbackInfo<int> &info) {
+  char s[20];
+  sprintf(s, "Request %d", *info.GetParameter());
+  adb_debug(s);
+  promise_map[*info.GetParameter()]->Reset();
+}
+
+void Fetch(const FunctionCallbackInfo<Value> &args) {
+  assert(args.Length());
+  assert(args[0]->IsString());
+
+  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
+  lock_isolate(d->isolate_);
+  String::Utf8Value url(args[0]->ToString());
+
+  Local<Context> context_ = d->context_.Get(d->isolate_);
+  auto resolver = Promise::Resolver::New(context_).ToLocalChecked();
+  args.GetReturnValue().Set(resolver->GetPromise());
+
+  int promise_id = ++promise_uuid;
+  auto persistent = new ResolverPersistent(d->isolate_, resolver);
+  persistent->SetWeak<int>(new int(promise_id), Destroyed,
+                           WeakCallbackType::kParameter);
+
+  promise_map[promise_id] = new ResolverPersistent(d->isolate_, resolver);
+  fetch(d->rust_isolate_, *url, promise_id);
+}
+
+extern "C" void resolve_promise(void *raw, int32_t promise_id,
+                                const char *value) {
+  auto d = reinterpret_cast<Deno *>(raw);
+  lock_isolate(d->isolate_);
+
+  if (promise_map.find(promise_id) != promise_map.end()) {
+    ResolverPersistent *persistent = promise_map.at(promise_id);
+    Local<Promise::Resolver> resolver = persistent->Get(d->isolate_);
+    resolver->Resolve(d->context_.Get(d->isolate_),
+                      String::NewFromUtf8(d->isolate_, value));
+  }
+}
+
 extern "C" void invoke_function(void *raw, void *f) {
   auto deno = reinterpret_cast<Deno *>(raw);
   lock_isolate(deno->isolate_);
@@ -234,6 +282,9 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
 
   global_->Set(String::NewFromUtf8(isolate_, "$log"),
                FunctionTemplate::New(isolate_, Log, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$fetch"),
+               FunctionTemplate::New(isolate_, Fetch, env_));
 
   Local<Context> context_ = Context::New(isolate_, nullptr, global_);
   deno->ResetContext(context_);

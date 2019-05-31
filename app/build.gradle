@@ -47,6 +47,10 @@ android {
         }
     }
 
+    packagingOptions {
+        doNotStrip "**/*.so"
+    }
+
     preBuild.dependsOn(rootProject.cargo)
 
 }
