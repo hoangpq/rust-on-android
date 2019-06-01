@@ -22,11 +22,11 @@ create_standalone_ndk() {
     cargo +nightly install wasm-gc --force
 
     mkdir -p ${NDK_STANDALONE}
-    ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 26 --arch arm64\
+    ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 21 --arch arm64\
         --install-dir ${NDK_STANDALONE}/arm64
-    ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 26 --arch arm\
+    ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 21 --arch arm\
         --install-dir ${NDK_STANDALONE}/arm
-    ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 26 --arch x86\
+    ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 21 --arch x86\
         --install-dir ${NDK_STANDALONE}/x86
 }
 if ! [[ -d ${NDK_STANDALONE} ]]
