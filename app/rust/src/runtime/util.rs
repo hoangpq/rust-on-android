@@ -23,23 +23,26 @@ pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
                   return $fetch(`https://api.github.com/users/${user}`);
                }
 
-               try {
-                  Promise.all(users.map(fetchUserInfo))
-                     .then(names => $log(names.join(', ')));
-               } catch (e) {
-                  $log(e);
-               }
+               (function() {
+                  let p1 = fetchUserInfo(users[0]);
+                  p1.then(name => $log(`Name: ${name}`));
+               })();
 
-               const t0 = $interval(msg => { $log('$interval 2s'); }, 2e3);
+               let heap_size = 0;
+               const t0 = $interval(msg => {
+                  // $log(`Request GC`);
+                  // new Int8Array(1024);
+                  $log(`Heap size: ${$static()}`);
+               }, 5e3);
+
                const t1 = $timeout((msg) => { $log('$timeout 5s'); }, 5e3);
                const t2 = $timeout((msg) => { $log('$timeout 6s'); }, 6e3);
 
                // test to clear timeout
                const t3 = $timeout((msg) => {
-                  // $interval(() => { $log('$interval 3s'); }, 3e3);
                   $clear(t0);
                   $log('$timeout 20s');
-               }, 20e3);
+               }, 1e6);
 
                // test to clear timeout
                $timeout((msg) => {

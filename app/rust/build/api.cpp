@@ -155,8 +155,15 @@ static void WeakCallback(const WeakCallbackInfo<int> &data) {
 
 void Log(const FunctionCallbackInfo<Value> &args) {
   assert(args.Length() > 0);
-  String::Utf8Value utf8(args[0]);
-  adb_debug(ToCString(utf8));
+  Isolate *isolate = args.GetIsolate();
+  Local<Context> context = isolate->GetCurrentContext();
+
+  EscapableHandleScope handle_scope(isolate);
+  Local<String> result = handle_scope.Escape(
+      JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
+
+  String::Utf8Value s(result);
+  adb_debug(ToCString(s));
 }
 
 void Timeout(const FunctionCallbackInfo<Value> &args) {
@@ -201,12 +208,7 @@ void ClearTimer(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(args[0]);
 }
 
-void Destroyed(const WeakCallbackInfo<int> &info) {
-  char s[20];
-  sprintf(s, "Request %d", *info.GetParameter());
-  adb_debug(s);
-  promise_map[*info.GetParameter()]->Reset();
-}
+void Destroyed(const WeakCallbackInfo<int> &info) { adb_debug("Destroyed"); }
 
 void Fetch(const FunctionCallbackInfo<Value> &args) {
   assert(args.Length());
@@ -225,8 +227,21 @@ void Fetch(const FunctionCallbackInfo<Value> &args) {
   persistent->SetWeak<int>(new int(promise_id), Destroyed,
                            WeakCallbackType::kParameter);
 
-  promise_map[promise_id] = new ResolverPersistent(d->isolate_, resolver);
+  promise_map[promise_id] = persistent;
   fetch(d->rust_isolate_, *url, promise_id);
+}
+
+void HeapStatic(const FunctionCallbackInfo<Value> &args) {
+  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
+  lock_isolate(d->isolate_);
+
+  d->isolate_->RequestGarbageCollectionForTesting(
+      Isolate::kFullGarbageCollection);
+
+  HeapStatistics stats;
+  d->isolate_->GetHeapStatistics(&stats);
+  args.GetReturnValue().Set(
+      Number::New(d->isolate_, (double)stats.used_heap_size()));
 }
 
 extern "C" void resolve_promise(void *raw, int32_t promise_id,
@@ -239,6 +254,8 @@ extern "C" void resolve_promise(void *raw, int32_t promise_id,
     Local<Promise::Resolver> resolver = persistent->Get(d->isolate_);
     resolver->Resolve(d->context_.Get(d->isolate_),
                       String::NewFromUtf8(d->isolate_, value));
+    persistent->Reset();
+    promise_map.erase(promise_id);
   }
 }
 
@@ -262,6 +279,7 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   Isolate::CreateParams create_params;
   create_params.array_buffer_allocator =
       ArrayBuffer::Allocator::NewDefaultAllocator();
+  // create_params.array_buffer_allocator->Allocate(1024);
 
   Isolate *isolate_ = Isolate::New(create_params);
   lock_isolate(isolate_);
@@ -285,6 +303,9 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
 
   global_->Set(String::NewFromUtf8(isolate_, "$fetch"),
                FunctionTemplate::New(isolate_, Fetch, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$static"),
+               FunctionTemplate::New(isolate_, HeapStatic, env_));
 
   Local<Context> context_ = Context::New(isolate_, nullptr, global_);
   deno->ResetContext(context_);

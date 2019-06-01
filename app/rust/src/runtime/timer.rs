@@ -1,9 +1,13 @@
-use crate::runtime::stream_cancel::StreamExt;
-use futures::stream::Stream;
-use futures::{future, Future};
 use std::convert::Into;
 use std::time::{Duration, Instant};
+
+use futures::{future, Future};
+use futures::stream::Stream;
 use tokio_timer::{Delay, Interval};
+
+use crate::runtime::stream_cancel::StreamExt;
+
+type Timer = impl Future<Item(), Error = ()>;
 
 pub fn panic_on_error<I, E, F>(f: F) -> impl Future<Item = I, Error = ()>
 where
@@ -13,13 +17,7 @@ where
     f.map_err(|err| adb_debug!(format!("Future got unexpected error: {:?}", err)))
 }
 
-pub fn set_timeout<F>(
-    cb: F,
-    delay: u32,
-) -> (
-    impl Future<Item = (), Error = ()>,
-    futures::sync::oneshot::Sender<()>,
-)
+pub fn set_timeout<F>(cb: F, delay: u32) -> (Timer, futures::sync::oneshot::Sender<()>)
 where
     F: FnOnce() -> (),
 {
@@ -39,13 +37,7 @@ where
     (delay_task, tx)
 }
 
-pub fn set_interval<F>(
-    cb: F,
-    delay: u32,
-) -> (
-    impl Future<Item = (), Error = ()>,
-    futures::sync::oneshot::Sender<()>,
-)
+pub fn set_interval<F>(cb: F, delay: u32) -> (Timer, futures::sync::oneshot::Sender<()>)
 where
     F: Fn() -> (),
 {
