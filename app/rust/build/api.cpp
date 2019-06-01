@@ -259,19 +259,22 @@ extern "C" void resolve_promise(void *raw, int32_t promise_id,
   }
 }
 
-extern "C" void invoke_function(void *raw, void *f) {
+extern "C" void invoke_function(void *raw, void *f, uint32_t timer_id = 0) {
   auto deno = reinterpret_cast<Deno *>(raw);
   lock_isolate(deno->isolate_);
 
   auto fn = reinterpret_cast<Persistent<Function> *>(f);
   Local<Function> cb = fn->Get(deno->isolate_);
   Local<Context> context_ = deno->context_.Get(deno->isolate_);
+  cb->Call(context_, Null(deno->isolate_), 0, nullptr).ToLocalChecked();
 
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = {
-      String::NewFromUtf8(deno->isolate_, "Invoked", NewStringType::kNormal)
-          .ToLocalChecked()};
-  cb->Call(context_, Null(deno->isolate_), argc, argv).ToLocalChecked();
+  if (timer_id > 0) {
+    // timeout, need to make persistent weak
+    fn->SetWeak<int>(new int(timer_id), Destroyed,
+                     WeakCallbackType::kParameter);
+    fn->Reset();
+    remove_timer(deno->rust_isolate_, timer_id);
+  }
 }
 
 extern "C" void *deno_init(deno_recv_cb recv_cb) {

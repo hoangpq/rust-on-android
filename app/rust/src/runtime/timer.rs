@@ -5,9 +5,7 @@ use futures::{future, Future};
 use futures::stream::Stream;
 use tokio_timer::{Delay, Interval};
 
-use crate::runtime::stream_cancel::StreamExt;
-
-type Timer = impl Future<Item(), Error = ()>;
+use crate::runtime::stream_cancel::{StreamExt, TimerCancel};
 
 pub fn panic_on_error<I, E, F>(f: F) -> impl Future<Item = I, Error = ()>
 where
@@ -17,7 +15,7 @@ where
     f.map_err(|err| adb_debug!(format!("Future got unexpected error: {:?}", err)))
 }
 
-pub fn set_timeout<F>(cb: F, delay: u32) -> (Timer, futures::sync::oneshot::Sender<()>)
+pub fn set_timeout<F>(cb: F, delay: u32) -> (impl Future<Item = (), Error = ()>, TimerCancel)
 where
     F: FnOnce() -> (),
 {
@@ -34,15 +32,14 @@ where
         .map(|_| ())
         .map_err(|_| ());
 
-    (delay_task, tx)
+    (delay_task, TimerCancel(Some(tx)))
 }
 
-pub fn set_interval<F>(cb: F, delay: u32) -> (Timer, futures::sync::oneshot::Sender<()>)
+pub fn set_interval<F>(cb: F, delay: u32) -> (impl Future<Item = (), Error = ()>, TimerCancel)
 where
     F: Fn() -> (),
 {
     let delay = Duration::from_millis(delay.into());
-    // let (trigger, tripwire) = Tripwire::new();
 
     let (tx, rx) = futures::sync::oneshot::channel::<()>();
     let interval_task = Interval::new(Instant::now() + delay, delay)
@@ -53,5 +50,5 @@ where
         })
         .map_err(|e| adb_debug!(e));
 
-    (interval_task, tx)
+    (interval_task, TimerCancel(Some(tx)))
 }

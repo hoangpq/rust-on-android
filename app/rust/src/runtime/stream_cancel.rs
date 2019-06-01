@@ -1,4 +1,4 @@
-use futures::{Async, Future, IntoFuture, Poll, Stream};
+use futures::{Async, Future, future::Shared, IntoFuture, Poll, Stream, sync::oneshot};
 
 #[derive(Clone, Debug)]
 pub struct TakeUntil<S, F> {
@@ -45,5 +45,16 @@ where
             }
         }
         self.stream.poll()
+    }
+}
+
+#[derive(Debug)]
+pub struct TimerCancel(pub Option<oneshot::Sender<()>>);
+
+impl Drop for TimerCancel {
+    fn drop(&mut self) {
+        if let Some(tx) = self.0.take() {
+            let _ = tx.send(());
+        }
     }
 }
