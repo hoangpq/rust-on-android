@@ -3,8 +3,7 @@ use std::slice;
 
 use tokio::runtime;
 
-use crate::runtime::isolate::Isolate;
-
+pub mod console;
 pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;
@@ -21,11 +20,10 @@ unsafe impl Sync for DenoC {}
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn eval_script_void(deno: *const DenoC, script: *const libc::c_char);
-    fn eval_script(deno: *const DenoC, script: *const libc::c_char) -> *mut libc::c_char;
+    fn eval_script(deno: *const DenoC, script: *const libc::c_char);
 }
 
-unsafe fn ptr_to_string(raw: *mut libc::c_char) -> Option<String> {
+pub unsafe fn ptr_to_string(raw: *mut libc::c_char) -> Option<String> {
     Some(
         std::str::from_utf8_unchecked(slice::from_raw_parts(raw as *const u8, libc::strlen(raw)))
             .to_string(),

@@ -1,9 +1,10 @@
 extern crate libc;
 
-use libc::size_t;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_void;
+
+use libc::size_t;
 
 extern "C" {
     fn v8_function_cast(v: Value) -> Function;
@@ -13,6 +14,8 @@ extern "C" {
     fn v8_function_callback_length(info: &FunctionCallbackInfo) -> i32;
     fn v8_set_return_value(info: &FunctionCallbackInfo, val: &Value);
     fn v8_string_new_from_utf8(data: *const libc::c_char) -> String;
+    fn v8_value_into_raw(value: Value) -> *mut libc::c_char;
+    fn v8_number_from_raw(number: u64) -> Number;
 }
 
 pub trait ValueT {
@@ -33,6 +36,18 @@ macro_rules! value_method (
 #[derive(Debug)]
 pub struct Value(*mut Value);
 value_method!(Value);
+
+impl Drop for Value {
+    fn drop(&mut self) {
+        adb_debug!(self.0 as *const u32);
+    }
+}
+
+impl Value {
+    pub fn to_string(self) -> *mut libc::c_char {
+        unsafe { v8_value_into_raw(self) }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -101,5 +116,16 @@ impl String {
     pub fn NewFromUtf8(data: &str) -> String {
         let data = CString::new(data).unwrap();
         unsafe { v8_string_new_from_utf8(data.as_ptr()) }
+    }
+}
+
+#[repr(C)]
+pub struct Number(*mut Number);
+value_method!(Number);
+
+#[allow(non_snake_case)]
+impl Number {
+    pub fn new(number: u64) -> Self {
+        unsafe { v8_number_from_raw(number) }
     }
 }

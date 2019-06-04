@@ -18,15 +18,6 @@
 
 using namespace v8;
 
-class V8Runtime {
-public:
-  JNIEnv *env_;
-  jobject holder_;
-  Isolate *isolate_;
-  Persistent<Context> context_;
-  Persistent<ObjectTemplate> global_;
-};
-
 struct rust_isolate;
 typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, void *cb, int duration,
                                 bool interval);
@@ -39,8 +30,10 @@ std::map<int, ResolverPersistent *> promise_map;
 // Rust bridge
 extern "C" {
 void adb_debug(const char *);
-void remove_timer(rust_isolate *isolate_, int32_t timer_id);
-void fetch(rust_isolate *isolate_, const char *, int);
+void remove_timer(rust_isolate *isolate_, uint32_t timer_id);
+void fetch(rust_isolate *isolate_, const char *, uint32_t);
+void console_time(const FunctionCallbackInfo<Value> &);
+void console_time_end(const FunctionCallbackInfo<Value> &);
 }
 
 class Deno {
@@ -138,6 +131,18 @@ extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
   return String::NewFromUtf8(isolate_, data);
 }
 
+// V8 value to char*
+extern "C" const char *v8_value_into_raw(Local<Value> value) {
+  assert(value->IsString());
+  String::Utf8Value s(value);
+  return *s;
+}
+
+extern "C" Local<Number> v8_number_from_raw(uint64_t number) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  return Number::New(isolate_, number);
+}
+
 extern "C" const char *fetch_event(JNIEnv **env, jclass c, jmethodID m) {
   auto s = (jstring)(*env)->CallStaticObjectMethod(c, m);
   const char *result = jStringToChar(*env, s);
@@ -203,31 +208,30 @@ void ClearTimer(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsNumber());
 
   auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
-  remove_timer(d->rust_isolate_, args[0]->Int32Value());
+  remove_timer(d->rust_isolate_, args[0]->Uint32Value());
 
   args.GetReturnValue().Set(args[0]);
 }
 
 void Destroyed(const WeakCallbackInfo<int> &info) { adb_debug("Destroyed"); }
 
+// exception
+void ExceptionString(TryCatch *try_catch) {
+  String::Utf8Value exception(try_catch->Exception());
+  const char *exception_string = ToCString(exception);
+  adb_debug(exception_string);
+}
+
 void Fetch(const FunctionCallbackInfo<Value> &args) {
-  assert(args.Length());
   assert(args[0]->IsString());
+  assert(args[1]->IsNumber());
 
   auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
   lock_isolate(d->isolate_);
+
   String::Utf8Value url(args[0]->ToString());
+  uint32_t promise_id = args[1]->Uint32Value();
 
-  Local<Context> context_ = d->context_.Get(d->isolate_);
-  auto resolver = Promise::Resolver::New(context_).ToLocalChecked();
-  args.GetReturnValue().Set(resolver->GetPromise());
-
-  int promise_id = ++promise_uuid;
-  auto persistent = new ResolverPersistent(d->isolate_, resolver);
-  persistent->SetWeak<int>(new int(promise_id), Destroyed,
-                           WeakCallbackType::kParameter);
-
-  promise_map[promise_id] = persistent;
   fetch(d->rust_isolate_, *url, promise_id);
 }
 
@@ -249,14 +253,24 @@ extern "C" void resolve_promise(void *raw, int32_t promise_id,
   auto d = reinterpret_cast<Deno *>(raw);
   lock_isolate(d->isolate_);
 
-  if (promise_map.find(promise_id) != promise_map.end()) {
-    ResolverPersistent *persistent = promise_map.at(promise_id);
-    Local<Promise::Resolver> resolver = persistent->Get(d->isolate_);
-    resolver->Resolve(d->context_.Get(d->isolate_),
-                      String::NewFromUtf8(d->isolate_, value));
-    persistent->Reset();
-    promise_map.erase(promise_id);
-  }
+  Handle<Context> context_ = d->context_.Get(d->isolate_);
+  Context::Scope scope(context_);
+
+  Handle<Value> f = context_->Global()->Get(
+      String::NewFromUtf8(d->isolate_, "resolvePromise"));
+
+  assert(f->IsFunction());
+
+  Local<Function> fn = Local<Function>::Cast(f);
+  assert(fn->IsCallable());
+
+  const unsigned argc = 2;
+  Local<Value> argv[argc] = {
+      Number::New(d->isolate_, promise_id),
+      String::NewFromUtf8(d->isolate_, value),
+  };
+
+  fn->Call(context_, Null(d->isolate_), argc, argv);
 }
 
 extern "C" void invoke_function(void *raw, void *f, uint32_t timer_id = 0) {
@@ -310,6 +324,17 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   global_->Set(String::NewFromUtf8(isolate_, "$static"),
                FunctionTemplate::New(isolate_, HeapStatic, env_));
 
+  // console
+  Local<ObjectTemplate> console_ = ObjectTemplate::New(deno->isolate_);
+
+  console_->Set(String::NewFromUtf8(isolate_, "time"),
+                FunctionTemplate::New(isolate_, console_time, env_));
+
+  console_->Set(String::NewFromUtf8(isolate_, "timeEnd"),
+                FunctionTemplate::New(isolate_, console_time_end, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "console"), console_);
+
   Local<Context> context_ = Context::New(isolate_, nullptr, global_);
   deno->ResetContext(context_);
   deno->ResetTemplate(global_);
@@ -318,44 +343,31 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   return deno->Into();
 }
 
-extern "C" void eval_script_void(void *raw, const char *s) {
+extern "C" void eval_script(void *raw, const char *script_s) {
   auto deno = reinterpret_cast<Deno *>(raw);
   lock_isolate(deno->isolate_);
 
-  {
-    Local<Context> context_ =
-        Local<Context>::New(deno->isolate_, deno->context_);
+  Local<Context> context_ = Local<Context>::New(deno->isolate_, deno->context_);
+  Context::Scope scope(context_);
 
-    Context::Scope scope(context_);
-    Local<String> source =
-        String::NewFromUtf8(deno->isolate_, s, NewStringType::kNormal)
-            .ToLocalChecked();
+  TryCatch try_catch(deno->isolate_);
 
-    Local<Script> script = Script::Compile(context_, source).ToLocalChecked();
-    script->Run(context_);
+  Local<String> source =
+      String::NewFromUtf8(deno->isolate_, script_s, NewStringType::kNormal)
+          .ToLocalChecked();
+
+  ScriptOrigin origin(String::NewFromUtf8(deno->isolate_, "script.js"));
+  MaybeLocal<Script> script = Script::Compile(context_, source, &origin);
+
+  if (script.IsEmpty()) {
+    ExceptionString(&try_catch);
+    return;
   }
-}
 
-extern "C" const char *eval_script(void *raw, const char *s) {
-  auto deno = reinterpret_cast<Deno *>(raw);
-  lock_isolate(deno->isolate_);
-
-  {
-    TryCatch try_catch(deno->isolate_);
-
-    Local<Context> context_ =
-        Local<Context>::New(deno->isolate_, deno->context_);
-
-    Context::Scope scope(context_);
-    Local<String> source =
-        String::NewFromUtf8(deno->isolate_, s, NewStringType::kNormal)
-            .ToLocalChecked();
-
-    Local<Script> script = Script::Compile(context_, source).ToLocalChecked();
-    Local<Value> result = script->Run(context_).ToLocalChecked();
-    String::Utf8Value utf8(result);
-
-    return ToCString(utf8);
+  MaybeLocal<Value> result = script.ToLocalChecked()->Run(context_);
+  if (result.IsEmpty()) {
+    ExceptionString(&try_catch);
+    return;
   }
 }
 

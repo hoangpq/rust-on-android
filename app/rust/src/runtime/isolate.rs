@@ -5,7 +5,7 @@ use futures::{Future, Poll, task};
 use futures::Async::*;
 use futures::stream::{FuturesUnordered, Stream};
 
-use crate::runtime::{DenoC, eval_script, eval_script_void, ptr_to_string, string_to_ptr};
+use crate::runtime::{DenoC, eval_script, string_to_ptr};
 use crate::runtime::stream_cancel::TimerCancel;
 use crate::runtime::timer::{set_interval, set_timeout};
 
@@ -21,9 +21,7 @@ type deno_recv_cb = unsafe extern "C" fn(
 ) -> u32;
 
 extern "C" {
-    fn set_deno_callback(raw: *const DenoC, recv_cb: deno_recv_cb);
     fn set_deno_data(raw: *const DenoC, data: *mut Isolate) -> *mut Isolate;
-    fn lock_deno_isolate(raw: *const libc::c_void);
     fn deno_init(recv_cb: deno_recv_cb) -> *const DenoC;
     fn invoke_function(raw: *const DenoC, f: *const libc::c_void, timer_id: u32);
 }
@@ -66,12 +64,46 @@ impl Isolate {
         isolate_ptr
     }
 
-    pub unsafe fn vexecute(&mut self, script: &str) {
-        eval_script_void(self.deno, string_to_ptr(script));
-    }
+    pub unsafe fn execute(&mut self, script: &str) {
+        eval_script(
+            self.deno,
+            string_to_ptr(
+                r#"
+                const promiseTable = new Map();
+                let nextPromiseId = 1;
 
-    pub unsafe fn execute(&self, script: &str) -> Option<String> {
-        return ptr_to_string(eval_script(self.deno, string_to_ptr(script)));
+                function createResolvable() {
+                    let methods;
+                    const promise = new Promise((resolve, reject) => {
+                        methods = { resolve, reject };
+                    });
+                    return Object.assign(promise, methods);
+                }
+
+                function resolvePromise(promiseId, value) {
+                    if (promiseTable.has(promiseId)) {
+                        try {
+                            let promise = promiseTable.get(promiseId);
+                            promise.resolve(value);
+                            promiseTable.delete(promiseId);
+                        } catch (e) {
+                            $log(e.message);
+                        }
+                    }
+                }
+
+                function fetch(url) {
+                    const cmdId = nextPromiseId++;
+                    const promise = createResolvable();
+                    promiseTable.set(cmdId, promise);
+                    $fetch(url, cmdId);
+                    return promise;
+                }
+        "#,
+            ),
+        );
+
+        eval_script(self.deno, string_to_ptr(script));
     }
 
     unsafe extern "C" fn new_timer(
@@ -102,6 +134,7 @@ impl Isolate {
             isolate.timers.insert(uid, trigger);
             isolate.pending_ops.push(Box::new(task));
         };
+        isolate.have_unpolled_ops = true;
         return uid;
     }
 }
@@ -118,10 +151,7 @@ impl Future for Isolate {
                 Err(_) => panic!("unexpected op error"),
                 Ok(Ready(None)) => break,
                 Ok(NotReady) => break,
-                Ok(Ready(Some(_buf))) => {
-                    // adb_debug!(format!("buf: {:?}", buf));
-                    break;
-                }
+                Ok(Ready(Some(buf))) => {}
             }
         }
 

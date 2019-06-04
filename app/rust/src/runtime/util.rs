@@ -14,42 +14,26 @@ pub unsafe extern "C" fn adb_debug(p: *mut libc::c_char) {
 pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
     let main_future = futures::lazy(move || {
         let isolate = Isolate::new();
-        isolate.vexecute(
+        isolate.execute(
             r#"
-               const data = { msg: 'Hello, World!' };
-               const users = ['hoangpq', 'firebase'];
+                const users = ['hoangpq', 'firebase'];
 
-               function fetchUserInfo(user) {
-                  return $fetch(`https://api.github.com/users/${user}`);
-               }
+                function fetchUserInfo(user) {
+                    return fetch(`https://api.github.com/users/${user}`);
+                }
 
-               (function() {
-                  let p1 = fetchUserInfo(users[0]);
-                  p1.then(name => $log(`Name: ${name}`));
-               })();
+                console.time('timeout');
+                $timeout(() => {
+                    $log('done');
+                    console.timeEnd('timeout');
+                }, 3000);
 
-               let heap_size = 0;
-               const t0 = $interval(msg => {
-                  // $log(`Request GC`);
-                  // new Int8Array(1024);
-                  $log(`Heap size: ${$static()}`);
-               }, 5e3);
-
-               const t1 = $timeout((msg) => { $log('$timeout 5s'); }, 5e3);
-               const t2 = $timeout((msg) => { $log('$timeout 6s'); }, 6e3);
-
-               // test to clear timeout
-               const t3 = $timeout((msg) => {
-                  $clear(t0);
-                  $log('$timeout 20s');
-               }, 1e6);
-
-               // test to clear timeout
-               $timeout((msg) => {
-                  $clear(t2);
-               }, 0);
-
-               $log(data.msg);
+                console.time('api call');
+                Promise.all(users.map(fetchUserInfo))
+                    .then(data => {
+                        $log(`Name: ${data}`);
+                        console.timeEnd('api call');
+                    });
             "#,
         );
         isolate

@@ -1,27 +1,38 @@
 #![allow(improper_ctypes)]
 #![feature(stmt_expr_attributes)]
 
-#[macro_use]
-extern crate itertools;
-#[macro_use]
-extern crate lazy_static;
-
+extern crate bytes;
 extern crate core;
 extern crate curl;
+extern crate futures;
+#[macro_use]
+extern crate itertools;
 extern crate jni;
+#[macro_use]
+extern crate lazy_static;
 extern crate libc;
 extern crate reqwest;
-
-extern crate bytes;
 extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate futures;
 extern crate serde_derive;
+extern crate serde_json;
 extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
+
+use std::{mem, thread};
+use std::ffi::CString;
+use std::os::raw::{c_char, c_void};
+use std::sync::mpsc;
+
+use jni::JNIEnv;
+use jni::objects::{JObject, JValue};
+use jni::sys::{jint, jlong, jobject};
+use libc::size_t;
+
+use jni_graphics::{create_bitmap, draw_mandelbrot};
+use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
+use jni_graphics::AndroidBitmapInfo;
+use v8::{ArrayBuffer, CallbackInfo, Function, Value};
 
 #[macro_use]
 pub mod jni_log;
@@ -31,22 +42,6 @@ pub mod jni_graphics;
 pub mod buffer;
 pub mod runtime;
 pub mod v8;
-
-use jni::objects::{JObject, JValue};
-use jni::sys::{jint, jlong, jobject};
-use jni::JNIEnv;
-use std::ffi::CString;
-
-use libc::size_t;
-use std::os::raw::{c_char, c_void};
-use std::sync::mpsc;
-use std::{mem, thread};
-
-use jni_graphics::AndroidBitmapInfo;
-use jni_graphics::{create_bitmap, draw_mandelbrot};
-use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
-
-use v8::{ArrayBuffer, CallbackInfo, Function, Value};
 
 #[no_mangle]
 #[allow(non_snake_case)]

@@ -1,6 +1,5 @@
 use futures::Future;
-use futures::sync::mpsc;
-use reqwest::r#async::{Client, Response};
+use reqwest::r#async::Response;
 use serde::Deserialize;
 
 use crate::runtime::{DenoC, ptr_to_string, string_to_ptr};

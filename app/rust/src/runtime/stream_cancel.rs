@@ -1,4 +1,4 @@
-use futures::{Async, Future, future::Shared, IntoFuture, Poll, Stream, sync::oneshot};
+use futures::{Async, Future, IntoFuture, Poll, Stream, sync::oneshot};
 
 #[derive(Clone, Debug)]
 pub struct TakeUntil<S, F> {
@@ -33,15 +33,15 @@ where
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         if !self.free {
+            #[allow(clippy::match_wild_err_arm)]
             match self.until.poll() {
-                Ok(Async::Ready(_)) => {
-                    return Ok(Async::Ready(None));
-                }
                 Err(_) => {
                     self.free = true;
                 }
                 Ok(Async::NotReady) => {}
-                Ok(_) => {}
+                Ok(Async::Ready(_)) => {
+                    return Ok(Async::Ready(None));
+                }
             }
         }
         self.stream.poll()
