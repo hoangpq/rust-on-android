@@ -16,10 +16,7 @@
 #include "node_buffer.h"
 #include "v8.h"
 
-#include "../java/java.h"
-#include "../java/jobject.h"
 #include "../utils/utils.h"
-#include "../v8/v8context.h"
 
 extern "C" jlong JNICALL
 Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);

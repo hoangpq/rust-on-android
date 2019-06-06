@@ -1,5 +1,4 @@
 #include "jsobject.h"
-#include "../java/java.h"
 #include "v8context.h"
 #include <utility>
 #include <v8.h>

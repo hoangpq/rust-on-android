@@ -15,15 +15,8 @@ typedef struct NodeContext {
   jclass mainActivityClz;
   jobject mainActivityObj;
   jobject mainActivity;
-  jobject contextClass_;
   Isolate *isolate_;
 } NodeContext;
-
-typedef struct JFunc {
-  std::string methodName;
-  std::string sig;
-  int argumentCount;
-} JFunc;
 
 namespace util {
 

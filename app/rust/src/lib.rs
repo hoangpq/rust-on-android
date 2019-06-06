@@ -19,19 +19,19 @@ extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
 
-use std::{mem, thread};
 use std::ffi::CString;
 use std::os::raw::{c_char, c_void};
 use std::sync::mpsc;
+use std::{mem, thread};
 
-use jni::JNIEnv;
 use jni::objects::{JObject, JValue};
 use jni::sys::{jint, jlong, jobject};
+use jni::JNIEnv;
 use libc::size_t;
 
+use jni_graphics::AndroidBitmapInfo;
 use jni_graphics::{create_bitmap, draw_mandelbrot};
 use jni_graphics::{AndroidBitmap_getInfo, AndroidBitmap_lockPixels, AndroidBitmap_unlockPixels};
-use jni_graphics::AndroidBitmapInfo;
 use v8::{ArrayBuffer, CallbackInfo, Function, Value};
 
 #[macro_use]

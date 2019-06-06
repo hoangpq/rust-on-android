@@ -2,7 +2,7 @@ extern crate libc;
 
 use std::ffi::CString;
 use std::mem;
-use std::os::raw::c_void;
+use std::os::raw::{c_char, c_void};
 
 use libc::size_t;
 
@@ -13,8 +13,8 @@ extern "C" {
     fn v8_function_callback_info_get(info: &FunctionCallbackInfo, index: i32) -> Value;
     fn v8_function_callback_length(info: &FunctionCallbackInfo) -> i32;
     fn v8_set_return_value(info: &FunctionCallbackInfo, val: &Value);
-    fn v8_string_new_from_utf8(data: *const libc::c_char) -> String;
-    fn v8_value_into_raw(value: Value) -> *mut libc::c_char;
+    fn v8_string_new_from_utf8(data: *const c_char) -> String;
+    fn v8_value_into_raw(value: Value) -> *mut c_char;
     fn v8_number_from_raw(number: u64) -> Number;
 }
 
@@ -44,7 +44,7 @@ impl Drop for Value {
 }
 
 impl Value {
-    pub fn to_string(self) -> *mut libc::c_char {
+    pub fn to_string(self) -> *mut c_char {
         unsafe { v8_value_into_raw(self) }
     }
 }

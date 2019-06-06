@@ -20,9 +20,6 @@ using v8::Value;
 using v8::JSON;
 using v8::MaybeLocal;
 
-using node::jvm::JavaFunctionWrapper;
-using node::jvm::JavaType;
-
 namespace loader {
 
 using namespace util;
@@ -90,9 +87,6 @@ public:
 
     Isolate *isolate_ = target->GetIsolate();
 
-    JavaType::Init(isolate_);
-    JavaFunctionWrapper::Init(isolate_);
-
     ModuleWrap::Initialize(target, unused, context);
     // define function in global context
     Local<Object> global = context->Global();
@@ -118,15 +112,6 @@ public:
     global->Set(Util::ConvertToV8String("$load"),
                 FunctionTemplate::New(isolate_, loader::OnLoad, jEnvRef)
                     ->GetFunction());
-
-    Local<ObjectTemplate> vmTemplate = ObjectTemplate::New(isolate_);
-    Local<Object> vm = vmTemplate->NewInstance();
-
-    auto javaTypeFn =
-        FunctionTemplate::New(isolate_, JavaType::NewInstance)->GetFunction();
-
-    vm->Set(Util::ConvertToV8String("type"), javaTypeFn);
-    global->Set(Util::ConvertToV8String("Java"), vm);
   }
 };
 

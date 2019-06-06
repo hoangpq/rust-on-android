@@ -1,6 +1,8 @@
 use std::ffi::CString;
 use std::slice;
 
+use futures::Future;
+use std::os::raw::c_char;
 use tokio::runtime;
 
 pub mod console;
@@ -20,17 +22,17 @@ unsafe impl Sync for DenoC {}
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn eval_script(deno: *const DenoC, script: *const libc::c_char);
+    fn eval_script(deno: *const DenoC, script: *const c_char);
 }
 
-pub unsafe fn ptr_to_string(raw: *mut libc::c_char) -> Option<String> {
+pub unsafe fn ptr_to_string(raw: *mut c_char) -> Option<String> {
     Some(
         std::str::from_utf8_unchecked(slice::from_raw_parts(raw as *const u8, libc::strlen(raw)))
             .to_string(),
     )
 }
 
-unsafe fn string_to_ptr<T>(s: T) -> *const libc::c_char
+unsafe fn string_to_ptr<T>(s: T) -> *const c_char
 where
     T: std::convert::Into<std::vec::Vec<u8>>,
 {
@@ -50,3 +52,6 @@ fn create_thread_pool_runtime() -> tokio::runtime::Runtime {
         .build()
         .unwrap()
 }
+
+pub type Buf = Box<[u8]>;
+pub type OpAsyncFuture = Box<dyn Future<Item = Buf, Error = ()>>;

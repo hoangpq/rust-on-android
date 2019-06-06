@@ -10,6 +10,7 @@
 #include "v8.h"
 
 #include "../utils/utils.h"
+NodeContext g_ctx;
 
 namespace node {
 

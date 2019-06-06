@@ -1,29 +1,26 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use futures::{Future, Poll, task};
-use futures::Async::*;
 use futures::stream::{FuturesUnordered, Stream};
+use futures::Async::*;
+use futures::{task, Future, Poll};
 
-use crate::runtime::{DenoC, eval_script, string_to_ptr};
 use crate::runtime::stream_cancel::TimerCancel;
-use crate::runtime::timer::{set_interval, set_timeout};
-
-pub type OpAsyncFuture = Box<Future<Item = (), Error = ()>>;
+use crate::runtime::timer::set_timeout;
+use crate::runtime::{eval_script, string_to_ptr, DenoC, OpAsyncFuture};
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(
     isolate: *mut Isolate,
     d: *const DenoC,
-    cb: *mut libc::c_void,
+    timer_id: u32,
     duration: u32,
-    interval: bool,
 ) -> u32;
 
 extern "C" {
     fn set_deno_data(raw: *const DenoC, data: *mut Isolate) -> *mut Isolate;
     fn deno_init(recv_cb: deno_recv_cb) -> *const DenoC;
-    fn invoke_function(raw: *const DenoC, f: *const libc::c_void, timer_id: u32);
+    fn fire_callback(raw: *const DenoC, timer_id: u32);
 }
 
 pub struct Isolate {
@@ -69,6 +66,47 @@ impl Isolate {
             self.deno,
             string_to_ptr(
                 r#"
+                let timerMap = new Map();
+                let nextTimerId = 1;
+
+                function setTimer(cb, delay, repeat, ...args) {
+                    // const callback = () => args.length === 0 ? cb : cb.bind(null, ...args);
+                    const timer = {
+                        id: nextTimerId++,
+                        callback: cb,
+                        repeat,
+                        delay
+                    };
+                    timerMap.set(timer.id, timer);
+                    $newTimer(timer.id, timer.delay);
+                    return timer.id;
+                }
+
+                function setTimeout(callback, delay, ...args) {
+                    return setTimer(callback, delay, false, ...args);
+                }
+
+                function setInterval(callback, delay, ...args) {
+                    return setTimer(callback, delay, true, ...args);
+                }
+
+                function fire(timerId) {
+                    Promise.resolve(timerId)
+                        .then(function(id) {
+                            if (timerMap.has(id)) {
+                                const timer = timerMap.get(id);
+                                const callback = timer.callback;
+                                callback();
+                                if (!timer.repeat) {
+                                    timeMap.delete(timer.id);
+                                    return;
+                                }
+                                // schedule interval
+                                $newTimer(timer.id, timer.delay);
+                            }
+                        });
+                }
+
                 const promiseTable = new Map();
                 let nextPromiseId = 1;
 
@@ -80,7 +118,7 @@ impl Isolate {
                     return Object.assign(promise, methods);
                 }
 
-                function resolvePromise(promiseId, value) {
+                function resolve(promiseId, value) {
                     if (promiseTable.has(promiseId)) {
                         try {
                             let promise = promiseTable.get(promiseId);
@@ -109,33 +147,21 @@ impl Isolate {
     unsafe extern "C" fn new_timer(
         ptr: *mut Isolate,
         d: *const DenoC,
-        cb: *mut libc::c_void,
-        duration: u32,
-        interval: bool,
+        timer_id: u32,
+        delay: u32,
     ) -> u32 {
-        let uid = Isolate::next_uuid();
+        // let uid = Isolate::next_uuid();
         let isolate = Isolate::from_c(ptr);
-        if interval {
-            let (task, trigger) = set_interval(
-                move || {
-                    invoke_function(d, cb, 0);
-                },
-                duration,
-            );
-            isolate.timers.insert(uid, trigger);
-            isolate.pending_ops.push(Box::new(task));
-        } else {
-            let (task, trigger) = set_timeout(
-                move || {
-                    invoke_function(d, cb, uid);
-                },
-                duration,
-            );
-            isolate.timers.insert(uid, trigger);
-            isolate.pending_ops.push(Box::new(task));
-        };
+        let (task, trigger) = set_timeout(delay);
+
+        isolate.timers.insert(timer_id, trigger);
+        isolate.pending_ops.push(Box::new(task.and_then(move |_| {
+            fire_callback(d, timer_id);
+            Ok(vec![1u8].into_boxed_slice())
+        })));
         isolate.have_unpolled_ops = true;
-        return uid;
+
+        return timer_id;
     }
 }
 
@@ -151,7 +177,9 @@ impl Future for Isolate {
                 Err(_) => panic!("unexpected op error"),
                 Ok(Ready(None)) => break,
                 Ok(NotReady) => break,
-                Ok(Ready(Some(buf))) => {}
+                Ok(Ready(Some(buf))) => {
+                    // adb_debug!(format!("Buf: {:?}", buf));
+                }
             }
         }
 
@@ -165,11 +193,4 @@ impl Future for Isolate {
             Ok(futures::Async::NotReady)
         }
     }
-}
-
-#[no_mangle]
-fn remove_timer(ptr: *mut Isolate, timer_id: u32) {
-    let isolate = Isolate::from_c(ptr);
-    let _ = isolate.timers.remove(&timer_id);
-    adb_debug!(format!("Timer {} removed", timer_id));
 }

@@ -3,19 +3,20 @@
 #include <cstdlib>
 #include <libplatform/libplatform.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <string>
 #include <unistd.h>
 #include <uv.h>
 
 #include "../utils/utils.h"
-#include "native-lib.h"
 #include "node.h"
 #include "v8.h"
 
 namespace node {
 
 using namespace v8;
+
+extern "C" void JNICALL
+Java_com_node_sample_MainActivity_asyncComputation(JNIEnv *, jobject, jobject);
 
 // Node's libUV requires all arguments being on contiguous memory.
 extern "C" jint JNICALL

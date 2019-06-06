@@ -19,8 +19,8 @@
 using namespace v8;
 
 struct rust_isolate;
-typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, void *cb, int duration,
-                                bool interval);
+typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, uint32_t timer_id,
+                                uint32_t delay);
 
 using ResolverPersistent = Persistent<Promise::Resolver>;
 
@@ -181,10 +181,10 @@ void Timeout(const FunctionCallbackInfo<Value> &args) {
       new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
 
   int32_t duration = args[1]->Int32Value();
-  int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void *>(cb),
-                            duration, false);
+  /*int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void
+   *>(cb), duration, false);*/
 
-  args.GetReturnValue().Set(Number::New(d->isolate_, uid));
+  // args.GetReturnValue().Set(Number::New(d->isolate_, uid));
 }
 
 void Interval(const FunctionCallbackInfo<Value> &args) {
@@ -197,10 +197,10 @@ void Interval(const FunctionCallbackInfo<Value> &args) {
       new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
 
   int32_t duration = args[1]->Int32Value();
-  int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void *>(cb),
-                            duration, true);
+  /*int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void
+   *>(cb), duration, true);*/
 
-  args.GetReturnValue().Set(Number::New(d->isolate_, uid));
+  // args.GetReturnValue().Set(Number::New(d->isolate_, uid));
 }
 
 void ClearTimer(const FunctionCallbackInfo<Value> &args) {
@@ -248,21 +248,51 @@ void HeapStatic(const FunctionCallbackInfo<Value> &args) {
       Number::New(d->isolate_, (double)stats.used_heap_size()));
 }
 
-extern "C" void resolve_promise(void *raw, int32_t promise_id,
-                                const char *value) {
+void NewTimer(const FunctionCallbackInfo<Value> &args) {
+  assert(args[0]->IsNumber()); // timer_id
+  assert(args[1]->IsNumber()); // timer delay
+
+  void *denoPtr = args.Data().As<External>()->Value();
+  auto d = reinterpret_cast<Deno *>(denoPtr);
+  lock_isolate(d->isolate_);
+
+  d->recv_cb_(d->rust_isolate_, denoPtr, args[0]->Uint32Value(),
+              args[1]->Uint32Value());
+}
+
+Local<Function> get_function(Local<Object> obj, Local<String> key) {
+  Local<Value> value = obj->Get(key);
+  assert(value->IsFunction());
+  return Local<Function>::Cast(value);
+}
+
+extern "C" void fire_callback(void *raw, uint32_t timer_id) {
   auto d = reinterpret_cast<Deno *>(raw);
   lock_isolate(d->isolate_);
 
   Handle<Context> context_ = d->context_.Get(d->isolate_);
   Context::Scope scope(context_);
 
-  Handle<Value> f = context_->Global()->Get(
-      String::NewFromUtf8(d->isolate_, "resolvePromise"));
+  Local<Function> fireFn = get_function(
+      context_->Global(), String::NewFromUtf8(d->isolate_, "fire"));
 
-  assert(f->IsFunction());
+  const unsigned argc = 1;
+  Local<Value> argv[argc] = {
+      Number::New(d->isolate_, timer_id),
+  };
 
-  Local<Function> fn = Local<Function>::Cast(f);
-  assert(fn->IsCallable());
+  fireFn->Call(context_, Null(d->isolate_), argc, argv);
+}
+
+extern "C" const char *resolve_promise(void *raw, uint32_t promise_id,
+                                       const char *value) {
+  auto d = reinterpret_cast<Deno *>(raw);
+  lock_isolate(d->isolate_);
+
+  Handle<Context> context_ = d->context_.Get(d->isolate_);
+  Context::Scope scope(context_);
+  Local<Function> resolveFn = get_function(
+      context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
 
   const unsigned argc = 2;
   Local<Value> argv[argc] = {
@@ -270,25 +300,9 @@ extern "C" void resolve_promise(void *raw, int32_t promise_id,
       String::NewFromUtf8(d->isolate_, value),
   };
 
-  fn->Call(context_, Null(d->isolate_), argc, argv);
-}
+  resolveFn->Call(context_, Null(d->isolate_), argc, argv);
 
-extern "C" void invoke_function(void *raw, void *f, uint32_t timer_id = 0) {
-  auto deno = reinterpret_cast<Deno *>(raw);
-  lock_isolate(deno->isolate_);
-
-  auto fn = reinterpret_cast<Persistent<Function> *>(f);
-  Local<Function> cb = fn->Get(deno->isolate_);
-  Local<Context> context_ = deno->context_.Get(deno->isolate_);
-  cb->Call(context_, Null(deno->isolate_), 0, nullptr).ToLocalChecked();
-
-  if (timer_id > 0) {
-    // timeout, need to make persistent weak
-    fn->SetWeak<int>(new int(timer_id), Destroyed,
-                     WeakCallbackType::kParameter);
-    fn->Reset();
-    remove_timer(deno->rust_isolate_, timer_id);
-  }
+  return value;
 }
 
 extern "C" void *deno_init(deno_recv_cb recv_cb) {
@@ -323,6 +337,9 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
 
   global_->Set(String::NewFromUtf8(isolate_, "$static"),
                FunctionTemplate::New(isolate_, HeapStatic, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$newTimer"),
+               FunctionTemplate::New(isolate_, NewTimer, env_));
 
   // console
   Local<ObjectTemplate> console_ = ObjectTemplate::New(deno->isolate_);

@@ -1,4 +1,4 @@
-use futures::{Async, Future, IntoFuture, Poll, Stream, sync::oneshot};
+use futures::{sync::oneshot, Async, Future, IntoFuture, Poll, Stream};
 
 #[derive(Clone, Debug)]
 pub struct TakeUntil<S, F> {

@@ -29,10 +29,7 @@ add_library( # Sets the name of the library.
         # Sets the library as a shared library.
         SHARED
         # Provides a relative path to your source file(s).
-        # for NodeJS
         src/main/cpp/utils/utils.cpp
-        src/main/cpp/java/java.cpp
-        src/main/cpp/java/jobject.cpp
         src/main/cpp/lib/native-lib.cpp
         src/main/cpp/lib/node-ext.cpp
         # for v8

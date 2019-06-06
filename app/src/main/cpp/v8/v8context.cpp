@@ -30,50 +30,9 @@ using namespace util;
 
 namespace av8 {
 
-using jvm::JSObject;
-
 const char *ToCString(Local<String> str) {
   String::Utf8Value value(str);
   return *value ? *value : "<string conversion failed>";
-}
-
-void ForName(const FunctionCallbackInfo<Value> &args) {
-  Isolate *isolate_ = args.GetIsolate();
-  JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
-
-  jclass utilClass = env_->FindClass("com/node/util/JNIUtils");
-
-  jmethodID getClassMethodList =
-      env_->GetStaticMethodID(utilClass, "getClassMethodList",
-                              "(Ljava/lang/String;)[Ljava/lang/String;");
-
-  jmethodID getClass = env_->GetStaticMethodID(
-      utilClass, "getClass", "(Ljava/lang/String;)Ljava/lang/Class;");
-
-  Local<String> className = args[0]->ToString();
-  String::Utf8Value s(className);
-
-  auto classStr = env_->NewStringUTF(*s);
-
-  auto arr = (jobjectArray)env_->CallStaticObjectMethod(
-      utilClass, getClassMethodList, classStr);
-
-  jsize arrLength = env_->GetArrayLength(arr);
-  int len = int(arrLength);
-
-  Local<Array> array = Array::New(isolate_, len);
-  for (int i = 0; i < len; i++) {
-    auto methodName =
-        (jstring)env_->GetObjectArrayElement(arr, static_cast<jsize>(i));
-
-    array->Set(static_cast<uint32_t>(i),
-               Util::ConvertToV8String(Util::JavaToString(env_, methodName)));
-  }
-
-  auto class_ =
-      (jclass)env_->CallStaticObjectMethod(utilClass, getClass, classStr);
-
-  args.GetReturnValue().Set(JSObject::NewInstance(isolate_, class_));
 }
 
 void Log(const FunctionCallbackInfo<Value> &args) {
@@ -85,20 +44,6 @@ void Log(const FunctionCallbackInfo<Value> &args) {
       JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
   const char *jsonString = ToCString(result);
   LOGD("%s", jsonString);
-}
-
-void Toast(const FunctionCallbackInfo<Value> &args) {
-  Local<String> str = args[0]->ToString();
-  const char *msg = ToCString(str);
-
-  JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
-  jmethodID methodId = env_->GetMethodID(g_ctx.mainActivityClz, "subscribe",
-                                         "(Ljava/lang/String;)V");
-
-  jstring javaMsg = env_->NewStringUTF(msg);
-  env_->CallVoidMethod(g_ctx.mainActivityObj, methodId, javaMsg);
-  env_->DeleteLocalRef(javaMsg);
-  args.GetReturnValue().Set(str);
 }
 
 void Send(const FunctionCallbackInfo<Value> &args) {
@@ -125,22 +70,6 @@ void CreateTimer(const FunctionCallbackInfo<Value> &args, int type) {
   auto handler_ = createTimeoutHandler(&env);
   double t = args[1]->NumberValue(context).FromMaybe(0);
   postDelayed(&env, handler_, reinterpret_cast<jlong>(fn), (jlong)t, type);
-}
-
-void SetTimeOut(const FunctionCallbackInfo<Value> &args) {
-  CreateTimer(args, 1);
-  args.GetReturnValue().Set(Util::ConvertToV8String("Not implemented yet"));
-}
-
-void SetInterval(const FunctionCallbackInfo<Value> &args) {
-  // CreateTimer(args, 2);
-  Isolate *isolate = args.GetIsolate();
-  assert(args[0]->IsFunction());
-  assert(args[1]->IsNumber());
-  Local<Function> func = Local<Function>::Cast(args[0]);
-  // auto *fn = new Persistent<Function>(isolate, func);
-  // setInterval(ctx_.rt);
-  args.GetReturnValue().Set(Util::ConvertToV8String("Interval"));
 }
 
 void New(const FunctionCallbackInfo<Value> &args) {
@@ -176,8 +105,6 @@ V8Runtime *createRuntime(JNIEnv **env_) {
     Locker locker(ctx_.isolate_);
     Isolate::Scope isolate_scope(ctx_.isolate_);
     HandleScope handle_scope(ctx_.isolate_);
-
-    JSObject::Init(ctx_.isolate_);
   }
 
   auto *runtime = new V8Runtime();
@@ -191,29 +118,9 @@ V8Runtime *createRuntime(JNIEnv **env_) {
   // Init helpers function
   Local<External> envRef_ = External::New(runtime->isolate_, runtime->env_);
   Local<ObjectTemplate> globalObject = ObjectTemplate::New(runtime->isolate_);
-  Local<ObjectTemplate> class_ = ObjectTemplate::New(runtime->isolate_);
-
-  class_->Set(Util::ConvertToV8String("forName"),
-              FunctionTemplate::New(runtime->isolate_, ForName, envRef_));
-
-  globalObject->Set(Util::ConvertToV8String("Class"), class_);
-
-  globalObject->Set(
-      Util::ConvertToV8String("$timeout"),
-      FunctionTemplate::New(runtime->isolate_, SetTimeOut, envRef_));
-
-  globalObject->Set(
-      Util::ConvertToV8String("$interval"),
-      FunctionTemplate::New(runtime->isolate_, SetInterval, envRef_));
 
   globalObject->Set(Util::ConvertToV8String("$log"),
                     FunctionTemplate::New(runtime->isolate_, Log));
-
-  globalObject->Set(Util::ConvertToV8String("log"),
-                    FunctionTemplate::New(runtime->isolate_, Log));
-
-  globalObject->Set(Util::ConvertToV8String("toast"),
-                    FunctionTemplate::New(runtime->isolate_, Toast, envRef_));
 
   globalObject->Set(Util::ConvertToV8String("$send"),
                     FunctionTemplate::New(runtime->isolate_, Send));
