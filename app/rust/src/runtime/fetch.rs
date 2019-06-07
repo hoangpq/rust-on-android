@@ -1,9 +1,12 @@
 use futures::Future;
-use reqwest::r#async::Response;
+use reqwest::r#async::{Decoder, Response};
 use serde::Deserialize;
 
 use crate::runtime::isolate::Isolate;
 use crate::runtime::{ptr_to_string, string_to_ptr, Buf, DenoC, OpAsyncFuture};
+use futures::stream::Stream;
+use std::io::Cursor;
+use std::mem;
 use std::os::raw::c_char;
 
 extern "C" {
@@ -19,23 +22,35 @@ pub struct User {
     name: String,
 }
 
-unsafe fn string_to_boxed_bytes(ptr: *mut c_char) -> Buf {
+unsafe fn string_ptr_to_boxed_bytes(ptr: *mut c_char) -> Buf {
     let s = ptr_to_string(ptr).unwrap();
-    let boxed_str = s.to_owned().into_boxed_str();
-    boxed_str.into_boxed_bytes()
+    string_to_boxed_bytes(s)
+}
+
+unsafe fn string_to_boxed_bytes(s: String) -> Buf {
+    s.to_owned().into_boxed_str().into_boxed_bytes()
 }
 
 pub fn fetch_async(d: *const DenoC, url: String, promise_id: u32) -> OpAsyncFuture {
-    let json = |mut res: Response| res.json::<User>();
+    let raw = |res: Response| {
+        res.into_body()
+            .concat2()
+            .map(|body| String::from_utf8(body.to_vec()).ok())
+    };
 
     Box::new(
         CLIENT
             .get(&url)
             .send()
-            .and_then(json)
-            .and_then(move |user: User| unsafe {
-                let ptr = resolve_promise(d, promise_id, string_to_ptr(user.name));
-                Ok(string_to_boxed_bytes(ptr))
+            .and_then(raw)
+            .and_then(move |body| unsafe {
+                match body {
+                    Some(body) => {
+                        let ptr = resolve_promise(d, promise_id, string_to_ptr(body));
+                        Ok(string_ptr_to_boxed_bytes(ptr))
+                    }
+                    None => Ok(string_to_boxed_bytes("{}".to_string())),
+                }
             })
             .map_err(|_| ()),
     )

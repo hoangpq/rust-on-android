@@ -160,52 +160,16 @@ static void WeakCallback(const WeakCallbackInfo<int> &data) {
 
 void Log(const FunctionCallbackInfo<Value> &args) {
   assert(args.Length() > 0);
-  Isolate *isolate = args.GetIsolate();
-  Local<Context> context = isolate->GetCurrentContext();
-
-  EscapableHandleScope handle_scope(isolate);
-  Local<String> result = handle_scope.Escape(
-      JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
-
-  String::Utf8Value s(result);
+  String::Utf8Value s(args[0]);
   adb_debug(ToCString(s));
 }
 
-void Timeout(const FunctionCallbackInfo<Value> &args) {
-  assert(args[0]->IsFunction());
-  assert(args[1]->IsNumber());
-
-  auto ptr = args.Data().As<External>()->Value();
-  auto d = reinterpret_cast<Deno *>(ptr);
-  auto cb =
-      new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
-
-  int32_t duration = args[1]->Int32Value();
-  /*int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void
-   *>(cb), duration, false);*/
-
-  // args.GetReturnValue().Set(Number::New(d->isolate_, uid));
-}
-
-void Interval(const FunctionCallbackInfo<Value> &args) {
-  assert(args[0]->IsFunction());
-  assert(args[1]->IsNumber());
-
-  auto ptr = args.Data().As<External>()->Value();
-  auto d = reinterpret_cast<Deno *>(ptr);
-  auto cb =
-      new Persistent<Function>(d->isolate_, Local<Function>::Cast(args[0]));
-
-  int32_t duration = args[1]->Int32Value();
-  /*int32_t uid = d->recv_cb_(d->rust_isolate_, ptr, reinterpret_cast<void
-   *>(cb), duration, true);*/
-
-  // args.GetReturnValue().Set(Number::New(d->isolate_, uid));
-}
-
 void ClearTimer(const FunctionCallbackInfo<Value> &args) {
-  assert(args.Length());
   assert(args[0]->IsNumber());
+
+  char s[20];
+  sprintf(s, "%d", args[0]->Uint32Value());
+  adb_debug(s);
 
   auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
   remove_timer(d->rust_isolate_, args[0]->Uint32Value());
@@ -220,6 +184,17 @@ void ExceptionString(TryCatch *try_catch) {
   String::Utf8Value exception(try_catch->Exception());
   const char *exception_string = ToCString(exception);
   adb_debug(exception_string);
+
+  Handle<Message> message = try_catch->Message();
+  if (!message.IsEmpty()) {
+    String::Utf8Value filename(message->GetScriptOrigin().ResourceName());
+    const char *filename_string = ToCString(filename);
+    int line_number = message->GetLineNumber();
+    char s[1024];
+    // (filename):(line number)
+    sprintf(s, "%s:%i", filename_string, line_number);
+    adb_debug(s);
+  }
 }
 
 void Fetch(const FunctionCallbackInfo<Value> &args) {
@@ -297,7 +272,8 @@ extern "C" const char *resolve_promise(void *raw, uint32_t promise_id,
   const unsigned argc = 2;
   Local<Value> argv[argc] = {
       Number::New(d->isolate_, promise_id),
-      String::NewFromUtf8(d->isolate_, value),
+      String::NewFromUtf8(d->isolate_, value,
+                          String::NewStringType::kInternalizedString),
   };
 
   resolveFn->Call(context_, Null(d->isolate_), argc, argv);
@@ -320,17 +296,8 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   Local<External> env_ = External::New(deno->isolate_, deno);
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
 
-  global_->Set(String::NewFromUtf8(isolate_, "$timeout"),
-               FunctionTemplate::New(isolate_, Timeout, env_));
-
-  global_->Set(String::NewFromUtf8(isolate_, "$interval"),
-               FunctionTemplate::New(isolate_, Interval, env_));
-
   global_->Set(String::NewFromUtf8(isolate_, "$clear"),
                FunctionTemplate::New(isolate_, ClearTimer, env_));
-
-  global_->Set(String::NewFromUtf8(isolate_, "$log"),
-               FunctionTemplate::New(isolate_, Log, env_));
 
   global_->Set(String::NewFromUtf8(isolate_, "$fetch"),
                FunctionTemplate::New(isolate_, Fetch, env_));
@@ -343,6 +310,9 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
 
   // console
   Local<ObjectTemplate> console_ = ObjectTemplate::New(deno->isolate_);
+
+  console_->Set(String::NewFromUtf8(isolate_, "log"),
+                FunctionTemplate::New(isolate_, Log, env_));
 
   console_->Set(String::NewFromUtf8(isolate_, "time"),
                 FunctionTemplate::New(isolate_, console_time, env_));

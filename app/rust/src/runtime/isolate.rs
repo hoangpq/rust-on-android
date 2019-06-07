@@ -90,7 +90,14 @@ impl Isolate {
                     return setTimer(callback, delay, true, ...args);
                 }
 
+                function clearInterval(timerId) {
+                    if (timerMap.has(timerId)) {
+                        timerMap.delete(timerId);
+                    }
+                }
+
                 function fire(timerId) {
+                    if (!timerMap.has(timerId)) return;
                     Promise.resolve(timerId)
                         .then(function(id) {
                             if (timerMap.has(id)) {
@@ -125,7 +132,20 @@ impl Isolate {
                             promise.resolve(value);
                             promiseTable.delete(promiseId);
                         } catch (e) {
-                            $log(e.message);
+                            console.log(e.message);
+                        }
+                    }
+                }
+
+                class Body {
+                    constructor(data) {
+                        this._data = data;
+                    }
+                    json() {
+                        try {
+                            return Promise.resolve(this._data).then(JSON.parse);
+                        } catch (e) {
+                            throw new Error(`Can't not parse json data`);
                         }
                     }
                 }
@@ -135,7 +155,7 @@ impl Isolate {
                     const promise = createResolvable();
                     promiseTable.set(cmdId, promise);
                     $fetch(url, cmdId);
-                    return promise;
+                    return promise.then(data => new Body(data));
                 }
         "#,
             ),
@@ -154,7 +174,6 @@ impl Isolate {
         let isolate = Isolate::from_c(ptr);
         let (task, trigger) = set_timeout(delay);
 
-        isolate.timers.insert(timer_id, trigger);
         isolate.pending_ops.push(Box::new(task.and_then(move |_| {
             fire_callback(d, timer_id);
             Ok(vec![1u8].into_boxed_slice())

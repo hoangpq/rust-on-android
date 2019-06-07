@@ -12,7 +12,7 @@ pub unsafe extern "C" fn adb_debug(p: *mut c_char) {
 }
 
 #[no_mangle]
-pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
+pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
     let main_future = futures::lazy(move || {
         let isolate = Isolate::new();
         isolate.execute(
@@ -20,28 +20,34 @@ pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
                 const users = ['hoangpq', 'firebase'];
 
                 function fetchUserInfo(user) {
-                    return fetch(`https://api.github.com/users/${user}`);
+                    return fetch(`https://api.github.com/users/${user}`)
+                        .then(resp => resp.json());
                 }
 
-                setInterval(() => {
-                    $log('interval 5s');
-                }, 5000);
+                const t1 = setInterval(() => {
+                    console.log('interval 500ms');
+                }, 500);
 
-                setInterval(() => {
-                    $log('interval 4s');
-                }, 4000);
-
-                console.time('timer2');
+                const start = Date.now();
                 setTimeout(() => {
-                    console.timeEnd('timer2');
+                    console.log(`timeout 5s: ${Date.now() - start}`);
+                    clearInterval(t1);
                 }, 5000);
 
-                console.time('api call');
                 Promise.all(users.map(fetchUserInfo))
                     .then(data => {
-                        $log(`Name: ${data}`);
-                        console.timeEnd('api call');
+                        const names = data.map(user => user.name).join(', ');
+                        console.log(`Name: ${names}`);
+                        console.log(`api call: ${Date.now() - start}`);
                     });
+
+                // fetch json api
+                fetch('https://freejsonapi.com/posts')
+                    .then(resp => resp.json())
+                    .then(resp => {
+                        console.log(resp.data.length);
+                    });
+
             "#,
         );
         isolate
@@ -49,4 +55,5 @@ pub unsafe fn init_event_loop(_env: &'static JNIEnv) {
 
     let rt = create_thread_pool_runtime();
     rt.block_on_all(main_future).unwrap();
+    adb_debug!("Done");
 }
