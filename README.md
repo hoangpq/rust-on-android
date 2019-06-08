@@ -1,1 +1,1 @@
-## Working with Java/C++/Javascript/Rust in same Android project.
+## Experiments with Java/C++/Javascript/Rust.
