@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <iostream>
 #include <jni.h>
 #include <map>
 #include <string>
@@ -24,9 +25,6 @@ typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, uint32_t timer_id,
 
 using ResolverPersistent = Persistent<Promise::Resolver>;
 
-int promise_uuid = 0;
-std::map<int, ResolverPersistent *> promise_map;
-
 // Rust bridge
 extern "C" {
 void adb_debug(const char *);
@@ -43,6 +41,7 @@ public:
   Persistent<ObjectTemplate> global_;
   deno_recv_cb recv_cb_;
   rust_isolate *rust_isolate_;
+  uint32_t uuid;
 
   explicit Deno(Isolate *isolate) : isolate_(isolate) {}
 
@@ -60,25 +59,22 @@ public:
     this->global_.Reset(this->isolate_, t);
   }
 
+  /* do not remove */
   void SetDenoCallback(deno_recv_cb recv_cb) { this->recv_cb_ = recv_cb; }
 
   void *Into() { return reinterpret_cast<void *>(this); }
 };
 
-extern "C" rust_isolate *set_deno_data(void *raw, rust_isolate *isolate) {
+static std::map<uint32_t, Deno *> isolate_map_;
+
+/* do not remove */
+extern "C" rust_isolate *set_deno_data(void *raw, uint32_t uuid,
+                                       rust_isolate *isolate) {
   auto d = reinterpret_cast<Deno *>(raw);
+  d->uuid = uuid;
+  isolate_map_.insert(std::pair<uint32_t, Deno *>(uuid, d));
   d->rust_isolate_ = isolate;
   return d->rust_isolate_;
-}
-
-extern "C" void set_deno_callback(void *raw, deno_recv_cb recv_cb) {
-  auto d = reinterpret_cast<Deno *>(raw);
-  d->SetDenoCallback(recv_cb);
-}
-
-extern "C" void lock_deno_isolate(void *raw) {
-  auto d = reinterpret_cast<Deno *>(raw);
-  HandleScope handle_scope(d->isolate_);
 }
 
 const char *jStringToChar(JNIEnv *env, jstring name) {
@@ -154,10 +150,6 @@ const char *ToCString(const String::Utf8Value &value) {
   return *value ? *value : "<string conversion failed>";
 }
 
-static void WeakCallback(const WeakCallbackInfo<int> &data) {
-  adb_debug("weak callback");
-}
-
 void Log(const FunctionCallbackInfo<Value> &args) {
   assert(args.Length() > 0);
   String::Utf8Value s(args[0]);
@@ -166,18 +158,11 @@ void Log(const FunctionCallbackInfo<Value> &args) {
 
 void ClearTimer(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsNumber());
-
-  char s[20];
-  sprintf(s, "%d", args[0]->Uint32Value());
-  adb_debug(s);
-
   auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
   remove_timer(d->rust_isolate_, args[0]->Uint32Value());
 
   args.GetReturnValue().Set(args[0]);
 }
-
-void Destroyed(const WeakCallbackInfo<int> &info) { adb_debug("Destroyed"); }
 
 // exception
 void ExceptionString(TryCatch *try_catch) {
@@ -241,6 +226,9 @@ Local<Function> get_function(Local<Object> obj, Local<String> key) {
   return Local<Function>::Cast(value);
 }
 
+extern "C" void send_message(const char *script_) {}
+
+/* do not remove */
 extern "C" void fire_callback(void *raw, uint32_t timer_id) {
   auto d = reinterpret_cast<Deno *>(raw);
   lock_isolate(d->isolate_);
@@ -259,6 +247,7 @@ extern "C" void fire_callback(void *raw, uint32_t timer_id) {
   fireFn->Call(context_, Null(d->isolate_), argc, argv);
 }
 
+/* do not remove */
 extern "C" const char *resolve_promise(void *raw, uint32_t promise_id,
                                        const char *value) {
   auto d = reinterpret_cast<Deno *>(raw);
@@ -355,6 +344,22 @@ extern "C" void eval_script(void *raw, const char *script_s) {
   if (result.IsEmpty()) {
     ExceptionString(&try_catch);
     return;
+  }
+}
+
+Deno *lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
+                          uint32_t uuid) {
+  auto it = isolate_map_.find(uuid);
+  if (it != isolate_map_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+extern "C" void lookup_deno_and_eval_script(uint32_t uuid, const char *script) {
+  Deno *deno;
+  if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
+    eval_script(deno, script);
   }
 }
 

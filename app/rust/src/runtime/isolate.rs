@@ -5,6 +5,7 @@ use futures::stream::{FuturesUnordered, Stream};
 use futures::Async::*;
 use futures::{task, Future, Poll};
 
+use crate::runtime::server::create_server;
 use crate::runtime::stream_cancel::TimerCancel;
 use crate::runtime::timer::set_timeout;
 use crate::runtime::{eval_script, string_to_ptr, DenoC, OpAsyncFuture};
@@ -18,12 +19,13 @@ type deno_recv_cb = unsafe extern "C" fn(
 ) -> u32;
 
 extern "C" {
-    fn set_deno_data(raw: *const DenoC, data: *mut Isolate) -> *mut Isolate;
+    fn set_deno_data(raw: *const DenoC, uuid: u32, data: *mut Isolate) -> *mut Isolate;
     fn deno_init(recv_cb: deno_recv_cb) -> *const DenoC;
     fn fire_callback(raw: *const DenoC, timer_id: u32);
 }
 
 pub struct Isolate {
+    uuid: u32,
     pub deno: *const DenoC,
     pub have_unpolled_ops: bool,
     pub pending_ops: FuturesUnordered<OpAsyncFuture>,
@@ -50,14 +52,16 @@ impl Isolate {
     }
     pub unsafe fn new<'a>() -> &'a mut Self {
         let deno = deno_init(Self::new_timer);
+        let uuid = Isolate::next_uuid();
         let isolate_box = Box::new(Self {
             deno,
+            uuid,
             have_unpolled_ops: false,
             pending_ops: FuturesUnordered::new(),
             timers: HashMap::new(),
         });
         let isolate_ptr: &'a mut Isolate = Box::leak(isolate_box);
-        set_deno_data(deno, isolate_ptr);
+        set_deno_data(deno, uuid, isolate_ptr);
         isolate_ptr
     }
 
@@ -141,6 +145,9 @@ impl Isolate {
                     constructor(data) {
                         this._data = data;
                     }
+                    text() {
+                        return Promise.resolve(this._data);
+                    }
                     json() {
                         try {
                             return Promise.resolve(this._data).then(JSON.parse);
@@ -162,6 +169,12 @@ impl Isolate {
         );
 
         eval_script(self.deno, string_to_ptr(script));
+
+        // FIXME(hoangpq): create server to receive message
+        if let Ok(server) = create_server(self.uuid) {
+            self.pending_ops.push(server);
+            self.have_unpolled_ops = true;
+        }
     }
 
     unsafe extern "C" fn new_timer(

@@ -7,17 +7,14 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
-import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.VideoView;
 
 import com.node.util.ScriptUtils;
 import com.node.v8.UIUpdater;
@@ -32,6 +29,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.node.util.RestUtil.fetch;
 
 public class MainActivity extends AppCompatActivity implements UIUpdater {
 
@@ -60,29 +59,22 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
-        final VideoView mVideoView = findViewById(R.id.videoView);
-        final Button mButtonPlayVideo = findViewById(R.id.btnPlayVideo);
         final TextView txtMessage = findViewById(R.id.txtMessage);
+        final Button evalScriptButton = findViewById(R.id.evalScriptBtn);
 
         txtMessage.setText(getUtf8String());
 
         // Init VM
         _initVM();
 
-        // Video
-        MediaController vidControl = new MediaController(this);
-        vidControl.setAnchorView(mVideoView);
-        mVideoView.setMediaController(vidControl);
-
-        mButtonPlayVideo.setOnClickListener(view -> {
-            try {
-                String url = "http://localhost:3000/stream";
-                Uri uri = Uri.parse(url);
-                mVideoView.setVideoURI(uri);
-                mVideoView.start();
-            } catch (Exception e) {
-                Log.e("Java", e.getMessage());
-            }
+        evalScriptButton.setOnClickListener(view -> {
+            new Thread(() -> {
+                try {
+                    fetch("http://127.0.0.1:8080");
+                } catch (Exception e) {
+                    Log.d("Java", e.getMessage());
+                }
+            }).start();
         });
 
         initNodeJS();

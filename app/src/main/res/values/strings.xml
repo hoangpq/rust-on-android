@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Rust on Android</string>
+    <string name="btn_eval">Eval</string>
+    <string name="btn_play_video">Play Video</string>
+    <string name="image_processing">Image Processing</string>
+    <string name="node_versions">Node Versions</string>
+    <string name="message">Message</string>
 </resources>

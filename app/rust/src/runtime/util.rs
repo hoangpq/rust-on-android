@@ -39,15 +39,16 @@ pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
                         const names = data.map(user => user.name).join(', ');
                         console.log(`Name: ${names}`);
                         console.log(`api call: ${Date.now() - start}`);
-                    });
+                    })
+                    .catch(e => console.log(e.message));
 
                 // fetch json api
                 fetch('https://freejsonapi.com/posts')
                     .then(resp => resp.json())
                     .then(resp => {
                         console.log(resp.data.length);
-                    });
-
+                    })
+                    .catch(e => console.log(e.message));
             "#,
         );
         isolate

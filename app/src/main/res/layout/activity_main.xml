@@ -8,6 +8,7 @@
 
     <LinearLayout
         android:id="@+id/actionHolder"
+        style="?android:attr/buttonBarButtonStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
@@ -24,14 +25,14 @@
             android:id="@+id/btVersions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Node Versions"
+            android:text="@string/node_versions"
             android:textAlignment="center" />
 
         <Button
             android:id="@+id/btImageProcessing"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Image Processing"
+            android:text="@string/image_processing"
             android:textAlignment="center" />
 
     </LinearLayout>
@@ -44,51 +45,41 @@
         android:layout_marginTop="8dp"
         android:layout_marginRight="8dp"
         android:padding="10dp"
-        android:text="Message"
+        android:text="@string/message"
         android:textAlignment="center"
-        android:textSize="20dp"
+        android:textSize="20sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/actionHolder" />
 
-    <VideoView
-        android:id="@+id/videoView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginLeft="8dp"
+    <Button
+        android:id="@+id/btnPlayVideo"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
-        android:layout_marginRight="8dp"
-        android:layout_marginBottom="8dp"
-        android:padding="10dp"
+        android:text="@string/btn_play_video"
         android:textAlignment="center"
-        app:layout_constraintBottom_toTopOf="@+id/btnPlayVideo"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txtMessage" />
 
     <Button
-        android:id="@+id/btnPlayVideo"
-        android:layout_width="wrap_content"
+        android:id="@+id/evalScriptBtn"
+        android:layout_width="150dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="Play Video"
+        android:layout_marginEnd="16dp"
+        android:text="@string/btn_eval"
         android:textAlignment="center"
-        app:layout_constraintBottom_toTopOf="@+id/txtCounter"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/videoView" />
+        app:layout_constraintTop_toBottomOf="@+id/txtMessage" />
 
     <TextView
         android:id="@+id/txtCounter"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
         android:padding="10dp"
@@ -97,8 +88,6 @@
         android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.501"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnPlayVideo" />
+        app:layout_constraintStart_toStartOf="parent" />
 
 </android.support.constraint.ConstraintLayout>

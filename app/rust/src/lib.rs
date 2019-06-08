@@ -209,17 +209,5 @@ pub extern "C" fn Perform(args: &CallbackInfo) {
     args.SetReturnValue(v8::String::NewFromUtf8("Send 💖 to JS world!"));
 }
 
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "C" fn initEventLoop(env: &'static JNIEnv) {
-    runtime::util::init_event_loop(env);
-}
-
-#[allow(dead_code)]
-#[allow(non_snake_case)]
-extern "C" {
-    fn executeFunction(f: Function);
-}
-
 #[allow(dead_code)]
 fn main() {}
