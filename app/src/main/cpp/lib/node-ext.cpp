@@ -22,8 +22,6 @@ using v8::MaybeLocal;
 
 namespace loader {
 
-using namespace util;
-
 const char *ToCString(Local<String> str) {
   String::Utf8Value value(str);
   return *value ? *value : "<string conversion failed>";
@@ -93,8 +91,6 @@ public:
 
     JNIEnv *env_;
     Util::InitEnvironment(isolate_, &env_);
-    Util::InitEnvironment(isolate_, &g_ctx.env);
-
     Local<External> jEnvRef = External::New(isolate_, env_);
 
     global->Set(Util::ConvertToV8String("$toast"),
@@ -123,11 +119,10 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   memset(&g_ctx, 0, sizeof(NodeContext));
   g_ctx.javaVM = vm;
   g_ctx.mainActivityObj = nullptr;
-
-  JNIEnv *env;
-  if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
-    return JNI_ERR; // JNI version not supported.
-  }
+  Util::AttachCurrentThread(&g_ctx.env);
+  jclass clz = g_ctx.env->FindClass("com/node/sample/MainActivity");
+  g_ctx.notifyMethod =
+      g_ctx.env->GetMethodID(clz, "updateListView", "(Ljava/lang/String;)V");
   return JNI_VERSION_1_6;
 }
 

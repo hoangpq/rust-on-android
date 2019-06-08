@@ -52,4 +52,16 @@ void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
     }
   }
 }
+
+void Util::AttachCurrentThread(JNIEnv **env) {
+  int res =
+      g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+  if (res != JNI_OK) {
+    res = g_ctx.javaVM->AttachCurrentThread(&(*env), nullptr);
+    if (JNI_OK != res) {
+      return;
+    }
+  }
+}
+
 } // namespace util

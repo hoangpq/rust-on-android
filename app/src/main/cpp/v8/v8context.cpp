@@ -59,23 +59,6 @@ void Send(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
 }
 
-void CreateTimer(const FunctionCallbackInfo<Value> &args, int type) {
-  Isolate *isolate_ = args.GetIsolate();
-  Local<Context> context = isolate_->GetCurrentContext();
-
-  JNIEnv *env = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
-  Local<Function> func = Local<Function>::Cast(args[0]);
-  auto *fn = new Persistent<Function>(isolate_, func);
-
-  auto handler_ = createTimeoutHandler(&env);
-  double t = args[1]->NumberValue(context).FromMaybe(0);
-  postDelayed(&env, handler_, reinterpret_cast<jlong>(fn), (jlong)t, type);
-}
-
-void New(const FunctionCallbackInfo<Value> &args) {
-  args.GetReturnValue().Set(args.Holder());
-}
-
 void InvokeRef(const FunctionCallbackInfo<Value> &args) {
   Isolate *isolate = args.GetIsolate();
 
@@ -153,7 +136,8 @@ Handle<Object> RunScript(Isolate *isolate, Local<Context> context,
 
 extern "C" void JNICALL Java_com_node_v8_V8Context_initEventLoop(JNIEnv *env,
                                                                  jclass klass) {
-  init_event_loop(&env);
+  g_ctx.denoEnv = env;
+  init_event_loop(&g_ctx.denoEnv);
 }
 
 extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,

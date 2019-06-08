@@ -17,6 +17,7 @@
 #include "v8.h"
 
 #include "../utils/utils.h"
+using namespace util;
 
 extern "C" jlong JNICALL
 Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
@@ -33,5 +34,13 @@ void AndroidError(const FunctionCallbackInfo<Value> &args);
 void OnLoad(const FunctionCallbackInfo<Value> &args);
 } // namespace loader
 } // namespace node
+
+extern "C" void notify_message_to_main_thread(const char *utf) {
+  JNIEnv *env_ = g_ctx.denoEnv;
+  Util::AttachCurrentThread(&env_);
+  jstring string = env_->NewStringUTF(utf);
+  env_->CallVoidMethod(g_ctx.mainActivity, g_ctx.notifyMethod, string);
+  env_->DeleteLocalRef(string);
+};
 
 #endif

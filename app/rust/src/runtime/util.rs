@@ -2,12 +2,20 @@ use jni::JNIEnv;
 
 use crate::runtime::isolate::Isolate;
 use crate::runtime::{create_thread_pool_runtime, ptr_to_string};
+use jni::objects::{JObject, JValue};
+use std::ffi::CStr;
 use std::os::raw::c_char;
+
+// to link with C++
+extern "C" {
+    fn notify_message_to_main_thread(p: *mut c_char);
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn adb_debug(p: *mut c_char) {
     if let Some(msg) = ptr_to_string(p) {
         adb_debug!(msg);
+        notify_message_to_main_thread(p);
     }
 }
 

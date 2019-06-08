@@ -1,5 +1,5 @@
-#ifndef _context_h
-#define _context_h
+#ifndef _util_h_
+#define _util_h_
 
 #include <iostream>
 #include <jni.h>
@@ -12,9 +12,11 @@ using namespace v8;
 typedef struct NodeContext {
   JavaVM *javaVM;
   JNIEnv *env;
+  JNIEnv *denoEnv;
   jclass mainActivityClz;
   jobject mainActivityObj;
   jobject mainActivity;
+  jmethodID notifyMethod;
   Isolate *isolate_;
 } NodeContext;
 
@@ -26,6 +28,7 @@ public:
   static Local<String> ConvertToV8String(const string &s);
   static string GetPackageName(JNIEnv *env, jclass class_);
   static void InitEnvironment(Isolate *isolate, JNIEnv **env);
+  static void AttachCurrentThread(JNIEnv **env);
 };
 } // namespace util
 

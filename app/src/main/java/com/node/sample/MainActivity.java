@@ -7,17 +7,19 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.node.util.ScriptUtils;
-import com.node.v8.UIUpdater;
 import com.node.v8.V8Context;
 
 import java.io.BufferedReader;
@@ -28,11 +30,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.node.util.RestUtil.fetch;
 
-public class MainActivity extends AppCompatActivity implements UIUpdater {
+public class MainActivity extends AppCompatActivity {
 
     static {
         System.loadLibrary("native-lib");
@@ -48,14 +51,15 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
     public native String getUtf8String();
 
     AtomicBoolean _startedNodeAlready = new AtomicBoolean(false);
-    private TextView txtCounter;
+    private ListView listView;
+    private ArrayList dataList;
+    private ArrayAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_main);
-        txtCounter = findViewById(R.id.txtCounter);
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
@@ -63,6 +67,11 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
         final Button evalScriptButton = findViewById(R.id.evalScriptBtn);
 
         txtMessage.setText(getUtf8String());
+        listView = findViewById(R.id.listView);
+        dataList = new ArrayList();
+
+        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, dataList);
+        listView.setAdapter(adapter);
 
         // Init VM
         _initVM();
@@ -83,7 +92,17 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
 
-        buttonVersions.setOnClickListener(v -> requestApi());
+        buttonVersions.setOnClickListener(v -> {
+            adapter.notifyDataSetChanged();
+            requestApi();
+        });
+    }
+
+    public void updateListView(String msg) {
+        runOnUiThread(() -> {
+            dataList.add(msg);
+            adapter.notifyDataSetChanged();
+        });
     }
 
     public void onNodeServerLoaded() {
@@ -291,8 +310,4 @@ public class MainActivity extends AppCompatActivity implements UIUpdater {
         super.onDestroy();
     }
 
-    @Override
-    public void update(String val) {
-        runOnUiThread(() -> txtCounter.setText(val));
-    }
 }
