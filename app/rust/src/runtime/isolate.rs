@@ -5,23 +5,23 @@ use futures::stream::{FuturesUnordered, Stream};
 use futures::Async::*;
 use futures::{task, Future, Poll};
 
-use crate::runtime::server::create_server;
 use crate::runtime::stream_cancel::TimerCancel;
 use crate::runtime::timer::set_timeout;
 use crate::runtime::{eval_script, string_to_ptr, DenoC, OpAsyncFuture};
+use libc::c_void;
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(
-    isolate: *mut Isolate,
+    data: *mut libc::c_void,
     d: *const DenoC,
+    promise_id: u32,
     timer_id: u32,
     duration: u32,
-) -> u32;
+);
 
 extern "C" {
-    fn set_deno_data(raw: *const DenoC, uuid: u32, data: *mut Isolate) -> *mut Isolate;
     fn deno_init(recv_cb: deno_recv_cb) -> *const DenoC;
-    fn fire_callback(raw: *const DenoC, timer_id: u32);
+    fn fire_callback(raw: *const DenoC, promise_id: u32, timer_id: u32);
 }
 
 pub struct Isolate {
@@ -33,7 +33,17 @@ pub struct Isolate {
 }
 
 unsafe impl Send for Isolate {}
-unsafe impl Sync for Isolate {}
+
+impl Drop for Isolate {
+    fn drop(&mut self) {
+        adb_debug!(format!("{:p} dropped", self.as_raw_ptr()));;
+    }
+}
+
+fn next_uuid() -> u32 {
+    let rid = NEXT_RID.fetch_add(1, Ordering::SeqCst);
+    rid as u32
+}
 
 lazy_static! {
     static ref NEXT_RID: AtomicUsize = AtomicUsize::new(0);
@@ -41,83 +51,28 @@ lazy_static! {
 
 impl Isolate {
     #[inline]
-    fn next_uuid() -> u32 {
-        let rid = NEXT_RID.fetch_add(1, Ordering::SeqCst);
-        rid as u32
-    }
-    #[inline]
     pub fn from_c<'a>(ptr: *mut Isolate) -> &'a mut Isolate {
         let isolate_box = unsafe { Box::from_raw(ptr) };
         Box::leak(isolate_box)
     }
-    pub unsafe fn new<'a>() -> &'a mut Self {
-        let deno = deno_init(Self::new_timer);
-        let uuid = Isolate::next_uuid();
-        let isolate_box = Box::new(Self {
-            deno,
-            uuid,
+
+    pub unsafe fn new() -> Self {
+        let mut core_isolate = Self {
+            deno: deno_init(Self::dispatch),
+            uuid: next_uuid(),
             have_unpolled_ops: false,
             pending_ops: FuturesUnordered::new(),
             timers: HashMap::new(),
-        });
-        let isolate_ptr: &'a mut Isolate = Box::leak(isolate_box);
-        set_deno_data(deno, uuid, isolate_ptr);
-        isolate_ptr
+        };
+        core_isolate
     }
 
     pub unsafe fn execute(&mut self, script: &str) {
         eval_script(
             self.deno,
+            self.as_raw_ptr(),
             string_to_ptr(
                 r#"
-                let timerMap = new Map();
-                let nextTimerId = 1;
-
-                function setTimer(cb, delay, repeat, ...args) {
-                    // const callback = () => args.length === 0 ? cb : cb.bind(null, ...args);
-                    const timer = {
-                        id: nextTimerId++,
-                        callback: cb,
-                        repeat,
-                        delay
-                    };
-                    timerMap.set(timer.id, timer);
-                    $newTimer(timer.id, timer.delay);
-                    return timer.id;
-                }
-
-                function setTimeout(callback, delay, ...args) {
-                    return setTimer(callback, delay, false, ...args);
-                }
-
-                function setInterval(callback, delay, ...args) {
-                    return setTimer(callback, delay, true, ...args);
-                }
-
-                function clearInterval(timerId) {
-                    if (timerMap.has(timerId)) {
-                        timerMap.delete(timerId);
-                    }
-                }
-
-                function fire(timerId) {
-                    if (!timerMap.has(timerId)) return;
-                    Promise.resolve(timerId)
-                        .then(function(id) {
-                            if (timerMap.has(id)) {
-                                const timer = timerMap.get(id);
-                                const callback = timer.callback;
-                                callback();
-                                if (!timer.repeat) {
-                                    timeMap.delete(timer.id);
-                                    return;
-                                }
-                                // schedule interval
-                                $newTimer(timer.id, timer.delay);
-                            }
-                        });
-                }
-
                 const promiseTable = new Map();
                 let nextPromiseId = 1;
 
@@ -164,36 +119,87 @@ impl Isolate {
                     $fetch(url, cmdId);
                     return promise.then(data => new Body(data));
                 }
+
+                let timerMap = new Map();
+                let nextTimerId = 1;
+
+                // timer implementation
+                function setTimer(callback, delay, repeat, ...args) {
+
+                    console.log(`Create timer`);
+
+                    const timer = {
+                        id: nextTimerId++,
+                        callback,
+                        repeat,
+                        delay
+                    };
+                    timerMap.set(timer.id, timer);
+
+                    const cmdId = nextPromiseId++;
+                    const promise = createResolvable();
+                    promiseTable.set(cmdId, promise);
+                    $newTimer(cmdId, timer.id, timer.delay);
+
+                    promise.then(() => {
+                        Promise.resolve(timer.id).then(fire);
+                        promiseTable.delete(promiseId)
+                    });
+
+                    return timer.id;
+                }
+
+                function fire(id) {
+                    const timer = timerMap.get(id);
+                    const callback = timer.callback;
+                    callback();
+
+                    if (!timer.repeat) {
+                        timeMap.delete(timer.id);
+                        return;
+                    }
+                }
+
+                function setTimeout(callback, delay) {
+                    return setTimer(callback, delay, false);
+                }
+
+                function setInterval(callback, delay) {
+                    return setTimer(callback, delay, true);
+                }
+
         "#,
             ),
         );
 
-        eval_script(self.deno, string_to_ptr(script));
-
-        // FIXME(hoangpq): create server to receive message
-        if let Ok(server) = create_server(self.uuid) {
-            self.pending_ops.push(server);
-            self.have_unpolled_ops = true;
-        }
+        eval_script(self.deno, self.as_raw_ptr(), string_to_ptr(script));
     }
 
-    unsafe extern "C" fn new_timer(
-        ptr: *mut Isolate,
-        d: *const DenoC,
+    #[inline]
+    unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a mut Self {
+        let ptr = ptr as *mut _;
+        &mut *ptr
+    }
+
+    #[inline]
+    fn as_raw_ptr(&self) -> *const c_void {
+        self as *const _ as *const c_void
+    }
+
+    unsafe extern "C" fn dispatch(
+        data: *mut libc::c_void,
+        deno: *const DenoC,
+        promise_id: u32,
         timer_id: u32,
         delay: u32,
-    ) -> u32 {
-        // let uid = Isolate::next_uuid();
-        let isolate = Isolate::from_c(ptr);
+    ) {
+        let isolate = unsafe { Isolate::from_raw_ptr(data) };
         let (task, trigger) = set_timeout(delay);
-
         isolate.pending_ops.push(Box::new(task.and_then(move |_| {
-            fire_callback(d, timer_id);
+            fire_callback(deno, promise_id, timer_id);
             Ok(vec![1u8].into_boxed_slice())
         })));
         isolate.have_unpolled_ops = true;
-
-        return timer_id;
     }
 }
 

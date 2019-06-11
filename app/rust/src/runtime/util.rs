@@ -22,7 +22,7 @@ pub unsafe extern "C" fn adb_debug(p: *mut c_char) {
 #[no_mangle]
 pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
     let main_future = futures::lazy(move || {
-        let isolate = Isolate::new();
+        let mut isolate = Isolate::new();
         isolate.execute(
             r#"
                 const users = ['hoangpq', 'firebase'];
@@ -32,15 +32,18 @@ pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
                         .then(resp => resp.json());
                 }
 
-                const t1 = setInterval(() => {
-                    console.log('interval 500ms');
-                }, 500);
+                setInterval(() => {
+                    console.log(`2s interval`);
+                }, 2000);
 
                 const start = Date.now();
                 setTimeout(() => {
                     console.log(`timeout 5s: ${Date.now() - start}`);
-                    clearInterval(t1);
                 }, 5000);
+
+                setTimeout(() => {
+                    console.log(`timeout 3s: ${Date.now() - start}`);
+                }, 3000);
 
                 Promise.all(users.map(fetchUserInfo))
                     .then(data => {
@@ -64,5 +67,4 @@ pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
 
     let rt = create_thread_pool_runtime();
     rt.block_on_all(main_future).unwrap();
-    adb_debug!("Done");
 }

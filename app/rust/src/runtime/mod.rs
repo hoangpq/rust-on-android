@@ -2,7 +2,7 @@ use std::ffi::CString;
 use std::slice;
 
 use futures::Future;
-use std::os::raw::c_char;
+use libc::{c_char, c_void};
 use tokio::runtime;
 
 pub mod console;
@@ -18,12 +18,9 @@ pub struct DenoC {
     _unused: [u8; 0],
 }
 
-unsafe impl Send for DenoC {}
-unsafe impl Sync for DenoC {}
-
 #[allow(non_snake_case)]
 extern "C" {
-    fn eval_script(deno: *const DenoC, script: *const c_char);
+    fn eval_script(deno: *const DenoC, data: *const c_void, script: *const c_char);
 }
 
 pub unsafe fn ptr_to_string(raw: *mut c_char) -> Option<String> {

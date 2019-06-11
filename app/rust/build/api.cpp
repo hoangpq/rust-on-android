@@ -19,19 +19,24 @@
 
 using namespace v8;
 
-struct rust_isolate;
-typedef int32_t (*deno_recv_cb)(void *isolate_, void *d, uint32_t timer_id,
-                                uint32_t delay);
+typedef void (*deno_recv_cb)(void *data, void *deno, uint32_t promise_id,
+                             uint32_t timer_id, uint32_t delay);
 
 using ResolverPersistent = Persistent<Promise::Resolver>;
 
 // Rust bridge
 extern "C" {
 void adb_debug(const char *);
-void remove_timer(rust_isolate *isolate_, uint32_t timer_id);
-void fetch(rust_isolate *isolate_, const char *, uint32_t);
+void remove_timer(void *data, uint32_t timer_id);
+void fetch(void *data, const char *, uint32_t);
 void console_time(const FunctionCallbackInfo<Value> &);
 void console_time_end(const FunctionCallbackInfo<Value> &);
+}
+
+Local<Function> get_function(Local<Object> obj, Local<String> key) {
+  Local<Value> value = obj->Get(key);
+  assert(value->IsFunction());
+  return Local<Function>::Cast(value);
 }
 
 class Deno {
@@ -40,8 +45,10 @@ public:
   Persistent<Context> context_;
   Persistent<ObjectTemplate> global_;
   deno_recv_cb recv_cb_;
-  rust_isolate *rust_isolate_;
+
+  void *user_data_;
   uint32_t uuid;
+  bool hasData = false;
 
   explicit Deno(Isolate *isolate) : isolate_(isolate) {}
 
@@ -49,6 +56,10 @@ public:
       : isolate_(isolate) {
     this->context_.Reset(this->isolate_, context);
     this->global_.Reset(this->isolate_, global);
+    Context::Scope context_scope(context);
+
+    Local<Function> resolveFn = get_function(
+        context->Global(), String::NewFromUtf8(this->isolate_, "resolve"));
   }
 
   void ResetContext(Local<Context> c) {
@@ -66,16 +77,6 @@ public:
 };
 
 static std::map<uint32_t, Deno *> isolate_map_;
-
-/* do not remove */
-extern "C" rust_isolate *set_deno_data(void *raw, uint32_t uuid,
-                                       rust_isolate *isolate) {
-  auto d = reinterpret_cast<Deno *>(raw);
-  d->uuid = uuid;
-  isolate_map_.insert(std::pair<uint32_t, Deno *>(uuid, d));
-  d->rust_isolate_ = isolate;
-  return d->rust_isolate_;
-}
 
 const char *jStringToChar(JNIEnv *env, jstring name) {
   const char *str = env->GetStringUTFChars(name, 0);
@@ -159,7 +160,7 @@ void Log(const FunctionCallbackInfo<Value> &args) {
 void ClearTimer(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsNumber());
   auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
-  remove_timer(d->rust_isolate_, args[0]->Uint32Value());
+  remove_timer(d->user_data_, args[0]->Uint32Value());
 
   args.GetReturnValue().Set(args[0]);
 }
@@ -192,7 +193,7 @@ void Fetch(const FunctionCallbackInfo<Value> &args) {
   String::Utf8Value url(args[0]->ToString());
   uint32_t promise_id = args[1]->Uint32Value();
 
-  fetch(d->rust_isolate_, *url, promise_id);
+  fetch(d->user_data_, *url, promise_id);
 }
 
 void HeapStatic(const FunctionCallbackInfo<Value> &args) {
@@ -209,42 +210,38 @@ void HeapStatic(const FunctionCallbackInfo<Value> &args) {
 }
 
 void NewTimer(const FunctionCallbackInfo<Value> &args) {
-  assert(args[0]->IsNumber()); // timer_id
-  assert(args[1]->IsNumber()); // timer delay
+  assert(args[0]->IsUint32()); // promise_id
+  assert(args[1]->IsUint32()); // timer_id
+  assert(args[2]->IsUint32()); // timer delay
 
-  void *denoPtr = args.Data().As<External>()->Value();
-  auto d = reinterpret_cast<Deno *>(denoPtr);
+  void *ptr = args.Data().As<External>()->Value();
+  auto d = reinterpret_cast<Deno *>(ptr);
   lock_isolate(d->isolate_);
 
-  d->recv_cb_(d->rust_isolate_, denoPtr, args[0]->Uint32Value(),
-              args[1]->Uint32Value());
-}
+  d->recv_cb_(d->user_data_, ptr, args[0]->Uint32Value(),
+              args[1]->Uint32Value(), args[2]->Uint32Value());
 
-Local<Function> get_function(Local<Object> obj, Local<String> key) {
-  Local<Value> value = obj->Get(key);
-  assert(value->IsFunction());
-  return Local<Function>::Cast(value);
+  adb_debug("new_timer_created");
 }
-
-extern "C" void send_message(const char *script_) {}
 
 /* do not remove */
-extern "C" void fire_callback(void *raw, uint32_t timer_id) {
+extern "C" void fire_callback(void *raw, uint32_t promise_id,
+                              uint32_t timer_id) {
   auto d = reinterpret_cast<Deno *>(raw);
   lock_isolate(d->isolate_);
 
   Handle<Context> context_ = d->context_.Get(d->isolate_);
   Context::Scope scope(context_);
+  Local<Function> resolveFn = get_function(
+      context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
 
-  Local<Function> fireFn = get_function(
-      context_->Global(), String::NewFromUtf8(d->isolate_, "fire"));
-
-  const unsigned argc = 1;
+  const unsigned argc = 2;
   Local<Value> argv[argc] = {
-      Number::New(d->isolate_, timer_id),
+      Number::New(d->isolate_, promise_id),
+      String::NewFromUtf8(d->isolate_, ""),
   };
 
-  fireFn->Call(context_, Null(d->isolate_), argc, argv);
+  resolveFn->Call(context_, Null(d->isolate_), argc, argv);
 }
 
 /* do not remove */
@@ -319,9 +316,15 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   return deno->Into();
 }
 
-extern "C" void eval_script(void *raw, const char *script_s) {
+extern "C" void eval_script(void *raw, void *data, const char *script_s) {
   auto deno = reinterpret_cast<Deno *>(raw);
   lock_isolate(deno->isolate_);
+
+  // ref to rust isolate
+  if (!deno->hasData) {
+    deno->user_data_ = data;
+    deno->hasData = true;
+  }
 
   Local<Context> context_ = Local<Context>::New(deno->isolate_, deno->context_);
   Context::Scope scope(context_);
@@ -359,7 +362,7 @@ Deno *lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
 extern "C" void lookup_deno_and_eval_script(uint32_t uuid, const char *script) {
   Deno *deno;
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
-    eval_script(deno, script);
+    eval_script(deno, deno->user_data_, script);
   }
 }
 
