@@ -1,3 +1,5 @@
+#include <features.h>
+
 #ifndef lib_api
 #define lib_api
 
@@ -10,6 +12,7 @@
 #include <jni.h>
 #include <map>
 #include <string>
+#include <thread>
 #include <v8.h>
 
 #define lock_isolate(isolate_)                                                 \
@@ -27,7 +30,6 @@ using ResolverPersistent = Persistent<Promise::Resolver>;
 // Rust bridge
 extern "C" {
 void adb_debug(const char *);
-void remove_timer(void *data, uint32_t timer_id);
 void fetch(void *data, const char *, uint32_t);
 void console_time(const FunctionCallbackInfo<Value> &);
 void console_time_end(const FunctionCallbackInfo<Value> &);
@@ -44,11 +46,13 @@ public:
   Isolate *isolate_;
   Persistent<Context> context_;
   Persistent<ObjectTemplate> global_;
-  deno_recv_cb recv_cb_;
+  Persistent<Function> resolver_;
+  Persistent<Function> stack_empty_check_;
+  Locker *locker_;
 
-  void *user_data_;
   uint32_t uuid;
-  bool hasData = false;
+  void *user_data_;
+  deno_recv_cb recv_cb_;
 
   explicit Deno(Isolate *isolate) : isolate_(isolate) {}
 
@@ -56,10 +60,6 @@ public:
       : isolate_(isolate) {
     this->context_.Reset(this->isolate_, context);
     this->global_.Reset(this->isolate_, global);
-    Context::Scope context_scope(context);
-
-    Local<Function> resolveFn = get_function(
-        context->Global(), String::NewFromUtf8(this->isolate_, "resolve"));
   }
 
   void ResetContext(Local<Context> c) {
@@ -71,80 +71,109 @@ public:
   }
 
   /* do not remove */
-  void SetDenoCallback(deno_recv_cb recv_cb) { this->recv_cb_ = recv_cb; }
+  void __unused SetDenoCallback(deno_recv_cb recv_cb) {
+    this->recv_cb_ = recv_cb;
+  }
 
   void *Into() { return reinterpret_cast<void *>(this); }
+
+  static Deno *unwrap(void *d_) { return reinterpret_cast<Deno *>(d_); }
 };
+
+extern "C" void __unused deno_lock(void *d_) {
+  auto *d = Deno::unwrap(d_);
+  d->locker_ = new Locker(d->isolate_);
+}
+
+extern "C" void __unused deno_unlock(void *d_) {
+  auto *d = Deno::unwrap(d_);
+  delete d->locker_;
+  d->locker_ = nullptr;
+}
+
+extern "C" void __unused set_deno_data(void *d_, void *user_data_) {
+  auto d = Deno::unwrap(d_);
+  d->user_data_ = user_data_;
+}
+
+extern "C" void __unused set_deno_resolver(void *d_) {
+  auto d = Deno::unwrap(d_);
+  lock_isolate(d->isolate_);
+  Local<Context> context_ = d->context_.Get(d->isolate_);
+  Context::Scope scope(context_);
+  // resolver
+  Local<Function> resolver_ = get_function(
+      context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
+  d->resolver_.Reset(d->isolate_, resolver_);
+  // stack check
+  Local<Function> stack_empty_check_ = get_function(
+      context_->Global(), String::NewFromUtf8(d->isolate_, "isStackEmpty"));
+  d->stack_empty_check_.Reset(d->isolate_, stack_empty_check_);
+}
 
 static std::map<uint32_t, Deno *> isolate_map_;
 
-const char *jStringToChar(JNIEnv *env, jstring name) {
+const char *__unused jStringToChar(JNIEnv *env, jstring name) {
   const char *str = env->GetStringUTFChars(name, 0);
   env->ReleaseStringUTFChars(name, str);
   return str;
 }
 
-extern "C" Local<Function> v8_function_cast(Local<Value> v) {
+extern "C" Local<Function> __unused v8_function_cast(Local<Value> v) {
   return Local<Function>::Cast(v);
 }
 
-extern "C" void v8_function_call(Local<Function> fn, int32_t argc,
-                                 Local<Value> argv[]) {
+extern "C" void __unused v8_function_call(Local<Function> fn, int32_t argc,
+                                          Local<Value> argv[]) {
   Isolate *isolate_ = Isolate::GetCurrent();
   fn->Call(isolate_->GetCurrentContext(), Null(isolate_), argc, argv);
 }
 
-extern "C" Local<ArrayBuffer> v8_buffer_new(void *data, size_t byte_length) {
+extern "C" Local<ArrayBuffer> __unused v8_buffer_new(void *data,
+                                                     size_t byte_length) {
   Isolate *isolate_ = Isolate::GetCurrent();
   return ArrayBuffer::New(isolate_, data, byte_length,
                           ArrayBufferCreationMode::kInternalized);
 }
 
 extern "C" Local<Value>
-v8_function_callback_info_get(FunctionCallbackInfo<Value> *info,
-                              int32_t index) {
+    __unused v8_function_callback_info_get(FunctionCallbackInfo<Value> *info,
+                                           int32_t index) {
   return (*info)[index];
 }
 
-extern "C" int32_t
+extern "C" int32_t __unused
 v8_function_callback_length(FunctionCallbackInfo<Value> *info) {
   return info->Length();
 }
 
-extern "C" void v8_utf8_string_new(Local<String> *out, const uint8_t *data,
-                                   int32_t len) {
+extern "C" void __unused v8_utf8_string_new(Local<String> *out,
+                                            const uint8_t *data, int32_t len) {
   Isolate *isolate_ = Isolate::GetCurrent();
   String::NewFromUtf8(isolate_, (const char *)data, NewStringType::kNormal, len)
       .ToLocal(out);
 }
 
-extern "C" void v8_set_return_value(FunctionCallbackInfo<Value> *info,
-                                    Local<Value> *value) {
+extern "C" void __unused v8_set_return_value(FunctionCallbackInfo<Value> *info,
+                                             Local<Value> *value) {
   info->GetReturnValue().Set(*value);
 }
 
-extern "C" Local<String> v8_string_new_from_utf8(const char *data) {
+extern "C" Local<String> __unused v8_string_new_from_utf8(const char *data) {
   Isolate *isolate_ = Isolate::GetCurrent();
   return String::NewFromUtf8(isolate_, data);
 }
 
 // V8 value to char*
-extern "C" const char *v8_value_into_raw(Local<Value> value) {
+extern "C" const char *__unused v8_value_into_raw(Local<Value> value) {
   assert(value->IsString());
   String::Utf8Value s(value);
   return *s;
 }
 
-extern "C" Local<Number> v8_number_from_raw(uint64_t number) {
+extern "C" Local<Number> __unused v8_number_from_raw(uint64_t number) {
   Isolate *isolate_ = Isolate::GetCurrent();
   return Number::New(isolate_, number);
-}
-
-extern "C" const char *fetch_event(JNIEnv **env, jclass c, jmethodID m) {
-  auto s = (jstring)(*env)->CallStaticObjectMethod(c, m);
-  const char *result = jStringToChar(*env, s);
-  (*env)->DeleteLocalRef(s);
-  return result;
 }
 
 const char *ToCString(const String::Utf8Value &value) {
@@ -155,14 +184,6 @@ void Log(const FunctionCallbackInfo<Value> &args) {
   assert(args.Length() > 0);
   String::Utf8Value s(args[0]);
   adb_debug(ToCString(s));
-}
-
-void ClearTimer(const FunctionCallbackInfo<Value> &args) {
-  assert(args[0]->IsNumber());
-  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
-  remove_timer(d->user_data_, args[0]->Uint32Value());
-
-  args.GetReturnValue().Set(args[0]);
 }
 
 // exception
@@ -187,7 +208,7 @@ void Fetch(const FunctionCallbackInfo<Value> &args) {
   assert(args[0]->IsString());
   assert(args[1]->IsNumber());
 
-  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
+  auto d = Deno::unwrap(args.Data().As<External>()->Value());
   lock_isolate(d->isolate_);
 
   String::Utf8Value url(args[0]->ToString());
@@ -214,26 +235,41 @@ void NewTimer(const FunctionCallbackInfo<Value> &args) {
   assert(args[1]->IsUint32()); // timer_id
   assert(args[2]->IsUint32()); // timer delay
 
-  void *ptr = args.Data().As<External>()->Value();
-  auto d = reinterpret_cast<Deno *>(ptr);
+  void *d_ = args.Data().As<External>()->Value();
+  auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
 
-  d->recv_cb_(d->user_data_, ptr, args[0]->Uint32Value(),
-              args[1]->Uint32Value(), args[2]->Uint32Value());
+  if (args[3]->IsBoolean()) {
+    adb_debug("is_boolean");
+    return;
+  }
 
-  adb_debug("new_timer_created");
+  d->recv_cb_(d->user_data_, d_, args[0]->Uint32Value(), args[1]->Uint32Value(),
+              args[2]->Uint32Value());
+}
+
+extern "C" bool __unused stack_empty_check(void *d_) {
+  auto d = Deno::unwrap(d_);
+  lock_isolate(d->isolate_);
+
+  Local<Context> context_ = d->context_.Get(d->isolate_);
+  Context::Scope scope(context_);
+  Local<Function> stack_empty_check_ = d->stack_empty_check_.Get(d->isolate_);
+
+  MaybeLocal<Value> result =
+      stack_empty_check_->Call(context_, Null(d->isolate_), 0, nullptr);
+
+  return !result.IsEmpty() ? result.ToLocalChecked()->BooleanValue() : false;
 }
 
 /* do not remove */
-extern "C" void fire_callback(void *raw, uint32_t promise_id,
-                              uint32_t timer_id) {
-  auto d = reinterpret_cast<Deno *>(raw);
+extern "C" void __unused fire_callback(void *d_, uint32_t promise_id) {
+  auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
 
-  Handle<Context> context_ = d->context_.Get(d->isolate_);
+  Local<Context> context_ = d->context_.Get(d->isolate_);
   Context::Scope scope(context_);
-  Local<Function> resolveFn = get_function(
-      context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
+  Local<Function> resolver_ = d->resolver_.Get(d->isolate_);
 
   const unsigned argc = 2;
   Local<Value> argv[argc] = {
@@ -241,19 +277,22 @@ extern "C" void fire_callback(void *raw, uint32_t promise_id,
       String::NewFromUtf8(d->isolate_, ""),
   };
 
-  resolveFn->Call(context_, Null(d->isolate_), argc, argv);
+  resolver_->Call(context_, Null(d->isolate_), argc, argv);
 }
 
 /* do not remove */
-extern "C" const char *resolve_promise(void *raw, uint32_t promise_id,
-                                       const char *value) {
-  auto d = reinterpret_cast<Deno *>(raw);
+extern "C" const char *__unused resolve_promise(void *d_, uint32_t promise_id,
+                                                const char *value) {
+  auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
+
+  char s[100];
+  sprintf(s, "Receive <- %s", value);
+  adb_debug(s);
 
   Handle<Context> context_ = d->context_.Get(d->isolate_);
   Context::Scope scope(context_);
-  Local<Function> resolveFn = get_function(
-      context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
+  Local<Function> resolver_ = d->resolver_.Get(d->isolate_);
 
   const unsigned argc = 2;
   Local<Value> argv[argc] = {
@@ -262,12 +301,11 @@ extern "C" const char *resolve_promise(void *raw, uint32_t promise_id,
                           String::NewStringType::kInternalizedString),
   };
 
-  resolveFn->Call(context_, Null(d->isolate_), argc, argv);
-
+  resolver_->Call(context_, Null(d->isolate_), argc, argv);
   return value;
 }
 
-extern "C" void *deno_init(deno_recv_cb recv_cb) {
+extern "C" void *__unused deno_init(deno_recv_cb recv_cb) {
   // Create a new Isolate and make it the current one.
   Isolate::CreateParams create_params;
   create_params.array_buffer_allocator =
@@ -281,9 +319,6 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
 
   Local<External> env_ = External::New(deno->isolate_, deno);
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
-
-  global_->Set(String::NewFromUtf8(isolate_, "$clear"),
-               FunctionTemplate::New(isolate_, ClearTimer, env_));
 
   global_->Set(String::NewFromUtf8(isolate_, "$fetch"),
                FunctionTemplate::New(isolate_, Fetch, env_));
@@ -316,15 +351,9 @@ extern "C" void *deno_init(deno_recv_cb recv_cb) {
   return deno->Into();
 }
 
-extern "C" void eval_script(void *raw, void *data, const char *script_s) {
-  auto deno = reinterpret_cast<Deno *>(raw);
+extern "C" void eval_script(void *deno_, const char *script_s) {
+  auto deno = Deno::unwrap(deno_);
   lock_isolate(deno->isolate_);
-
-  // ref to rust isolate
-  if (!deno->hasData) {
-    deno->user_data_ = data;
-    deno->hasData = true;
-  }
 
   Local<Context> context_ = Local<Context>::New(deno->isolate_, deno->context_);
   Context::Scope scope(context_);
@@ -359,10 +388,11 @@ Deno *lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
   return nullptr;
 }
 
-extern "C" void lookup_deno_and_eval_script(uint32_t uuid, const char *script) {
+extern "C" void __unused lookup_deno_and_eval_script(uint32_t uuid,
+                                                     const char *script) {
   Deno *deno;
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
-    eval_script(deno, deno->user_data_, script);
+    eval_script(deno, script);
   }
 }
 

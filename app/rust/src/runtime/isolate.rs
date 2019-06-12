@@ -8,7 +8,9 @@ use futures::{task, Future, Poll};
 use crate::runtime::stream_cancel::TimerCancel;
 use crate::runtime::timer::set_timeout;
 use crate::runtime::{eval_script, string_to_ptr, DenoC, OpAsyncFuture};
+use core::borrow::BorrowMut;
 use libc::c_void;
+use std::sync::{Once, ONCE_INIT};
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(
@@ -21,7 +23,12 @@ type deno_recv_cb = unsafe extern "C" fn(
 
 extern "C" {
     fn deno_init(recv_cb: deno_recv_cb) -> *const DenoC;
-    fn fire_callback(raw: *const DenoC, promise_id: u32, timer_id: u32);
+    fn fire_callback(raw: *const DenoC, promise_id: u32);
+    fn set_deno_data(deno: *const DenoC, user_data: *const libc::c_void);
+    fn set_deno_resolver(deno: *const DenoC);
+    fn stack_empty_check(deno: *const DenoC) -> bool;
+    fn deno_lock(deno: *const DenoC);
+    fn deno_unlock(deno: *const DenoC);
 }
 
 pub struct Isolate {
@@ -40,6 +47,24 @@ impl Drop for Isolate {
     }
 }
 
+// Locker
+struct LockerScope {
+    deno: *const DenoC,
+}
+
+impl LockerScope {
+    fn new(deno: *const DenoC) -> LockerScope {
+        unsafe { deno_lock(deno) }
+        LockerScope { deno }
+    }
+}
+
+impl Drop for LockerScope {
+    fn drop(&mut self) {
+        unsafe { deno_unlock(self.deno) }
+    }
+}
+
 fn next_uuid() -> u32 {
     let rid = NEXT_RID.fetch_add(1, Ordering::SeqCst);
     rid as u32
@@ -49,13 +74,9 @@ lazy_static! {
     static ref NEXT_RID: AtomicUsize = AtomicUsize::new(0);
 }
 
-impl Isolate {
-    #[inline]
-    pub fn from_c<'a>(ptr: *mut Isolate) -> &'a mut Isolate {
-        let isolate_box = unsafe { Box::from_raw(ptr) };
-        Box::leak(isolate_box)
-    }
+static ISOLATE_INIT: Once = ONCE_INIT;
 
+impl Isolate {
     pub unsafe fn new() -> Self {
         let mut core_isolate = Self {
             deno: deno_init(Self::dispatch),
@@ -67,21 +88,28 @@ impl Isolate {
         core_isolate
     }
 
-    pub unsafe fn execute(&mut self, script: &str) {
+    pub unsafe fn initialize(&mut self) {
+        set_deno_data(self.deno, self.as_raw_ptr());
         eval_script(
             self.deno,
-            self.as_raw_ptr(),
             string_to_ptr(
                 r#"
                 const promiseTable = new Map();
                 let nextPromiseId = 1;
 
+                function isStackEmpty() {
+                    return promiseTable.size === 0;
+                }
+
                 function createResolvable() {
                     let methods;
+                    const cmdId = nextPromiseId++;
                     const promise = new Promise((resolve, reject) => {
-                        methods = { resolve, reject };
+                        methods = { resolve, reject, cmdId };
                     });
-                    return Object.assign(promise, methods);
+                    const promise_ = Object.assign(promise, methods);
+                    promiseTable.set(cmdId, promise_);
+                    return promise_;
                 }
 
                 function resolve(promiseId, value) {
@@ -113,10 +141,8 @@ impl Isolate {
                 }
 
                 function fetch(url) {
-                    const cmdId = nextPromiseId++;
                     const promise = createResolvable();
-                    promiseTable.set(cmdId, promise);
-                    $fetch(url, cmdId);
+                    $fetch(url, promise.cmdId);
                     return promise.then(data => new Body(data));
                 }
 
@@ -125,9 +151,6 @@ impl Isolate {
 
                 // timer implementation
                 function setTimer(callback, delay, repeat, ...args) {
-
-                    console.log(`Create timer`);
-
                     const timer = {
                         id: nextTimerId++,
                         callback,
@@ -136,14 +159,12 @@ impl Isolate {
                     };
                     timerMap.set(timer.id, timer);
 
-                    const cmdId = nextPromiseId++;
                     const promise = createResolvable();
-                    promiseTable.set(cmdId, promise);
-                    $newTimer(cmdId, timer.id, timer.delay);
+                    $newTimer(promise.cmdId, timer.id, timer.delay);
 
                     promise.then(() => {
                         Promise.resolve(timer.id).then(fire);
-                        promiseTable.delete(promiseId)
+                        promiseTable.delete(promise.cmdId);
                     });
 
                     return timer.id;
@@ -153,10 +174,16 @@ impl Isolate {
                     const timer = timerMap.get(id);
                     const callback = timer.callback;
                     callback();
-
                     if (!timer.repeat) {
                         timeMap.delete(timer.id);
                         return;
+                    } else {
+                        const promise = createResolvable();
+                        $newTimer(promise.cmdId, timer.id, timer.delay, true);
+
+                        promise.then(() => {
+                            Promise.resolve(timer.id).then(fire);
+                        });
                     }
                 }
 
@@ -167,16 +194,21 @@ impl Isolate {
                 function setInterval(callback, delay) {
                     return setTimer(callback, delay, true);
                 }
-
         "#,
             ),
         );
+        set_deno_resolver(self.deno);
+    }
 
-        eval_script(self.deno, self.as_raw_ptr(), string_to_ptr(script));
+    pub unsafe fn execute(&mut self, script: &str) {
+        ISOLATE_INIT.call_once(|| unsafe {
+            self.initialize();
+        });
+        eval_script(self.deno, string_to_ptr(script));
     }
 
     #[inline]
-    unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a mut Self {
+    pub unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a mut Self {
         let ptr = ptr as *mut _;
         &mut *ptr
     }
@@ -186,7 +218,7 @@ impl Isolate {
         self as *const _ as *const c_void
     }
 
-    unsafe extern "C" fn dispatch(
+    extern "C" fn dispatch(
         data: *mut libc::c_void,
         deno: *const DenoC,
         promise_id: u32,
@@ -195,10 +227,12 @@ impl Isolate {
     ) {
         let isolate = unsafe { Isolate::from_raw_ptr(data) };
         let (task, trigger) = set_timeout(delay);
-        isolate.pending_ops.push(Box::new(task.and_then(move |_| {
-            fire_callback(deno, promise_id, timer_id);
+        let task = task.and_then(move |_| {
+            unsafe { fire_callback(deno, promise_id) };
             Ok(vec![1u8].into_boxed_slice())
-        })));
+        });
+
+        isolate.pending_ops.push(Box::new(task));
         isolate.have_unpolled_ops = true;
     }
 }
@@ -208,6 +242,9 @@ impl Future for Isolate {
     type Error = ();
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // Lock the current thread for V8.
+        let _locker = LockerScope::new(self.deno);
+
         loop {
             self.have_unpolled_ops = false;
             #[allow(clippy::match_wild_err_arm)]
@@ -215,20 +252,21 @@ impl Future for Isolate {
                 Err(_) => panic!("unexpected op error"),
                 Ok(Ready(None)) => break,
                 Ok(NotReady) => break,
-                Ok(Ready(Some(buf))) => {
+                Ok(Ready(Some(_buf))) => {
                     // adb_debug!(format!("Buf: {:?}", buf));
+                    break;
                 }
             }
         }
 
         // We're idle if pending_ops is empty.
         if self.pending_ops.is_empty() {
-            Ok(futures::Async::Ready(()))
+            Ok(NotReady)
         } else {
             if self.have_unpolled_ops {
                 task::current().notify();
             }
-            Ok(futures::Async::NotReady)
+            Ok(NotReady)
         }
     }
 }

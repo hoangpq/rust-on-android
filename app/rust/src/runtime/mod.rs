@@ -8,7 +8,6 @@ use tokio::runtime;
 pub mod console;
 pub mod fetch;
 pub mod isolate;
-pub mod server;
 pub mod stream_cancel;
 pub mod timer;
 pub mod util;
@@ -20,7 +19,7 @@ pub struct DenoC {
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn eval_script(deno: *const DenoC, data: *const c_void, script: *const c_char);
+    fn eval_script(deno: *const DenoC, script: *const c_char);
 }
 
 pub unsafe fn ptr_to_string(raw: *mut c_char) -> Option<String> {

@@ -2,9 +2,13 @@ use jni::JNIEnv;
 
 use crate::runtime::isolate::Isolate;
 use crate::runtime::{create_thread_pool_runtime, ptr_to_string};
+use futures::future::Future;
+use futures::stream::Stream;
 use jni::objects::{JObject, JValue};
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::time::{Duration, Instant};
+use tokio_timer::Interval;
 
 // to link with C++
 extern "C" {
@@ -38,8 +42,8 @@ pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
 
                 const start = Date.now();
                 setTimeout(() => {
-                    console.log(`timeout 5s: ${Date.now() - start}`);
-                }, 5000);
+                    console.log(`timeout 10s: ${Date.now() - start}`);
+                }, 10000);
 
                 setTimeout(() => {
                     console.log(`timeout 3s: ${Date.now() - start}`);

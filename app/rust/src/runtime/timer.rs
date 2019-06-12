@@ -25,10 +25,3 @@ pub fn set_timeout(delay: u32) -> (impl Future<Item = (), Error = ()>, TimerCanc
 
     (delay_task, TimerCancel(Some(tx)))
 }
-
-#[no_mangle]
-extern "C" fn remove_timer(ptr: *mut Isolate, timer_id: u32) {
-    let isolate = Isolate::from_c(ptr);
-    let _ = isolate.timers.remove(&timer_id);
-    adb_debug!(format!("Timer {} removed", timer_id));
-}

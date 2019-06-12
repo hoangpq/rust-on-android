@@ -5,9 +5,9 @@ use serde::Deserialize;
 use crate::runtime::isolate::Isolate;
 use crate::runtime::{ptr_to_string, string_to_ptr, Buf, DenoC, OpAsyncFuture};
 use futures::stream::Stream;
+use libc::{c_char, c_void};
 use std::io::Cursor;
 use std::mem;
-use std::os::raw::c_char;
 
 extern "C" {
     fn resolve_promise(d: *const DenoC, promise_id: u32, data: *const c_char) -> *mut c_char;
@@ -52,14 +52,15 @@ pub fn fetch_async(d: *const DenoC, url: String, promise_id: u32) -> OpAsyncFutu
                     None => Ok(string_to_boxed_bytes("{}".to_string())),
                 }
             })
-            .map_err(|_| ()),
+            .map_err(|e| adb_debug!(e)),
     )
 }
 
 #[no_mangle]
-fn fetch(ptr: *mut Isolate, url: *mut c_char, promise_id: u32) {
+fn fetch(ptr: *const c_void, url: *mut c_char, promise_id: u32) {
+    adb_debug!(promise_id);
     if let Some(url) = unsafe { ptr_to_string(url) } {
-        let isolate = Isolate::from_c(ptr);
+        let isolate = unsafe { Isolate::from_raw_ptr(ptr) };
         isolate
             .pending_ops
             .push(fetch_async(isolate.deno, url, promise_id));
