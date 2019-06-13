@@ -1,8 +1,11 @@
 use std::ffi::CString;
 use std::slice;
 
-use futures::Future;
-use libc::{c_char, c_void};
+use futures::{Async, Future};
+use jni::objects::JObject;
+use jni::JNIEnv;
+use libc::c_char;
+use std::sync::{Arc, Mutex};
 use tokio::runtime;
 
 pub mod console;
@@ -20,6 +23,7 @@ pub struct DenoC {
 #[allow(non_snake_case)]
 extern "C" {
     fn eval_script(deno: *const DenoC, script: *const c_char);
+    fn lookup_deno_and_eval_script(uuid: u32, script: *const c_char);
 }
 
 pub unsafe fn ptr_to_string(raw: *mut c_char) -> Option<String> {
@@ -51,4 +55,52 @@ fn create_thread_pool_runtime() -> tokio::runtime::Runtime {
 }
 
 pub type Buf = Box<[u8]>;
-pub type OpAsyncFuture = Box<dyn Future<Item = Buf, Error = ()>>;
+pub type OpAsyncFuture = Box<dyn Future<Item = Buf, Error = ()> + Send>;
+
+#[derive(Clone)]
+pub struct Worker {
+    inner: Arc<Mutex<isolate::Isolate>>,
+}
+
+impl Worker {
+    fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(isolate::Isolate::new())),
+        }
+    }
+
+    fn execute(&mut self, script: &str) {
+        let mut isolate = self.inner.lock().unwrap();
+        isolate.execute(script);
+    }
+}
+
+impl Future for Worker {
+    type Item = ();
+    type Error = ();
+
+    fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
+        let mut isolate = self.inner.lock().unwrap();
+        isolate.poll().map_err(|err| adb_debug!(err))
+    }
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn Java_com_node_sample_MainActivity_invokeScript(env: JNIEnv, _class: JObject) {
+    unsafe {
+        lookup_deno_and_eval_script(
+            0u32,
+            string_to_ptr(
+                r#"
+                clearTimer(i2s);
+                setInterval(() => {
+                    console.log(`3s interval`);
+                }, 3000);
+
+                console.log(promiseTable.size);
+                "#,
+            ),
+        )
+    };
+}

@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use futures::Future;
 use tokio_timer::Delay;
 
-use crate::{runtime::isolate::Isolate, runtime::stream_cancel::TimerCancel};
+use crate::runtime::stream_cancel::TimerCancel;
 
 pub fn panic_on_error<I, E, F>(f: F) -> impl Future<Item = I, Error = ()>
 where

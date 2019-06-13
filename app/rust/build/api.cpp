@@ -22,8 +22,7 @@
 
 using namespace v8;
 
-typedef void (*deno_recv_cb)(void *data, void *deno, uint32_t promise_id,
-                             uint32_t timer_id, uint32_t delay);
+typedef void (*deno_recv_cb)(void *data, uint32_t promise_id, uint32_t delay);
 
 using ResolverPersistent = Persistent<Promise::Resolver>;
 
@@ -33,6 +32,7 @@ void adb_debug(const char *);
 void fetch(void *data, const char *, uint32_t);
 void console_time(const FunctionCallbackInfo<Value> &);
 void console_time_end(const FunctionCallbackInfo<Value> &);
+void dispatch_fn(void *data);
 }
 
 Local<Function> get_function(Local<Object> obj, Local<String> key) {
@@ -230,24 +230,6 @@ void HeapStatic(const FunctionCallbackInfo<Value> &args) {
       Number::New(d->isolate_, (double)stats.used_heap_size()));
 }
 
-void NewTimer(const FunctionCallbackInfo<Value> &args) {
-  assert(args[0]->IsUint32()); // promise_id
-  assert(args[1]->IsUint32()); // timer_id
-  assert(args[2]->IsUint32()); // timer delay
-
-  void *d_ = args.Data().As<External>()->Value();
-  auto d = Deno::unwrap(d_);
-  lock_isolate(d->isolate_);
-
-  if (args[3]->IsBoolean()) {
-    adb_debug("is_boolean");
-    return;
-  }
-
-  d->recv_cb_(d->user_data_, d_, args[0]->Uint32Value(), args[1]->Uint32Value(),
-              args[2]->Uint32Value());
-}
-
 extern "C" bool __unused stack_empty_check(void *d_) {
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
@@ -260,6 +242,17 @@ extern "C" bool __unused stack_empty_check(void *d_) {
       stack_empty_check_->Call(context_, Null(d->isolate_), 0, nullptr);
 
   return !result.IsEmpty() ? result.ToLocalChecked()->BooleanValue() : false;
+}
+
+void NewTimer(const FunctionCallbackInfo<Value> &args) {
+  assert(args[0]->IsUint32()); // promise_id
+  assert(args[1]->IsUint32()); // delay
+
+  void *d_ = args.Data().As<External>()->Value();
+  auto d = Deno::unwrap(d_);
+  lock_isolate(d->isolate_);
+
+  d->recv_cb_(d->user_data_, args[0]->Uint32Value(), args[1]->Uint32Value());
 }
 
 /* do not remove */
@@ -285,10 +278,6 @@ extern "C" const char *__unused resolve_promise(void *d_, uint32_t promise_id,
                                                 const char *value) {
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
-
-  char s[100];
-  sprintf(s, "Receive <- %s", value);
-  adb_debug(s);
 
   Handle<Context> context_ = d->context_.Get(d->isolate_);
   Context::Scope scope(context_);
@@ -348,6 +337,8 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb) {
   deno->ResetTemplate(global_);
   deno->recv_cb_ = recv_cb;
 
+  isolate_map_[0] = deno;
+
   return deno->Into();
 }
 
@@ -392,6 +383,7 @@ extern "C" void __unused lookup_deno_and_eval_script(uint32_t uuid,
                                                      const char *script) {
   Deno *deno;
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
+    adb_debug("eval_script");
     eval_script(deno, script);
   }
 }

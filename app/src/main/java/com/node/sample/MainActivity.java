@@ -11,7 +11,6 @@ import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Gravity;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -33,8 +32,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.node.util.RestUtil.fetch;
-
 public class MainActivity extends AppCompatActivity {
 
     static {
@@ -49,6 +46,9 @@ public class MainActivity extends AppCompatActivity {
     public native void releaseVM();
 
     public native String getUtf8String();
+
+    @SuppressWarnings("JniMissingFunction")
+    public native void invokeScript();
 
     AtomicBoolean _startedNodeAlready = new AtomicBoolean(false);
     private ListView listView;
@@ -77,13 +77,7 @@ public class MainActivity extends AppCompatActivity {
         _initVM();
 
         evalScriptButton.setOnClickListener(view -> {
-            new Thread(() -> {
-                try {
-                    fetch("http://127.0.0.1:8080");
-                } catch (Exception e) {
-                    Log.d("Java", e.getMessage());
-                }
-            }).start();
+            invokeScript();
         });
 
         initNodeJS();

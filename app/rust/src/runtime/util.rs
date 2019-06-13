@@ -1,9 +1,6 @@
 use jni::JNIEnv;
 
-use crate::runtime::isolate::Isolate;
-use crate::runtime::{create_thread_pool_runtime, ptr_to_string};
-use futures::future::Future;
-use futures::stream::Stream;
+use crate::runtime::{create_thread_pool_runtime, ptr_to_string, Worker};
 use jni::objects::{JObject, JValue};
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -26,8 +23,8 @@ pub unsafe extern "C" fn adb_debug(p: *mut c_char) {
 #[no_mangle]
 pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
     let main_future = futures::lazy(move || {
-        let mut isolate = Isolate::new();
-        isolate.execute(
+        let mut worker = Worker::new();
+        worker.execute(
             r#"
                 const users = ['hoangpq', 'firebase'];
 
@@ -36,14 +33,20 @@ pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
                         .then(resp => resp.json());
                 }
 
-                setInterval(() => {
+                const i2s = setInterval(() => {
                     console.log(`2s interval`);
                 }, 2000);
 
                 const start = Date.now();
                 setTimeout(() => {
-                    console.log(`timeout 10s: ${Date.now() - start}`);
-                }, 10000);
+                    console.log(`timeout 5s: ${Date.now() - start}`);
+                    // clearTimer(i2s);
+
+                    setInterval(() => {
+                        console.log(`1s interval`);
+                    }, 1000);
+
+                }, 1000);
 
                 setTimeout(() => {
                     console.log(`timeout 3s: ${Date.now() - start}`);
@@ -61,12 +64,12 @@ pub unsafe extern "C" fn init_event_loop(_env: &'static JNIEnv) {
                 fetch('https://freejsonapi.com/posts')
                     .then(resp => resp.json())
                     .then(resp => {
-                        console.log(resp.data.length);
+                        console.log(`Total: ${resp.data.length}`);
                     })
                     .catch(e => console.log(e.message));
             "#,
         );
-        isolate
+        worker
     });
 
     let rt = create_thread_pool_runtime();
