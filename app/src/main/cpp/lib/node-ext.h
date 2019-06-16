@@ -10,20 +10,20 @@
 #include <string>
 #include <unistd.h>
 
+#include "../utils/utils.h"
 #include "env-inl.h"
 #include "env.h"
 #include "node.h"
 #include "node_buffer.h"
 #include "v8.h"
 
-#include "../utils/utils.h"
 using namespace util;
 
-extern "C" jlong JNICALL
-Java_com_node_sample_MainActivity_createPointer(JNIEnv *, jobject);
 extern "C" jstring JNICALL
 Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
-extern "C" void onNodeServerLoaded(JNIEnv **, jobject);
+
+extern "C" void init_event_loop();
+extern "C" void register_vm(JavaVM *vm);
 
 namespace node {
 
@@ -34,13 +34,5 @@ void AndroidError(const FunctionCallbackInfo<Value> &args);
 void OnLoad(const FunctionCallbackInfo<Value> &args);
 } // namespace loader
 } // namespace node
-
-extern "C" void notify_message_to_main_thread(const char *utf) {
-  JNIEnv *env_ = g_ctx.denoEnv;
-  Util::AttachCurrentThread(&env_);
-  jstring string = env_->NewStringUTF(utf);
-  env_->CallVoidMethod(g_ctx.mainActivity, g_ctx.notifyMethod, string);
-  env_->DeleteLocalRef(string);
-};
 
 #endif

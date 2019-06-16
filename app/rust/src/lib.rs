@@ -9,6 +9,8 @@ extern crate futures;
 extern crate itertools;
 extern crate jni;
 #[macro_use]
+extern crate jni_sys;
+#[macro_use]
 extern crate lazy_static;
 extern crate libc;
 extern crate reqwest;
@@ -38,30 +40,30 @@ use v8::{ArrayBuffer, CallbackInfo, Function, Value};
 pub mod jni_log;
 #[macro_use]
 pub mod jni_graphics;
-
-pub mod buffer;
+#[macro_use]
 pub mod runtime;
+pub mod buffer;
 pub mod v8;
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<'b>(
-    env: JNIEnv<'b>,
+pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
+    env: JNIEnv,
     _class: JObject,
-    imageView: JObject,
+    image_view: JObject,
     pixel_size: f64,
     x0: f64,
     y0: f64,
 ) {
     let jvm = env.get_java_vm().unwrap();
-    let imageViewRef = env.new_global_ref(imageView).unwrap();
+    let image_view_ref = env.new_global_ref(image_view).unwrap();
     let _classRef = env.new_global_ref(_class).unwrap();
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
         // attach current thread
         let env = jvm.attach_current_thread().unwrap();
         let jenv = env.get_native_interface();
-        let imageView = imageViewRef.as_obj();
+        let image_view = image_view_ref.as_obj();
         // create new bitmap
         let jbitmap = create_bitmap(&env, 800, 800);
         let bitmap = jbitmap.l().unwrap().into_inner();
@@ -88,7 +90,7 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<
         AndroidBitmap_unlockPixels(jenv, bitmap);
         // detach current thread
         env.call_method(
-            imageView,
+            image_view,
             "setImageBitmap",
             "(Landroid/graphics/Bitmap;)V",
             &[JValue::from(JObject::from(bitmap))],
@@ -101,20 +103,12 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap<
 }
 
 #[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "C" fn getAndroidVersion(env: &JNIEnv) -> i32 {
+pub unsafe extern "C" fn get_android_version(env: &JNIEnv) -> i32 {
     // Android Version
     env.get_static_field("android/os/Build$VERSION", "SDK_INT", "I")
         .unwrap()
         .i()
         .unwrap() as i32
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "C" fn onNodeServerLoaded(env: &JNIEnv, activity: JObject) {
-    env.call_method(activity, "onNodeServerLoaded", "()V", &[])
-        .unwrap();
 }
 
 #[no_mangle]

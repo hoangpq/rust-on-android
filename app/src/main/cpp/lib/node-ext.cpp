@@ -64,10 +64,8 @@ void AndroidError(const FunctionCallbackInfo<Value> &args) {
 }
 
 void OnLoad(const FunctionCallbackInfo<Value> &args) {
-  if (g_ctx.mainActivity) {
-    JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
-    onNodeServerLoaded(&env_, g_ctx.mainActivity);
-  }
+  // JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
+  init_event_loop();
 }
 
 // Override header
@@ -117,12 +115,10 @@ public:
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   memset(&g_ctx, 0, sizeof(NodeContext));
+  register_vm(vm);
   g_ctx.javaVM = vm;
   g_ctx.mainActivityObj = nullptr;
   Util::AttachCurrentThread(&g_ctx.env);
-  jclass clz = g_ctx.env->FindClass("com/node/sample/MainActivity");
-  g_ctx.notifyMethod =
-      g_ctx.env->GetMethodID(clz, "updateListView", "(Ljava/lang/String;)V");
   return JNI_VERSION_1_6;
 }
 

@@ -7,14 +7,13 @@ use futures::{task, Future, Poll};
 use crate::runtime::timer::set_timeout;
 use crate::runtime::{eval_script, string_to_ptr, DenoC, OpAsyncFuture};
 use libc::c_void;
-use std::net::Shutdown::Read;
 use std::sync::{Once, ONCE_INIT};
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(data: *mut libc::c_void, promise_id: u32, duration: u32);
 
 extern "C" {
-    fn deno_init(recv_cb: deno_recv_cb) -> *const DenoC;
+    fn deno_init(recv_cb: deno_recv_cb, uuid: u32) -> *const DenoC;
     fn fire_callback(raw: *const DenoC, promise_id: u32);
     fn set_deno_data(deno: *const DenoC, user_data: *const libc::c_void);
     fn set_deno_resolver(deno: *const DenoC);
@@ -70,13 +69,13 @@ static ISOLATE_INIT: Once = ONCE_INIT;
 
 impl Isolate {
     pub fn new() -> Self {
-        let mut core_isolate = Self {
-            deno: unsafe { deno_init(Self::dispatch) },
-            uuid: next_uuid(),
+        let uuid = next_uuid();
+        return Self {
+            uuid,
+            deno: unsafe { deno_init(Self::dispatch, uuid) },
             have_unpolled_ops: false,
             pending_ops: FuturesUnordered::new(),
         };
-        core_isolate
     }
 
     pub unsafe fn initialize(&mut self) {
@@ -87,6 +86,9 @@ impl Isolate {
                 r#"
                 const promiseTable = new Map();
                 let nextPromiseId = 1;
+
+                const eventTable = new Map();
+                let nextEventId = 1;
 
                 function isStackEmpty() {
                     console.log(promiseTable.size);
@@ -215,7 +217,6 @@ impl Isolate {
                 }
 
                 function _clearTimer(id) {
-                    console.log(id);
                     if (timerMap.has(id)) {
                         timerMap.delete(id);
                     }

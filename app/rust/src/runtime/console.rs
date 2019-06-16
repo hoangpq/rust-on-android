@@ -27,7 +27,6 @@ pub unsafe extern "C" fn console_time(args: &CallbackInfo) {
 pub unsafe extern "C" fn console_time_end(args: &CallbackInfo) {
     let raw = args.Get(0).to_string();
     if let Some(s) = ptr_to_string(raw) {
-        // adb_debug!(format!("timeEnd: {}", s));
         let mut table = TIME_TABLE.lock().unwrap();
         if let Some(instant) = table.get_mut(&s) {
             adb_debug!(format!("{}: {}ms", s, instant.elapsed().as_millis()));

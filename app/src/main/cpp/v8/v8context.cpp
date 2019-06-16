@@ -71,7 +71,7 @@ void InvokeRef(const FunctionCallbackInfo<Value> &args) {
   jmethodID method = runtime->env_->GetMethodID(clz, "updateUI", "(I)V");
 
   runtime->env_->CallVoidMethod(runtime->holder_, method,
-                                (jint)args[0]->Int32Value());
+                                (jint)args[0]->Uint32Value());
   return args.GetReturnValue().Set(Number::New(isolate, 1.0));
 }
 
@@ -132,12 +132,6 @@ Handle<Object> RunScript(Isolate *isolate, Local<Context> context,
   Local<Script> script = Script::Compile(context, source).ToLocalChecked();
   Local<Value> value = script->Run(context).ToLocalChecked();
   return value->ToObject();
-}
-
-extern "C" void JNICALL Java_com_node_v8_V8Context_initEventLoop(JNIEnv *env,
-                                                                 jclass klass) {
-  g_ctx.denoEnv = env;
-  init_event_loop(&g_ctx.denoEnv);
 }
 
 extern "C" jobject JNICALL Java_com_node_v8_V8Context_create(JNIEnv *env,

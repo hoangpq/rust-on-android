@@ -32,13 +32,28 @@ void adb_debug(const char *);
 void fetch(void *data, const char *, uint32_t);
 void console_time(const FunctionCallbackInfo<Value> &);
 void console_time_end(const FunctionCallbackInfo<Value> &);
-void dispatch_fn(void *data);
+void dispatch_event(JNIEnv *, const char *, const char *);
 }
 
 Local<Function> get_function(Local<Object> obj, Local<String> key) {
   Local<Value> value = obj->Get(key);
   assert(value->IsFunction());
   return Local<Function>::Cast(value);
+}
+
+// NDK vm instance
+static JavaVM *vm;
+
+extern "C" void register_vm(JavaVM *_vm) { vm = _vm; }
+
+void attach_current_thread(JNIEnv **env) {
+  int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+  if (res != JNI_OK) {
+    res = vm->AttachCurrentThread(&(*env), nullptr);
+    if (JNI_OK != res) {
+      return;
+    }
+  }
 }
 
 class Deno {
@@ -49,18 +64,24 @@ public:
   Persistent<Function> resolver_;
   Persistent<Function> stack_empty_check_;
   Locker *locker_;
+  JNIEnv *env_;
 
-  uint32_t uuid;
+  uint32_t uuid_;
   void *user_data_;
   deno_recv_cb recv_cb_;
 
-  explicit Deno(Isolate *isolate) : isolate_(isolate) {}
+  explicit Deno(Isolate *isolate, uint32_t uuid)
+      : isolate_(isolate), uuid_(uuid) {
+    attach_current_thread(&this->env_);
+  }
 
   Deno(Isolate *isolate, Local<Context> context, Local<ObjectTemplate> global)
       : isolate_(isolate) {
     this->context_.Reset(this->isolate_, context);
     this->global_.Reset(this->isolate_, global);
   }
+
+  ~Deno() { vm->DetachCurrentThread(); }
 
   void ResetContext(Local<Context> c) {
     this->context_.Reset(this->isolate_, c);
@@ -79,6 +100,8 @@ public:
 
   static Deno *unwrap(void *d_) { return reinterpret_cast<Deno *>(d_); }
 };
+
+static std::map<uint32_t, Deno *> isolate_map_;
 
 extern "C" void __unused deno_lock(void *d_) {
   auto *d = Deno::unwrap(d_);
@@ -110,8 +133,6 @@ extern "C" void __unused set_deno_resolver(void *d_) {
       context_->Global(), String::NewFromUtf8(d->isolate_, "isStackEmpty"));
   d->stack_empty_check_.Reset(d->isolate_, stack_empty_check_);
 }
-
-static std::map<uint32_t, Deno *> isolate_map_;
 
 const char *__unused jStringToChar(JNIEnv *env, jstring name) {
   const char *str = env->GetStringUTFChars(name, 0);
@@ -230,6 +251,16 @@ void HeapStatic(const FunctionCallbackInfo<Value> &args) {
       Number::New(d->isolate_, (double)stats.used_heap_size()));
 }
 
+void Toast(const FunctionCallbackInfo<Value> &args) {
+  assert(args[0]->IsString());
+
+  auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
+  lock_isolate(d->isolate_);
+
+  String::Utf8Value value(args[0]->ToObject());
+  dispatch_event(d->env_, "toast", *value);
+}
+
 extern "C" bool __unused stack_empty_check(void *d_) {
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
@@ -294,7 +325,7 @@ extern "C" const char *__unused resolve_promise(void *d_, uint32_t promise_id,
   return value;
 }
 
-extern "C" void *__unused deno_init(deno_recv_cb recv_cb) {
+extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   // Create a new Isolate and make it the current one.
   Isolate::CreateParams create_params;
   create_params.array_buffer_allocator =
@@ -304,7 +335,7 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb) {
   Isolate *isolate_ = Isolate::New(create_params);
   lock_isolate(isolate_);
 
-  auto deno = new Deno(isolate_);
+  auto deno = new Deno(isolate_, uuid);
 
   Local<External> env_ = External::New(deno->isolate_, deno);
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
@@ -317,6 +348,9 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb) {
 
   global_->Set(String::NewFromUtf8(isolate_, "$newTimer"),
                FunctionTemplate::New(isolate_, NewTimer, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$toast"),
+               FunctionTemplate::New(isolate_, Toast, env_));
 
   // console
   Local<ObjectTemplate> console_ = ObjectTemplate::New(deno->isolate_);
@@ -337,8 +371,7 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb) {
   deno->ResetTemplate(global_);
   deno->recv_cb_ = recv_cb;
 
-  isolate_map_[0] = deno;
-
+  isolate_map_[deno->uuid_] = deno;
   return deno->Into();
 }
 
@@ -383,9 +416,14 @@ extern "C" void __unused lookup_deno_and_eval_script(uint32_t uuid,
                                                      const char *script) {
   Deno *deno;
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
-    adb_debug("eval_script");
     eval_script(deno, script);
   }
+}
+
+extern "C" void __unused c_dispatch_event(JNIEnv *env, jobject instance,
+                                          jmethodID mid, jobject data) {
+  env->CallVoidMethod(instance, mid, data);
+  env->DeleteLocalRef(data);
 }
 
 #ifdef __cplusplus

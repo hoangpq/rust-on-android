@@ -4,11 +4,13 @@ use std::slice;
 use futures::{Async, Future};
 use jni::objects::JObject;
 use jni::JNIEnv;
+use jni_sys::JavaVM;
 use libc::c_char;
 use std::sync::{Arc, Mutex};
 use tokio::runtime;
 
 pub mod console;
+pub mod event;
 pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;
@@ -26,7 +28,7 @@ extern "C" {
     fn lookup_deno_and_eval_script(uuid: u32, script: *const c_char);
 }
 
-pub unsafe fn ptr_to_string(raw: *mut c_char) -> Option<String> {
+pub unsafe fn ptr_to_string(raw: *const c_char) -> Option<String> {
     Some(
         std::str::from_utf8_unchecked(slice::from_raw_parts(raw as *const u8, libc::strlen(raw)))
             .to_string(),
@@ -87,7 +89,7 @@ impl Future for Worker {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_com_node_sample_MainActivity_invokeScript(env: JNIEnv, _class: JObject) {
+pub extern "C" fn Java_com_node_sample_MainActivity_invokeScript(_env: JNIEnv, _class: JObject) {
     unsafe {
         lookup_deno_and_eval_script(
             0u32,
@@ -97,8 +99,6 @@ pub extern "C" fn Java_com_node_sample_MainActivity_invokeScript(env: JNIEnv, _c
                 setInterval(() => {
                     console.log(`3s interval`);
                 }, 3000);
-
-                console.log(promiseTable.size);
                 "#,
             ),
         )

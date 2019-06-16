@@ -8,29 +8,25 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Color;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Gravity;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.node.util.ScriptUtils;
-import com.node.v8.V8Context;
+import com.node.util.Version;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.lang.reflect.Method;
+
+import static com.node.util.RestUtil.fetch;
+import static com.node.util.JsonUtil.parseVersion;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,10 +46,8 @@ public class MainActivity extends AppCompatActivity {
     @SuppressWarnings("JniMissingFunction")
     public native void invokeScript();
 
-    AtomicBoolean _startedNodeAlready = new AtomicBoolean(false);
-    private ListView listView;
-    private ArrayList dataList;
-    private ArrayAdapter adapter;
+    @SuppressWarnings("JniMissingFunction")
+    public native void addEventListener(String eventName);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,69 +55,23 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
+        addEventListener("toast");
+
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
         final TextView txtMessage = findViewById(R.id.txtMessage);
         final Button evalScriptButton = findViewById(R.id.evalScriptBtn);
 
         txtMessage.setText(getUtf8String());
-        listView = findViewById(R.id.listView);
-        dataList = new ArrayList();
+        // Listeners
+        evalScriptButton.setOnClickListener(view -> invokeScript());
 
-        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, dataList);
-        listView.setAdapter(adapter);
-
-        // Init VM
-        _initVM();
-
-        evalScriptButton.setOnClickListener(view -> {
-            invokeScript();
-        });
-
-        initNodeJS();
-
-        // Generate image activity
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));
 
-        buttonVersions.setOnClickListener(v -> {
-            adapter.notifyDataSetChanged();
-            requestApi();
-        });
-    }
+        buttonVersions.setOnClickListener(v -> requestApi());
 
-    public void updateListView(String msg) {
-        runOnUiThread(() -> {
-            dataList.add(msg);
-            adapter.notifyDataSetChanged();
-        });
-    }
-
-    public void onNodeServerLoaded() {
-        new Thread(() -> {
-            try {
-                V8Context context_ = V8Context.create();
-
-                ScriptUtils.require(getApplicationContext(), context_, R.raw.core);
-                ScriptUtils.require(getApplicationContext(), context_, R.raw.user);
-                ScriptUtils.require(getApplicationContext(), context_, R.raw.model);
-
-                /*ScriptUtils.bulkEval(context_,
-                        "$timeout(function() { $log('$timeout 7s'); }, 7e3);",
-                        "$timeout(function() { $log('$timeout 10s'); }, 1e4);");
-                context_.eval("createUser('Vampire')");*/
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
-
-        new Thread(V8Context::initEventLoop).start();
-
-    }
-
-    private void _initVM() {
-        // toast watcher
+        // Init VM
         initVM(new Observable() {
             @Override
             public void subscribe(String arg) {
@@ -137,61 +85,49 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+        initNodeJS();
+    }
+
+    @SuppressWarnings("unused")
+    public void toastListener(Object message) {
+        runOnUiThread(() -> Toast.makeText(getApplicationContext(), message.toString(), Toast.LENGTH_LONG).show());
     }
 
     private void initNodeJS() {
-        if (!_startedNodeAlready.get()) {
-            new Thread(() -> {
-                try {
-                    //The path where we expect the node project to be at runtime.
-                    String nodeDir = getApplicationContext()
-                            .getFilesDir().getAbsolutePath() + "/deps";
-                    if (wasAPKUpdated()) {
-                        //Recursively delete any existing deps.
-                        File nodeDirReference = new File(nodeDir);
-                        if (nodeDirReference.exists()) {
-                            deleteFolderRecursively(new File(nodeDir));
-                        }
-                        //Copy the node project from assets into the application's data path.
-                        copyAssetFolder(getApplicationContext()
-                                .getAssets(), "deps", nodeDir);
-
-                        saveLastUpdateTime();
+        new Thread(() -> {
+            try {
+                //The path where we expect the node project to be at runtime.
+                String nodeDir = getApplicationContext()
+                        .getFilesDir().getAbsolutePath() + "/deps";
+                if (wasAPKUpdated()) {
+                    //Recursively delete any existing deps.
+                    File nodeDirReference = new File(nodeDir);
+                    if (nodeDirReference.exists()) {
+                        deleteFolderRecursively(new File(nodeDir));
                     }
-                    String[] args = {"node", "--expose_gc", nodeDir + "/main.js"};
-                    startNodeWithArguments(args);
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    //Copy the node project from assets into the application's data path.
+                    copyAssetFolder(getApplicationContext()
+                            .getAssets(), "deps", nodeDir);
+
+                    saveLastUpdateTime();
                 }
-            }).start();
-        }
+                String[] args = {"node", "--expose_gc", nodeDir + "/main.js"};
+                startNodeWithArguments(args);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
-    @SuppressLint("StaticFieldLeak")
     private void requestApi() {
-        new AsyncTask<Void, Void, String>() {
-            @Override
-            protected String doInBackground(Void... params) {
-                StringBuilder nodeResponse = new StringBuilder();
-                try {
-                    URL localNodeServer = new URL("http://localhost:3000/");
-                    BufferedReader in = new BufferedReader(
-                            new InputStreamReader(localNodeServer.openStream()));
-                    String inputLine;
-                    while ((inputLine = in.readLine()) != null)
-                        nodeResponse.append(inputLine);
-                    in.close();
-                } catch (Exception ex) {
-                    nodeResponse = new StringBuilder(ex.toString());
-                }
-                return nodeResponse.toString();
+        new Thread(() -> {
+            try {
+                Version version = parseVersion(fetch("http://localhost:3000"));
+                Log.d("Kotlin", version.getV8());
+            } catch (Exception e) {
+                Log.d("Kotlin", e.getMessage());
             }
-
-            @Override
-            protected void onPostExecute(String result) {
-                // textViewVersions.setText(result);
-            }
-        }.execute();
+        }).start();
     }
 
     private boolean wasAPKUpdated() {
