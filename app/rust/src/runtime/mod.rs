@@ -1,12 +1,11 @@
 use std::ffi::CString;
 use std::slice;
+use std::sync::{Arc, Mutex};
 
 use futures::{Async, Future};
-use jni::objects::JObject;
 use jni::JNIEnv;
-use jni_sys::JavaVM;
+use jni::objects::JObject;
 use libc::c_char;
-use std::sync::{Arc, Mutex};
 use tokio::runtime;
 
 pub mod console;

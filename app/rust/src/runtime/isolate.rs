@@ -1,13 +1,13 @@
+use std::sync::{Once, ONCE_INIT};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use futures::stream::{FuturesUnordered, Stream};
+use futures::{Future, Poll, task};
 use futures::Async::*;
-use futures::{task, Future, Poll};
-
-use crate::runtime::timer::set_timeout;
-use crate::runtime::{eval_script, string_to_ptr, DenoC, OpAsyncFuture};
+use futures::stream::{FuturesUnordered, Stream};
 use libc::c_void;
-use std::sync::{Once, ONCE_INIT};
+
+use crate::runtime::{DenoC, eval_script, OpAsyncFuture, string_to_ptr};
+use crate::runtime::timer::set_timeout;
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(data: *mut libc::c_void, promise_id: u32, duration: u32);
@@ -251,7 +251,7 @@ impl Isolate {
 
     extern "C" fn dispatch(data: *mut libc::c_void, promise_id: u32, delay: u32) {
         let isolate = unsafe { Isolate::from_raw_ptr(data) };
-        let (task, trigger) = set_timeout(delay);
+        let (task, _trigger) = set_timeout(delay);
 
         let deno = unsafe { isolate.deno.as_ref() };
         let task = task.and_then(move |_| {

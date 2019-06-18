@@ -1,11 +1,9 @@
-use jni::objects::{GlobalRef, JMethodID, JObject, JString};
-use jni::sys::jmethodID;
-use jni::JNIEnv;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::sync::Mutex;
-use std::time::Instant;
 
+use jni::JNIEnv;
+use jni::objects::{GlobalRef, JMethodID, JObject, JString};
 use jni::sys;
 use jni_sys::jobject;
 
@@ -67,9 +65,7 @@ pub extern "C" fn dispatch_event(
     let mut table = EVENT_TABLE.lock().unwrap();
 
     let event_name = unsafe { ptr_to_string(event_name).unwrap() };
-    if let Some(mut event) = table.get_mut(&event_name) {
-        adb_debug!(event_name);
-
+    if let Some(event) = table.get_mut(&event_name) {
         let obj = event.instance.as_obj().into_inner();
         let method_id = event.method_id.into_inner();
         let msg = unsafe { ptr_to_string(msg).unwrap() };

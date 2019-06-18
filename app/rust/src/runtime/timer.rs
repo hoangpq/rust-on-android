@@ -15,7 +15,7 @@ where
 }
 
 pub fn set_timeout(delay: u32) -> (impl Future<Item = (), Error = ()>, TimerCancel) {
-    let (tx, rx) = futures::sync::oneshot::channel::<()>();
+    let (tx, _rx) = futures::sync::oneshot::channel::<()>();
     let duration = Duration::from_millis(delay.into());
 
     let delay_task = Delay::new(Instant::now() + duration)

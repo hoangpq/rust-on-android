@@ -1,8 +1,7 @@
-use jni::JNIEnv;
-
-use crate::runtime::{create_thread_pool_runtime, ptr_to_string, Worker};
 use std::os::raw::c_char;
 use std::thread;
+
+use crate::runtime::{create_thread_pool_runtime, ptr_to_string, Worker};
 
 #[no_mangle]
 pub unsafe extern "C" fn adb_debug(p: *mut c_char) {
