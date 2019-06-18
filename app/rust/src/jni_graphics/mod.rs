@@ -1,14 +1,14 @@
 extern crate jni;
 extern crate libc;
 
-use jni::objects::{JClass, JValue};
-use jni::sys::{jint, jobject, jstring};
-use jni::JNIEnv;
+use std::{cmp, thread};
+use std::ffi::CString;
+use std::sync::mpsc;
 
 use itertools::Itertools;
-use std::cmp;
-use std::ffi::CString;
-use std::os::raw::{c_int, c_uint, c_void};
+use jni::objects::{JClass, JObject, JValue};
+use jni::sys::{jint, JNIEnv, jobject, jstring};
+use libc::{c_int, c_uint, c_void};
 
 #[repr(C)]
 #[derive(Debug, Default)]
@@ -17,12 +17,20 @@ pub struct AndroidBitmapInfo {
     pub height: c_uint,
     pub stride: c_uint,
     pub format: c_int,
-    pub flags: c_uint, // 0 for now
+    pub flags: c_uint,
 }
 
 impl Drop for AndroidBitmapInfo {
     fn drop(&mut self) {
         adb_debug!(format!("Drop bitmap info {:?}", self));
+    }
+}
+
+impl AndroidBitmapInfo {
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
     }
 }
 
@@ -35,19 +43,23 @@ pub struct Color {
 #[allow(non_snake_case)]
 extern "C" {
     pub fn AndroidBitmap_getInfo(
-        env: *mut jni::sys::JNIEnv,
-        jbitmap: jobject,
+        env: *mut JNIEnv,
+        bmp: jobject,
         info: *mut AndroidBitmapInfo,
     ) -> c_int;
     pub fn AndroidBitmap_lockPixels(
-        env: *mut jni::sys::JNIEnv,
-        jbitmap: jobject,
-        addrPtr: *mut *mut c_void,
+        env: *mut JNIEnv,
+        bmp: jobject,
+        pixels: *mut *mut c_void,
     ) -> c_int;
-    pub fn AndroidBitmap_unlockPixels(env: *mut jni::sys::JNIEnv, jbitmap: jobject) -> c_int;
+    pub fn AndroidBitmap_unlockPixels(env: *mut JNIEnv, bmp: jobject) -> c_int;
 }
 
-pub unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_uint) -> JValue<'b> {
+pub unsafe fn create_bitmap<'b>(
+    env: &'b jni::JNIEnv<'b>,
+    width: c_uint,
+    height: c_uint,
+) -> JValue<'b> {
     let config = env
         .call_static_method(
             "android/graphics/Bitmap$Config",
@@ -57,20 +69,17 @@ pub unsafe fn create_bitmap<'b>(env: &'b JNIEnv<'b>, width: c_uint, height: c_ui
         )
         .unwrap();
 
-    let jbitmap = env
-        .call_static_method(
-            "android/graphics/Bitmap",
-            "createBitmap",
-            "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
-            &[
-                JValue::from(width as jint),
-                JValue::from(height as jint),
-                config,
-            ],
-        )
-        .unwrap();
-
-    jbitmap
+    env.call_static_method(
+        "android/graphics/Bitmap",
+        "createBitmap",
+        "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
+        &[
+            JValue::from(width as jint),
+            JValue::from(height as jint),
+            config,
+        ],
+    )
+    .unwrap()
 }
 
 fn generate_palette() -> Vec<Color> {
@@ -137,7 +146,7 @@ pub fn draw_mandelbrot(
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
-    env: JNIEnv,
+    env: jni::JNIEnv,
     _class: JClass,
 ) -> jstring {
     let ptr = CString::new(
@@ -148,4 +157,80 @@ pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
         .new_string(ptr.to_str().unwrap())
         .expect("Couldn't create java string!");
     output.into_inner()
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
+    env: jni::JNIEnv,
+    _class: JObject,
+    image_view: JObject,
+    pixel_size: f64,
+    x0: f64,
+    y0: f64,
+    callback: JObject,
+) {
+    let jvm = env.get_java_vm().unwrap();
+    let image_view_ref = env.new_global_ref(image_view).unwrap();
+
+    let (tx, rx) = mpsc::sync_channel::<&str>(1);
+    thread::spawn(move || {
+        // attach current thread
+        let env = jvm.attach_current_thread().unwrap();
+
+        // get raw bitmap object
+        let image_view = image_view_ref.as_obj();
+
+        // create new bitmap
+        let bmp = create_bitmap(&env, 800, 800).l().unwrap().into_inner();
+        let mut info = AndroidBitmapInfo::new();
+
+        // get raw JNIEnv (without lifetime)
+        let raw_env = env.get_native_interface();
+
+        // Read bitmap info
+        AndroidBitmap_getInfo(raw_env, bmp, &mut info);
+        let mut pixels = 0 as *mut c_void;
+
+        // Lock pixel for draw
+        AndroidBitmap_lockPixels(raw_env, bmp, &mut pixels);
+
+        let pixels = ::std::slice::from_raw_parts_mut(
+            pixels as *mut u8,
+            (info.stride * info.height) as usize,
+        );
+
+        draw_mandelbrot(
+            pixels,
+            info.width as i64,
+            info.height as i64,
+            pixel_size,
+            x0,
+            y0,
+        );
+
+        AndroidBitmap_unlockPixels(raw_env, bmp);
+
+        tx.send(
+            match env.call_method(
+                image_view,
+                "setImageBitmap",
+                "(Landroid/graphics/Bitmap;)V",
+                &[JValue::from(JObject::from(bmp))],
+            ) {
+                Ok(_) => "Render successfully!",
+                Err(_) => "Failed to render!",
+            },
+        )
+        .unwrap();
+    });
+
+    let msg = rx.recv().unwrap();
+    env.call_method(
+        callback,
+        "invoke",
+        "(Ljava/lang/String;)V",
+        &[JValue::from(JObject::from(env.new_string(msg).unwrap()))],
+    )
+    .unwrap();
 }

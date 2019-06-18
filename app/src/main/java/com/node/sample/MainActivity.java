@@ -1,6 +1,5 @@
 package com.node.sample;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -23,10 +22,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 
-import static com.node.util.RestUtil.fetch;
 import static com.node.util.JsonUtil.parseVersion;
+import static com.node.util.RestUtil.fetch;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -96,16 +94,16 @@ public class MainActivity extends AppCompatActivity {
     private void initNodeJS() {
         new Thread(() -> {
             try {
-                //The path where we expect the node project to be at runtime.
+                // The path where we expect the node project to be at runtime.
                 String nodeDir = getApplicationContext()
                         .getFilesDir().getAbsolutePath() + "/deps";
                 if (wasAPKUpdated()) {
-                    //Recursively delete any existing deps.
+                    // Recursively delete any existing deps.
                     File nodeDirReference = new File(nodeDir);
                     if (nodeDirReference.exists()) {
                         deleteFolderRecursively(new File(nodeDir));
                     }
-                    //Copy the node project from assets into the application's data path.
+                    // Copy the node project from assets into the application's data path.
                     copyAssetFolder(getApplicationContext()
                             .getAssets(), "deps", nodeDir);
 

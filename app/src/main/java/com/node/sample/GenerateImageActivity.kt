@@ -10,23 +10,13 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
 
-import com.tbruyelle.rxpermissions2.RxPermissions
-
 class GenerateImageActivity : AppCompatActivity() {
 
-    private external fun blendBitmap(imageView: ImageView, pixel_size: Double, x0: Double, y0: Double)
-
-    private fun showToast() {
-        Toast.makeText(applicationContext,
-                "Render successfully!", Toast.LENGTH_SHORT).show()
-    }
+    private external fun blendBitmap(imageView: ImageView, pixel_size: Double, x0: Double, y0: Double, callback: (String) -> Unit)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.processing_image)
-
-        val rxPermissions = RxPermissions(this)
-        rxPermissions.setLogging(true)
 
         val btnGenImage = findViewById<Button>(R.id.btnGenImage)
         val imageView = findViewById<ImageView>(R.id.imageView)
@@ -34,7 +24,11 @@ class GenerateImageActivity : AppCompatActivity() {
         val bmp = createImage(800, 800, Color.BLACK)
         imageView.setImageBitmap(bmp)
 
-        btnGenImage.setOnClickListener { blendBitmap(imageView, 0.004, -2.1, -1.5) }
+        btnGenImage.setOnClickListener {
+            blendBitmap(imageView, 0.004, -2.1, -1.5) {
+                Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     companion object {
