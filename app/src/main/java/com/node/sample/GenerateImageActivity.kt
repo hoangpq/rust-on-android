@@ -9,6 +9,7 @@ import android.support.v7.app.AppCompatActivity
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
+import com.node.util.Util
 
 class GenerateImageActivity : AppCompatActivity() {
 
@@ -18,10 +19,13 @@ class GenerateImageActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.processing_image)
 
+        // register class to dex helper
+        Util.createReference("com/node/util/Util")
+
         val btnGenImage = findViewById<Button>(R.id.btnGenImage)
         val imageView = findViewById<ImageView>(R.id.imageView)
 
-        val bmp = createImage(800, 800, Color.BLACK)
+        val bmp = createImage(800, 800)
         imageView.setImageBitmap(bmp)
 
         btnGenImage.setOnClickListener {
@@ -37,7 +41,8 @@ class GenerateImageActivity : AppCompatActivity() {
             System.loadLibrary("image-gen")
         }
 
-        fun createImage(width: Int, height: Int, color: Int): Bitmap {
+        @JvmStatic
+        fun createImage(width: Int, height: Int, color: Int = Color.BLACK): Bitmap {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             val paint = Paint()

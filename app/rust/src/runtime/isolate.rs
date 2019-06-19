@@ -17,6 +17,7 @@ extern "C" {
     fn fire_callback(raw: *const DenoC, promise_id: u32);
     fn set_deno_data(deno: *const DenoC, user_data: *const libc::c_void);
     fn set_deno_resolver(deno: *const DenoC);
+    #[allow(dead_code)]
     fn stack_empty_check(deno: *const DenoC) -> bool;
     fn deno_lock(deno: *const DenoC);
     fn deno_unlock(deno: *const DenoC);

@@ -9,7 +9,6 @@ use libc::c_char;
 use tokio::runtime;
 
 pub mod console;
-pub mod event;
 pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;

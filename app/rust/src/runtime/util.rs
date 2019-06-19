@@ -1,5 +1,6 @@
-use std::os::raw::c_char;
 use std::thread;
+
+use libc::c_char;
 
 use crate::runtime::{create_thread_pool_runtime, ptr_to_string, Worker};
 

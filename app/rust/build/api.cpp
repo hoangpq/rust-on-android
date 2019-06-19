@@ -155,7 +155,6 @@ void Toast(const FunctionCallbackInfo<Value> &args) {
   lock_isolate(d->isolate_);
 
   String::Utf8Value value(args[0]->ToObject());
-  dispatch_event(d->env_, "toast", *value);
 }
 
 extern "C" bool __unused stack_empty_check(void *d_) {

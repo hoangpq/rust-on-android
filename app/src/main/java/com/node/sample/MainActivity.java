@@ -15,6 +15,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.node.util.Util;
 import com.node.util.Version;
 
 import java.io.File;
@@ -44,16 +45,14 @@ public class MainActivity extends AppCompatActivity {
     @SuppressWarnings("JniMissingFunction")
     public native void invokeScript();
 
-    @SuppressWarnings("JniMissingFunction")
-    public native void addEventListener(String eventName);
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
-        addEventListener("toast");
+        // register class to dex helper
+        Util.Companion.createReference("com/node/sample/MainActivity");
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
@@ -84,11 +83,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         initNodeJS();
-    }
-
-    @SuppressWarnings("unused")
-    public void toastListener(Object message) {
-        runOnUiThread(() -> Toast.makeText(getApplicationContext(), message.toString(), Toast.LENGTH_LONG).show());
     }
 
     private void initNodeJS() {

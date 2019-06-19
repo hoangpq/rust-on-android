@@ -10,6 +10,8 @@ use jni::objects::{JClass, JObject, JValue};
 use jni::sys::{jint, JNIEnv, jobject, jstring};
 use libc::{c_int, c_uint, c_void};
 
+use crate::dex;
+
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct AndroidBitmapInfo {
@@ -60,26 +62,17 @@ pub unsafe fn create_bitmap<'b>(
     width: c_uint,
     height: c_uint,
 ) -> JValue<'b> {
-    let config = env
-        .call_static_method(
-            "android/graphics/Bitmap$Config",
-            "nativeToConfig",
-            "(I)Landroid/graphics/Bitmap$Config;",
-            &[JValue::from(5)],
-        )
-        .unwrap();
-
-    env.call_static_method(
-        "android/graphics/Bitmap",
+    dex::call_static_method(
+        env,
+        "com/node/util/Util",
         "createBitmap",
-        "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
-        &[
-            JValue::from(width as jint),
-            JValue::from(height as jint),
-            config,
-        ],
+        "(II)Landroid/graphics/Bitmap;",
+        &[JValue::from(width as jint), JValue::from(height as jint)],
     )
-    .unwrap()
+    .unwrap_or_else(|err| {
+        env.exception_check().unwrap_or_else(|e| panic!("{:?}", e));
+        panic!(err)
+    })
 }
 
 fn generate_palette() -> Vec<Color> {

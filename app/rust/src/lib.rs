@@ -30,12 +30,16 @@ use libc::{c_char, size_t};
 
 use v8::{ArrayBuffer, CallbackInfo, Function, Value};
 
+pub mod ndk_util;
 #[macro_use]
-pub mod jni_log;
+pub mod ndk_log;
 #[macro_use]
-pub mod jni_graphics;
+pub mod ndk_graphics;
+#[macro_use]
+pub mod dex;
 #[macro_use]
 pub mod runtime;
+
 pub mod buffer;
 pub mod v8;
 
