@@ -3,10 +3,10 @@ use std::string::ToString;
 use std::sync::Mutex;
 
 use jni::errors::Result;
-use jni::JNIEnv;
 use jni::objects::{AutoLocal, GlobalRef, JClass, JString, JValue};
 use jni::signature::TypeSignature;
 use jni::strings::JNIString;
+use jni::JNIEnv;
 
 use crate::ndk_util::jni_string_to_string;
 
@@ -40,6 +40,11 @@ pub extern "C" fn Java_com_node_util_Util_00024Companion_createReference(
 ) {
     let class_name = jni_string_to_string(&env, class_name);
     let mut table = CLASS_TABLE.lock().unwrap();
+
+    if table.contains_key(&class_name) {
+        adb_debug!(format!("Class {} already registered!", &class_name));
+        return;
+    }
 
     let atomic_ref = {
         let class = env.find_class(&class_name).unwrap();
