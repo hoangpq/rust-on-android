@@ -25,21 +25,11 @@ pub unsafe extern "C" fn init_event_loop() {
                         .then(resp => resp.json());
                 }
 
-                const i2s = setInterval(() => {
-                    console.log(`2s interval`);
-                }, 2000);
+                const timer02 = setInterval(() => {
+                    console.log(`10s interval`);
+                }, 10000);
 
                 const start = Date.now();
-                setTimeout(() => {
-                    console.log(`timeout 5s: ${Date.now() - start}`);
-                    // clearTimer(i2s);
-
-                    setInterval(() => {
-                        console.log(`1s interval`);
-                    }, 1000);
-
-                }, 5000);
-
                 setTimeout(() => {
                     console.log(`timeout 3s: ${Date.now() - start}`);
                 }, 3000);
@@ -48,26 +38,24 @@ pub unsafe extern "C" fn init_event_loop() {
                     .then(data => {
                         const names = data.map(user => user.name).join(', ');
                         console.log(`Name: ${names}`);
-                        $toast(`Name: ${names}`);
                         console.log(`api call: ${Date.now() - start}`);
                     })
                     .catch(e => console.log(e.message));
 
-                // fetch json api
-                fetch('https://freejsonapi.com/posts')
-                    .then(resp => resp.json())
-                    .then(resp => {
+                (async function() {
+                    try {
+                        // fetch json api
+                        let resp = await fetch('https://freejsonapi.com/posts').then(resp => resp.json());
                         console.log(`Total: ${resp.data.length}`);
-                        $toast(`Total: ${resp.data.length}`);
-                    })
-                    .catch(e => console.log(e.message));
+                    } catch (e) {
+                        console.log(e.message);
+                    }
+                })();
             "#,
             );
             worker
         });
 
-        // let rt = create_thread_pool_runtime();
-        // rt.block_on_all(main_future).unwrap();
         tokio::runtime::current_thread::run(main_future);
     });
 }
