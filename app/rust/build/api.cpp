@@ -248,6 +248,9 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   global_->Set(String::NewFromUtf8(isolate_, "$toast"),
                FunctionTemplate::New(isolate_, Toast, env_));
 
+  global_->Set(String::NewFromUtf8(isolate_, "$testFn"),
+               FunctionTemplate::New(isolate_, test_fn, env_));
+
   // console
   Local<ObjectTemplate> console_ = ObjectTemplate::New(deno->isolate_);
 
@@ -271,7 +274,14 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   return deno->Into();
 }
 
-extern "C" void eval_script(void *deno_, const char *script_s) {
+extern "C" void register_function(FunctionCallback callback) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  char s[100];
+  sprintf(s, "%p", isolate_->GetData(0));
+  adb_debug(s);
+}
+
+extern "C" void eval_script(void *deno_, const char *script_s, const char *name_s) {
   auto deno = Deno::unwrap(deno_);
   lock_isolate(deno->isolate_);
 
@@ -284,7 +294,7 @@ extern "C" void eval_script(void *deno_, const char *script_s) {
       String::NewFromUtf8(deno->isolate_, script_s, NewStringType::kNormal)
           .ToLocalChecked();
 
-  ScriptOrigin origin(String::NewFromUtf8(deno->isolate_, "script.js"));
+  ScriptOrigin origin(String::NewFromUtf8(deno->isolate_, name_s));
   MaybeLocal<Script> script = Script::Compile(context_, source, &origin);
 
   if (script.IsEmpty()) {
@@ -312,7 +322,7 @@ extern "C" void __unused lookup_deno_and_eval_script(uint32_t uuid,
                                                      const char *script) {
   Deno *deno;
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
-    eval_script(deno, script);
+    eval_script(deno, script, "eval.js");
   }
 }
 

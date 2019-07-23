@@ -1,6 +1,6 @@
 use std::slice;
 
-use jni::{errors::Result, objects::JString, strings::JavaStr, JNIEnv};
+use jni::{JNIEnv, objects::JString, strings::JavaStr};
 
 pub fn jni_string_to_string(env: &JNIEnv, s: JString) -> String {
     let java_str = JavaStr::from_env(env, s).unwrap();

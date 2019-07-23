@@ -32,6 +32,7 @@ void adb_debug(const char *);
 void fetch(void *data, const char *, uint32_t);
 void console_time(const FunctionCallbackInfo<Value> &);
 void console_time_end(const FunctionCallbackInfo<Value> &);
+void test_fn(const FunctionCallbackInfo<Value> &);
 }
 
 Local<Function> get_function(Local<Object> obj, Local<String> key) {

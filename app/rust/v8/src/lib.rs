@@ -1,10 +1,13 @@
 extern crate libc;
 
+use libc::size_t;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw::{c_char, c_void};
 
-use libc::size_t;
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub type FunctionCallback = unsafe extern "C" fn(args: &CallbackInfo);
 
 extern "C" {
     fn v8_function_cast(v: Value) -> Function;
@@ -37,12 +40,6 @@ macro_rules! value_method (
 pub struct Value(*mut Value);
 value_method!(Value);
 
-impl Drop for Value {
-    fn drop(&mut self) {
-        adb_debug!(self.0 as *const u32);
-    }
-}
-
 impl Value {
     pub fn to_string(self) -> *mut c_char {
         unsafe { v8_value_into_raw(self) }
@@ -72,6 +69,7 @@ pub struct Function(*mut Function);
 value_method!(Function);
 
 unsafe impl Send for Function {}
+
 unsafe impl Sync for Function {}
 
 #[allow(non_snake_case)]
@@ -128,4 +126,12 @@ impl Number {
     pub fn new(number: u64) -> Self {
         unsafe { v8_number_from_raw(number) }
     }
+}
+
+// macros
+#[macro_export]
+macro_rules! handle_scope {
+    ( $code:block ) => {
+        $code
+    };
 }

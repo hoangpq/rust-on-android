@@ -5,10 +5,6 @@ use std::time::Instant;
 use crate::runtime::ptr_to_string;
 use crate::v8::CallbackInfo;
 
-#[allow(non_camel_case_types)]
-#[allow(dead_code)]
-type FunctionCallback = unsafe extern "C" fn(args: &CallbackInfo);
-
 lazy_static! {
     static ref TIME_TABLE: Mutex<HashMap<String, Instant>> = Mutex::new(HashMap::new());
 }

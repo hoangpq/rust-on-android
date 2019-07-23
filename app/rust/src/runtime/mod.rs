@@ -22,7 +22,7 @@ pub struct DenoC {
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn eval_script(deno: *const DenoC, script: *const c_char);
+    fn eval_script(deno: *const DenoC, script: *const c_char, name: *const c_char);
     fn lookup_deno_and_eval_script(uuid: u32, script: *const c_char);
 }
 

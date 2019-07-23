@@ -1,5 +1,5 @@
-use std::sync::{Once, ONCE_INIT};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Once;
 
 use futures::{Future, Poll, task};
 use futures::Async::*;
@@ -66,7 +66,7 @@ lazy_static! {
     static ref NEXT_RID: AtomicUsize = AtomicUsize::new(0);
 }
 
-static ISOLATE_INIT: Once = ONCE_INIT;
+static ISOLATE_INIT: Once = Once::new();
 
 impl Isolate {
     pub fn new() -> Self {
@@ -81,6 +81,7 @@ impl Isolate {
 
     pub unsafe fn initialize(&mut self) {
         set_deno_data(self.deno, self.as_raw_ptr());
+        let script_name = string_to_ptr("isolate.js");
         eval_script(
             self.deno,
             string_to_ptr(
@@ -252,6 +253,7 @@ impl Isolate {
                 }
         "#,
             ),
+            script_name,
         );
         set_deno_resolver(self.deno);
     }
@@ -260,7 +262,7 @@ impl Isolate {
         ISOLATE_INIT.call_once(|| unsafe {
             self.initialize();
         });
-        unsafe { eval_script(self.deno, string_to_ptr(script)) };
+        unsafe { eval_script(self.deno, string_to_ptr(script), string_to_ptr("worker.js")) };
     }
 
     #[inline]

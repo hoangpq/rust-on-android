@@ -99,7 +99,6 @@ V8Runtime *createRuntime(JNIEnv **env_) {
   HandleScope handle_scope(runtime->isolate_);
 
   // Init helpers function
-  Local<External> envRef_ = External::New(runtime->isolate_, runtime->env_);
   Local<ObjectTemplate> globalObject = ObjectTemplate::New(runtime->isolate_);
 
   globalObject->Set(Util::ConvertToV8String("$log"),
@@ -107,9 +106,6 @@ V8Runtime *createRuntime(JNIEnv **env_) {
 
   globalObject->Set(Util::ConvertToV8String("$send"),
                     FunctionTemplate::New(runtime->isolate_, Send));
-
-  globalObject->Set(Util::ConvertToV8String("$perform"),
-                    FunctionTemplate::New(runtime->isolate_, Perform));
 
   Local<External> ref = External::New(runtime->isolate_, runtime);
   globalObject->Set(Util::ConvertToV8String("$invokeRef"),

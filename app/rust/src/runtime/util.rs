@@ -18,6 +18,14 @@ pub unsafe extern "C" fn init_event_loop() {
             let mut worker = Worker::new();
             worker.execute(
                 r#"
+
+                try {
+                    const val = $testFn(function() {});
+                    console.log(val);
+                } catch (e) {
+                    console.log(e);
+                }
+
                 const users = ['hoangpq', 'firebase'];
 
                 function fetchUserInfo(user) {
