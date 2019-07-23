@@ -19,7 +19,6 @@ extern crate serde_json;
 extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
-#[macro_use]
 extern crate v8;
 extern crate v8_macros;
 
@@ -139,10 +138,8 @@ pub extern "C" fn workerSendBytes(_buf: Buf, _len: size_t, _cb: v8::Value) -> *c
 #[v8_fn]
 pub fn test_fn(args: &v8::CallbackInfo) {
     let f: v8::Function = v8::Function::Cast(args.Get(0));
-    handle_scope!({
-        f.Call(vec![] as Vec<v8::Value>);
-        args.SetReturnValue(v8::String::NewFromUtf8("Send 💖 to JS world!"));
-    });
+    f.Call(vec![] as Vec<v8::Value>);
+    args.SetReturnValue(v8::String::NewFromUtf8("Send 💖 to JS world!"));
 }
 
 #[allow(dead_code)]

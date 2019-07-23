@@ -6,7 +6,7 @@ use futures::Async::*;
 use futures::stream::{FuturesUnordered, Stream};
 use libc::c_void;
 
-use crate::runtime::{DenoC, eval_script, OpAsyncFuture, string_to_ptr};
+use crate::runtime::{DenoC, eval_script, OpAsyncFuture};
 use crate::runtime::timer::set_timeout;
 
 #[allow(non_camel_case_types)]
@@ -53,7 +53,6 @@ impl LockerScope {
 impl Drop for LockerScope {
     fn drop(&mut self) {
         unsafe { deno_unlock(self.deno) }
-        // adb_debug!(format!("Locker {:p} dropped", &self));
     }
 }
 
@@ -81,10 +80,10 @@ impl Isolate {
 
     pub unsafe fn initialize(&mut self) {
         set_deno_data(self.deno, self.as_raw_ptr());
-        let script_name = string_to_ptr("isolate.js");
         eval_script(
             self.deno,
-            string_to_ptr(
+            c_str!("isolate.js"),
+            c_str!(
                 r#"
                 function assert(cond, msg = 'assert') {
                     if (!cond) {
@@ -251,9 +250,8 @@ impl Isolate {
                 function clearTimeout(id) {
                   _clearTimer(id);
                 }
-        "#,
+        "#
             ),
-            script_name,
         );
         set_deno_resolver(self.deno);
     }
@@ -262,7 +260,7 @@ impl Isolate {
         ISOLATE_INIT.call_once(|| unsafe {
             self.initialize();
         });
-        unsafe { eval_script(self.deno, string_to_ptr(script), string_to_ptr("worker.js")) };
+        unsafe { eval_script(self.deno, c_str!("worker.js"), c_str!(script)) };
     }
 
     #[inline]
@@ -308,7 +306,6 @@ impl Future for Isolate {
                 Ok(Ready(None)) => break,
                 Ok(NotReady) => break,
                 Ok(Ready(Some(_buf))) => {
-                    // adb_debug!(format!("Buf: {:?}", buf));
                     break;
                 }
             }

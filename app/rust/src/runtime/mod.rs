@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use std::slice;
 use std::sync::{Arc, Mutex};
 
@@ -8,6 +7,8 @@ use jni::objects::JObject;
 use libc::c_char;
 use tokio::runtime;
 
+#[macro_use]
+pub mod macros;
 pub mod console;
 pub mod fetch;
 pub mod isolate;
@@ -22,25 +23,8 @@ pub struct DenoC {
 
 #[allow(non_snake_case)]
 extern "C" {
-    fn eval_script(deno: *const DenoC, script: *const c_char, name: *const c_char);
-    fn lookup_deno_and_eval_script(uuid: u32, script: *const c_char);
-}
-
-pub unsafe fn ptr_to_string(raw: *const c_char) -> Option<String> {
-    Some(
-        std::str::from_utf8_unchecked(slice::from_raw_parts(raw as *const u8, libc::strlen(raw)))
-            .to_string(),
-    )
-}
-
-unsafe fn string_to_ptr<T>(s: T) -> *const c_char
-where
-    T: std::convert::Into<std::vec::Vec<u8>>,
-{
-    let s = CString::new(s).unwrap();
-    let p = s.as_ptr();
-    std::mem::forget(s);
-    p
+    fn eval_script(d: *const DenoC, name: *const c_char, script: *const c_char);
+    fn lookup_and_eval_script(uuid: u32, script: *const c_char);
 }
 
 fn create_thread_pool_runtime() -> tokio::runtime::Runtime {
@@ -89,15 +73,15 @@ impl Future for Worker {
 #[allow(non_snake_case)]
 pub extern "C" fn Java_com_node_sample_MainActivity_invokeScript(_env: JNIEnv, _class: JObject) {
     unsafe {
-        lookup_deno_and_eval_script(
+        lookup_and_eval_script(
             0u32,
-            string_to_ptr(
+            c_str!(
                 r#"
                 clearTimer(i2s);
                 setInterval(() => {
                     console.log(`3s interval`);
                 }, 3000);
-                "#,
+                "#
             ),
         )
     };

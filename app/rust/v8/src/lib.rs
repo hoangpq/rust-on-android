@@ -127,11 +127,3 @@ impl Number {
         unsafe { v8_number_from_raw(number) }
     }
 }
-
-// macros
-#[macro_export]
-macro_rules! handle_scope {
-    ( $code:block ) => {
-        $code
-    };
-}

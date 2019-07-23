@@ -2,17 +2,15 @@ use std::thread;
 
 use libc::c_char;
 
-use crate::runtime::{create_thread_pool_runtime, ptr_to_string, Worker};
+use crate::runtime::{create_thread_pool_runtime, Worker};
 
 #[no_mangle]
-pub unsafe extern "C" fn adb_debug(p: *mut c_char) {
-    if let Some(msg) = ptr_to_string(p) {
-        adb_debug!(msg);
-    }
+pub extern "C" fn adb_debug(p: *mut c_char) {
+    adb_debug!(rust_str!(p));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn init_event_loop() {
+pub extern "C" fn init_event_loop() {
     thread::spawn(move || {
         let main_future = futures::lazy(move || {
             let mut worker = Worker::new();

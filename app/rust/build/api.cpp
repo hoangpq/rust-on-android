@@ -201,8 +201,8 @@ extern "C" void __unused fire_callback(void *d_, uint32_t promise_id) {
 }
 
 /* do not remove */
-extern "C" const char *__unused resolve_promise(void *d_, uint32_t promise_id,
-                                                const char *value) {
+extern "C" __unused void resolve(void *d_, uint32_t promise_id,
+                                 const char *value) {
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
 
@@ -218,7 +218,6 @@ extern "C" const char *__unused resolve_promise(void *d_, uint32_t promise_id,
   };
 
   resolver_->Call(context_, Null(d->isolate_), argc, argv);
-  return value;
 }
 
 extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
@@ -274,14 +273,8 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   return deno->Into();
 }
 
-extern "C" void register_function(FunctionCallback callback) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  char s[100];
-  sprintf(s, "%p", isolate_->GetData(0));
-  adb_debug(s);
-}
-
-extern "C" void eval_script(void *deno_, const char *script_s, const char *name_s) {
+extern "C" void eval_script(void *deno_, const char *name_s,
+                            const char *script_s) {
   auto deno = Deno::unwrap(deno_);
   lock_isolate(deno->isolate_);
 
@@ -318,16 +311,10 @@ Deno *lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
   return nullptr;
 }
 
-extern "C" void __unused lookup_deno_and_eval_script(uint32_t uuid,
-                                                     const char *script) {
+extern "C" void __unused lookup_and_eval_script(uint32_t uuid,
+                                                const char *script) {
   Deno *deno;
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
-    eval_script(deno, script, "eval.js");
+    eval_script(deno, "eval.js", script);
   }
-}
-
-extern "C" void __unused c_dispatch_event(JNIEnv *env, jobject instance,
-                                          jmethodID mid, jobject data) {
-  env->CallVoidMethod(instance, mid, data);
-  env->DeleteLocalRef(data);
 }
