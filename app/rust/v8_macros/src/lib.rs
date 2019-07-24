@@ -6,10 +6,6 @@ use syn;
 extern crate quote;
 extern crate v8;
 
-extern "C" {
-    fn register_function(callback: v8::FunctionCallback);
-}
-
 #[proc_macro_attribute]
 pub fn v8_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ast = syn::parse_macro_input!(item as syn::ItemFn);

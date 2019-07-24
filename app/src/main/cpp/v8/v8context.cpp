@@ -55,7 +55,7 @@ void Send(const FunctionCallbackInfo<Value> &args) {
   auto ab = Local<ArrayBuffer>::Cast(args[0]);
   auto contents = ab->GetContents();
 
-  char *str = workerSendBytes(contents.Data(), ab->ByteLength(), args[1]);
+  char *str = worker_send_bytes(contents.Data(), ab->ByteLength(), args[1]);
   args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
 }
 

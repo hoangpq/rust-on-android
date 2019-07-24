@@ -1,4 +1,3 @@
-use std::slice;
 use std::sync::{Arc, Mutex};
 
 use futures::{Async, Future};
@@ -7,9 +6,6 @@ use jni::objects::JObject;
 use libc::c_char;
 use tokio::runtime;
 
-#[macro_use]
-pub mod macros;
-pub mod console;
 pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;

@@ -62,7 +62,6 @@ public:
   Persistent<Context> context_;
   Persistent<ObjectTemplate> global_;
   Persistent<Function> resolver_;
-  Persistent<Function> stack_empty_check_;
   Locker *locker_;
   JNIEnv *env_;
 

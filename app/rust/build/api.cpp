@@ -25,10 +25,6 @@ extern "C" void __unused set_deno_resolver(void *d_) {
   Local<Function> resolver_ = get_function(
       context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
   d->resolver_.Reset(d->isolate_, resolver_);
-  // stack check
-  Local<Function> stack_empty_check_ = get_function(
-      context_->Global(), String::NewFromUtf8(d->isolate_, "isStackEmpty"));
-  d->stack_empty_check_.Reset(d->isolate_, stack_empty_check_);
 }
 
 const char *__unused jStringToChar(JNIEnv *env, jstring name) {
@@ -47,13 +43,6 @@ extern "C" void __unused v8_function_call(Local<Function> fn, int32_t argc,
   fn->Call(isolate_->GetCurrentContext(), Null(isolate_), argc, argv);
 }
 
-extern "C" Local<ArrayBuffer> __unused v8_buffer_new(void *data,
-                                                     size_t byte_length) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  return ArrayBuffer::New(isolate_, data, byte_length,
-                          ArrayBufferCreationMode::kInternalized);
-}
-
 extern "C" Local<Value>
     __unused v8_function_callback_info_get(FunctionCallbackInfo<Value> *info,
                                            int32_t index) {
@@ -70,11 +59,6 @@ extern "C" void __unused v8_utf8_string_new(Local<String> *out,
   Isolate *isolate_ = Isolate::GetCurrent();
   String::NewFromUtf8(isolate_, (const char *)data, NewStringType::kNormal, len)
       .ToLocal(out);
-}
-
-extern "C" void __unused v8_set_return_value(FunctionCallbackInfo<Value> *info,
-                                             Local<Value> *value) {
-  info->GetReturnValue().Set(*value);
 }
 
 extern "C" Local<String> __unused v8_string_new_from_utf8(const char *data) {
@@ -155,20 +139,6 @@ void Toast(const FunctionCallbackInfo<Value> &args) {
   lock_isolate(d->isolate_);
 
   String::Utf8Value value(args[0]->ToObject());
-}
-
-extern "C" bool __unused stack_empty_check(void *d_) {
-  auto d = Deno::unwrap(d_);
-  lock_isolate(d->isolate_);
-
-  Local<Context> context_ = d->context_.Get(d->isolate_);
-  Context::Scope scope(context_);
-  Local<Function> stack_empty_check_ = d->stack_empty_check_.Get(d->isolate_);
-
-  MaybeLocal<Value> result =
-      stack_empty_check_->Call(context_, Null(d->isolate_), 0, nullptr);
-
-  return !result.IsEmpty() ? result.ToLocalChecked()->BooleanValue() : false;
 }
 
 void NewTimer(const FunctionCallbackInfo<Value> &args) {
@@ -256,12 +226,6 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   console_->Set(String::NewFromUtf8(isolate_, "log"),
                 FunctionTemplate::New(isolate_, Log, env_));
 
-  console_->Set(String::NewFromUtf8(isolate_, "time"),
-                FunctionTemplate::New(isolate_, console_time, env_));
-
-  console_->Set(String::NewFromUtf8(isolate_, "timeEnd"),
-                FunctionTemplate::New(isolate_, console_time_end, env_));
-
   global_->Set(String::NewFromUtf8(isolate_, "console"), console_);
 
   Local<Context> context_ = Context::New(isolate_, nullptr, global_);
@@ -317,4 +281,32 @@ extern "C" void __unused lookup_and_eval_script(uint32_t uuid,
   if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
     eval_script(deno, "eval.js", script);
   }
+}
+
+// Utils for Rust represent
+extern "C" void __unused new_primitive_number(Local<Number> *out,
+                                              double value) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  *out = Number::New(isolate_, value);
+}
+
+extern "C" void __unused new_array(Local<Array> *out, uint32_t length) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  *out = Array::New(isolate_, length);
+}
+
+extern "C" bool __unused mem_same_handle(Local<Value> v1, Local<Value> v2) {
+  return v1 == v2;
+}
+
+extern "C" void __unused
+set_return_value(const FunctionCallbackInfo<Value> &args, Local<Value> value) {
+  args.GetReturnValue().Set(value);
+}
+
+extern "C" void __unused new_array_buffer(Local<ArrayBuffer> *out, void *data,
+                                          size_t byte_length) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  *out = ArrayBuffer::New(isolate_, data, byte_length,
+                          ArrayBufferCreationMode::kInternalized);
 }

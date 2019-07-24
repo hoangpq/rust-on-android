@@ -29,18 +29,21 @@ use jni::JNIEnv;
 use jni::objects::{JObject, JValue};
 use jni::sys::{jint, jlong, jobject};
 use libc::{c_char, size_t};
+use v8::types::*;
 use v8_macros::v8_fn;
 
-pub mod ndk_util;
 #[macro_use]
-pub mod ndk_log;
+mod macros;
+mod ndk_util;
 #[macro_use]
-pub mod ndk_graphics;
+mod ndk_log;
 #[macro_use]
-pub mod dex;
+mod ndk_graphics;
 #[macro_use]
-pub mod runtime;
-pub mod buffer;
+mod dex;
+#[macro_use]
+mod runtime;
+mod buffer;
 
 #[no_mangle]
 pub unsafe extern "C" fn get_android_version(env: &JNIEnv) -> i32 {
@@ -117,13 +120,15 @@ pub unsafe extern "C" fn postDelayed(env: &JNIEnv, handler: JObject, f: jlong, d
 type Buf = *mut u8;
 
 #[no_mangle]
-#[allow(non_snake_case)]
-pub extern "C" fn workerSendBytes(_buf: Buf, _len: size_t, _cb: v8::Value) -> *const c_char {
+pub extern "C" fn worker_send_bytes(
+    _buf: Buf,
+    _len: size_t,
+    _callback: Handle<JsFunction>,
+) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
-        let ab: v8::ArrayBuffer = v8::ArrayBuffer::New(&"💖".as_bytes());
-        let _cb: v8::Function = v8::Function::Cast(_cb);
-        _cb.Call(vec![ab]);
+        let _buffer: Handle<JsArrayBuffer> = JsArrayBuffer::new(&"💖".as_bytes());
+        // callback.call(buffer);
 
         _contents = mem::transmute(_buf);
         let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
@@ -137,9 +142,7 @@ pub extern "C" fn workerSendBytes(_buf: Buf, _len: size_t, _cb: v8::Value) -> *c
 
 #[v8_fn]
 pub fn test_fn(args: &v8::CallbackInfo) {
-    let f: v8::Function = v8::Function::Cast(args.Get(0));
-    f.Call(vec![] as Vec<v8::Value>);
-    args.SetReturnValue(v8::String::NewFromUtf8("Send 💖 to JS world!"));
+    args.set_return_value(JsArrayBuffer::new(&"Send 💖 from Rust".as_bytes()));
 }
 
 #[allow(dead_code)]

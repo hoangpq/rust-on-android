@@ -1,5 +1,6 @@
-use libc::c_char;
 use std::ffi::CString;
+
+use libc::c_char;
 
 pub unsafe fn to_c_str<T>(input: T) -> *const c_char
 where
@@ -26,7 +27,7 @@ macro_rules! rust_str {
 #[macro_export]
 macro_rules! c_str {
     ( $str:expr ) => {
-        $crate::runtime::macros::to_c_str($str)
+        $crate::macros::to_c_str($str)
     };
 }
 

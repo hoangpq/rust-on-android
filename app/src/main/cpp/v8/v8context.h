@@ -20,9 +20,7 @@ namespace av8 {
 extern "C" {
 jobject createTimeoutHandler(JNIEnv **);
 void postDelayed(JNIEnv **, jobject, jlong, jlong, jint);
-char *workerSendBytes(void *, size_t, Local<Value> val);
-
-void init_event_loop(JNIEnv **);
+char *worker_send_bytes(void *, size_t, Local<Value> val);
 void setInterval(void *);
 };
 
