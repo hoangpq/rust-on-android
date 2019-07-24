@@ -8,7 +8,7 @@ pub enum LogPriority {
 }
 
 extern "C" {
-    pub fn __android_log_print(
+    pub(crate) fn __android_log_print(
         prio: libc::c_int,
         tag: *const libc::c_char,
         fmt: *const libc::c_char,
