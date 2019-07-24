@@ -1,10 +1,4 @@
-use std::ffi::CString;
-use std::os::raw;
-
-#[allow(non_camel_case_types)]
-pub type c_int = raw::c_int;
-#[allow(non_camel_case_types)]
-pub type c_char = raw::c_char;
+use libc;
 
 #[derive(Clone, Copy)]
 #[repr(isize)]
@@ -14,20 +8,23 @@ pub enum LogPriority {
 }
 
 extern "C" {
-    pub fn __android_log_print(prio: c_int, tag: *const c_char, fmt: *const c_char, ...) -> c_int;
-}
-
-pub fn log(msg: String, prio: LogPriority) {
-    let msg = CString::new(msg).expect("CString::new failed");
-    let tag = CString::new("Rust Runtime").expect("CString::new failed");
-    unsafe {
-        __android_log_print(prio as c_int, tag.as_ptr(), msg.as_ptr());
-    }
+    pub fn __android_log_print(
+        prio: libc::c_int,
+        tag: *const libc::c_char,
+        fmt: *const libc::c_char,
+        ...
+    ) -> libc::c_int;
 }
 
 #[macro_export]
 macro_rules! adb_debug {
     ($msg:expr) => {{
-        $crate::ndk_log::log(format!("{:?}", $msg), $crate::ndk_log::LogPriority::DEBUG);
+        unsafe {
+            $crate::ndk_log::__android_log_print(
+                $crate::ndk_log::LogPriority::DEBUG as libc::c_int,
+                c_str!("Rust Runtime"),
+                c_str!(format!("{:?}", $msg)),
+            );
+        };
     }};
 }
