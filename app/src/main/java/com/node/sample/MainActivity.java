@@ -42,9 +42,6 @@ public class MainActivity extends AppCompatActivity {
 
     public native String getUtf8String();
 
-    @SuppressWarnings("JniMissingFunction")
-    public native void invokeScript();
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
 
         txtMessage.setText(getUtf8String());
         // Listeners
-        evalScriptButton.setOnClickListener(view -> invokeScript());
+        evalScriptButton.setOnClickListener(view -> {});
 
         btnImageProcessing.setOnClickListener(view -> startActivity(
                 new Intent(MainActivity.this, GenerateImageActivity.class)));

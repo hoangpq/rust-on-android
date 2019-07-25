@@ -8,7 +8,7 @@ pub enum LogPriority {
 }
 
 extern "C" {
-    pub(crate) fn __android_log_print(
+    pub fn __android_log_print(
         prio: libc::c_int,
         tag: *const libc::c_char,
         fmt: *const libc::c_char,
@@ -20,8 +20,8 @@ extern "C" {
 macro_rules! adb_debug {
     ($msg:expr) => {{
         unsafe {
-            $crate::ndk_log::__android_log_print(
-                $crate::ndk_log::LogPriority::DEBUG as libc::c_int,
+            $crate::__android_log_print(
+                $crate::LogPriority::DEBUG as libc::c_int,
                 c_str!("Rust Runtime"),
                 c_str!(format!("{:?}", $msg)),
             );

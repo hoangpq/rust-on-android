@@ -39,6 +39,7 @@ jni-sys = "0.3.0"
 jni = { version = "0.10.2", default-features = false }
 v8 = { path = "./v8" }
 v8_macros = { path = "./v8_macros" }
+ndk_log = { path = "./ndk_log" }
 
 [profile.release]
 debug = true

@@ -195,25 +195,6 @@ Java_com_node_v8_V8Context_eval(JNIEnv *env, jobject instance, jstring script) {
   return env->NewObject(resultClass, constructor, resultPtr, runtimePtr);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_node_v8_V8Context_callFn(
-    JNIEnv *env, jobject instance, jlong fn, jboolean interval, jlong time) {
-
-  LockV8Context(env, instance);
-  LockIsolate(runtimePtr);
-
-  Local<Function> func = Local<Function>::New(
-      runtime->isolate_, *reinterpret_cast<Persistent<Function> *>(fn));
-
-  // Blocking call
-  func->Call(context, Null(runtime->isolate_), 0, nullptr);
-
-  // Interval call
-  if (JNI_TRUE == interval) {
-    auto handler_ = createTimeoutHandler(&env);
-    postDelayed(&env, handler_, fn, time, 2);
-  }
-}
-
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_node_v8_V8Context_00024V8Result_toIntegerArray(JNIEnv *env,
                                                         jobject instance) {

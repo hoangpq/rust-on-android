@@ -1,7 +1,7 @@
 extern crate libc;
 
 pub mod types;
-use crate::types::{Handle, Local, Managed, Value};
+use crate::types::{Handle, Local, Value};
 
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
@@ -19,7 +19,7 @@ pub struct CallbackInfo {
 }
 
 impl CallbackInfo {
-    pub fn set_return_value<T: Value + Managed>(&self, value: Handle<T>) {
+    pub fn set_return_value<T: Value>(&self, value: Handle<T>) {
         unsafe { set_return_value(&self.info, value.to_raw()) }
     }
 }

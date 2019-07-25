@@ -56,12 +56,15 @@ pub extern "C" fn init_event_loop() {
                     return string;
                 };
 
-                try {
-                    const bytes = new Uint8Array($testFn());
-                    console.log(new TextDecoder().decode(bytes));
-                } catch (e) {
-                    console.log(e);
-                }
+                // Send to Rust world by ArrayBuffer
+                const ab = new ArrayBuffer(10);
+                const bufView = new Uint8Array(ab);
+
+                $sendBuffer(ab, function(buf) {
+                  const ar = new Uint8Array(buf);
+                  console.log(`-> Received ${new TextDecoder().decode(ar)} from Rust <-`);
+                  return ar.length;
+                });
 
                 const users = ['hoangpq', 'firebase'];
 

@@ -64,21 +64,3 @@ impl Future for Worker {
         isolate.poll().map_err(|err| adb_debug!(err))
     }
 }
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub extern "C" fn Java_com_node_sample_MainActivity_invokeScript(_env: JNIEnv, _class: JObject) {
-    unsafe {
-        lookup_and_eval_script(
-            0u32,
-            c_str!(
-                r#"
-                clearTimer(i2s);
-                setInterval(() => {
-                    console.log(`3s interval`);
-                }, 3000);
-                "#
-            ),
-        )
-    };
-}

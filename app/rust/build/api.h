@@ -30,9 +30,8 @@ using ResolverPersistent = Persistent<Promise::Resolver>;
 extern "C" {
 void adb_debug(const char *);
 void fetch(void *data, const char *, uint32_t);
-void console_time(const FunctionCallbackInfo<Value> &);
-void console_time_end(const FunctionCallbackInfo<Value> &);
 void test_fn(const FunctionCallbackInfo<Value> &);
+char *worker_send_bytes(void *, size_t, Local<Value> val);
 }
 
 Local<Function> get_function(Local<Object> obj, Local<String> key) {
@@ -90,7 +89,6 @@ public:
     this->global_.Reset(this->isolate_, t);
   }
 
-  /* do not remove */
   void __unused SetDenoCallback(deno_recv_cb recv_cb) {
     this->recv_cb_ = recv_cb;
   }

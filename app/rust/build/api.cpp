@@ -190,6 +190,19 @@ extern "C" __unused void resolve(void *d_, uint32_t promise_id,
   resolver_->Call(context_, Null(d->isolate_), argc, argv);
 }
 
+extern "C" void __unused SendBuffer(const FunctionCallbackInfo<Value> &args) {
+  Isolate *isolate_ = args.GetIsolate();
+
+  assert(args[0]->IsArrayBuffer());
+  assert(args[1]->IsFunction());
+
+  auto ab = Local<ArrayBuffer>::Cast(args[0]);
+  auto contents = ab->GetContents();
+
+  char *str = worker_send_bytes(contents.Data(), ab->ByteLength(), args[1]);
+  args.GetReturnValue().Set(String::NewFromUtf8(isolate_, str));
+}
+
 extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   // Create a new Isolate and make it the current one.
   Isolate::CreateParams create_params;
@@ -204,6 +217,9 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
 
   Local<External> env_ = External::New(deno->isolate_, deno);
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
+
+  global_->Set(String::NewFromUtf8(isolate_, "$sendBuffer"),
+               FunctionTemplate::New(isolate_, SendBuffer, env_));
 
   global_->Set(String::NewFromUtf8(isolate_, "$fetch"),
                FunctionTemplate::New(isolate_, Fetch, env_));
@@ -309,4 +325,37 @@ extern "C" void __unused new_array_buffer(Local<ArrayBuffer> *out, void *data,
   Isolate *isolate_ = Isolate::GetCurrent();
   *out = ArrayBuffer::New(isolate_, data, byte_length,
                           ArrayBufferCreationMode::kInternalized);
+}
+
+extern "C" bool __unused function_call(Local<Value> *out, Local<Function> fun,
+                                       uint32_t argc, Local<Value> argv[]) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  MaybeLocal<Value> maybe_result =
+      fun->Call(isolate_->GetCurrentContext(), Null(isolate_), argc, argv);
+  return maybe_result.ToLocal(out);
+}
+
+extern "C" const char *__unused raw_value(Local<Value> val) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  Local<String> result =
+      JSON::Stringify(isolate_->GetCurrentContext(), val->ToObject())
+          .ToLocalChecked();
+
+  String::Utf8Value utf8(result);
+  return *utf8;
+}
+
+extern "C" void __unused new_utf8_string(Local<String> *out, const char *data) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  *out = String::NewFromUtf8(isolate_, data,
+                             String::NewStringType::kInternalizedString);
+}
+
+extern "C" void __unused new_object(Local<Object> *out) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  *out = Object::New(isolate_);
+}
+
+extern "C" bool __unused object_set(bool *out, Local<Object> obj) {
+  Isolate *isolate_ = Isolate::GetCurrent();
 }
