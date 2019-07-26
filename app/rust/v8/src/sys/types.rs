@@ -66,12 +66,46 @@ impl<'a> PropertyKey for &'a str {
 /// The trait shared by all JavaScript values.
 pub trait Value: Managed {}
 
+/// &str into Handle<JsString>
+impl<'a> Into<Handle<'a, JsString>> for &str {
+    fn into(self) -> Handle<'a, JsString> {
+        JsString::new(self)
+    }
+}
+
+/// i32 into Handle<JsNumber>
+impl<'a> Into<Handle<'a, JsNumber>> for i32 {
+    fn into(self) -> Handle<'a, JsNumber> {
+        JsNumber::new(self)
+    }
+}
+
+/// Vector into Handle<JsArray>
+impl<'a> Into<Handle<'a, JsArray>> for Vec<&str> {
+    fn into(self) -> Handle<'a, JsArray> {
+        let array = JsArray::empty_array();
+        for (i, e) in self.iter().enumerate() {
+            array.set_from_raw(i as u32, *e);
+        }
+        array
+    }
+}
+
 pub trait Object: Value {
     fn set<'a, K: PropertyKey, V: Value>(&self, key: K, val: Handle<'a, V>) {
         unsafe {
             let mut result = false;
             key.set_from(&mut result, self.to_raw(), val.to_raw());
         };
+    }
+    fn set_from_raw<'a, T: 'a, K: PropertyKey, V: Into<Handle<'a, T>>>(&self, key: K, val: V)
+    where
+        T: Value,
+    {
+        unsafe {
+            let mut result = false;
+            key.set_from(&mut result, self.to_raw(), val.into().to_raw());
+        }
     }
 }
 

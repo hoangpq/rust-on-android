@@ -8,7 +8,6 @@ extern "C" {
 }
 
 #[repr(C)]
-#[allow(non_snake_case)]
 pub struct CallbackInfo {
     info: FunctionCallbackInfo,
 }

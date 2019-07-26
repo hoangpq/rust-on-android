@@ -29,7 +29,7 @@ use std::mem;
 
 use jni::JNIEnv;
 use libc::{c_char, size_t};
-use v8::fun::*;
+use v8::fun::CallbackInfo;
 use v8::types::*;
 use v8_macros::v8_fn;
 
@@ -63,20 +63,20 @@ pub extern "C" fn worker_send_bytes(
 ) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
-        let args: Vec<Handle<JsArrayBuffer>> = vec![JsArrayBuffer::new(&"💖".as_bytes())];
-        _callback.call::<JsNumber, _, _>(args);
+        _callback.call::<JsNumber, _, _>(vec![v8::new_array_buffer(&"💖".as_bytes())]);
 
-        let obj = JsObject::empty_object();
-        obj.set("name", JsString::new("Vampire"));
-        obj.set("age", JsNumber::new(28));
-        obj.set("symbol", JsArrayBuffer::new(&"💖".as_bytes()));
+        let info = js_object!(
+            "name" => "Vampire",
+            "gender" => "Male",
+            "age" => 28,
+            "favorites" => vec![
+                "Book",
+                "Programming",
+                "Traveling"
+            ]
+        );
 
-        let favorites = JsArray::empty_array();
-        favorites.set(0, JsString::new("Programming"));
-        favorites.set(1, JsString::new("Book"));
-        obj.set("favorites", favorites);
-
-        let result = _callback.call::<JsObject, _, _>(vec![obj]);
+        let result = _callback.call::<JsObject, _, _>(vec![info]);
         adb_debug!(result);
 
         c_str!("💖") as *const i8

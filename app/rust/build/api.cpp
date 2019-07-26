@@ -33,10 +33,6 @@ const char *__unused jStringToChar(JNIEnv *env, jstring name) {
   return str;
 }
 
-extern "C" Local<Function> __unused v8_function_cast(Local<Value> v) {
-  return Local<Function>::Cast(v);
-}
-
 extern "C" void __unused v8_function_call(Local<Function> fn, int32_t argc,
                                           Local<Value> argv[]) {
   Isolate *isolate_ = Isolate::GetCurrent();
@@ -59,18 +55,6 @@ extern "C" void __unused v8_utf8_string_new(Local<String> *out,
   Isolate *isolate_ = Isolate::GetCurrent();
   String::NewFromUtf8(isolate_, (const char *)data, NewStringType::kNormal, len)
       .ToLocal(out);
-}
-
-extern "C" Local<String> __unused v8_string_new_from_utf8(const char *data) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  return String::NewFromUtf8(isolate_, data);
-}
-
-// V8 value to char*
-extern "C" const char *__unused v8_value_into_raw(Local<Value> value) {
-  assert(value->IsString());
-  String::Utf8Value s(value);
-  return *s;
 }
 
 extern "C" Local<Number> __unused v8_number_from_raw(uint64_t number) {
@@ -253,8 +237,8 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   return deno->Into();
 }
 
-extern "C" void eval_script(void *deno_, const char *name_s,
-                            const char *script_s) {
+extern "C" void __unused eval_script(void *deno_, const char *name_s,
+                                     const char *script_s) {
   auto deno = Deno::unwrap(deno_);
   lock_isolate(deno->isolate_);
 
@@ -330,7 +314,8 @@ extern "C" bool __unused function_call(Local<Value> *out, Local<Function> fun,
 extern "C" const char *__unused raw_value(Local<Value> val) {
   Isolate *isolate_ = Isolate::GetCurrent();
   Local<String> result =
-      JSON::Stringify(isolate_->GetCurrentContext(), val->ToObject())
+      JSON::Stringify(isolate_->GetCurrentContext(), val->ToObject(),
+                      String::NewFromUtf8(isolate_, "  "))
           .ToLocalChecked();
 
   String::Utf8Value utf8(result);
@@ -359,16 +344,16 @@ extern "C" bool __unused object_set(bool *out, Local<Object> obj,
   return false;
 }
 
-extern "C" bool object_index_set(bool *out, Local<Object> obj, uint32_t index,
-                                 Local<Value> value) {
+extern "C" bool __unused object_index_set(bool *out, Local<Object> obj,
+                                          uint32_t index, Local<Value> value) {
   Local<Context> context_ = Isolate::GetCurrent()->GetCurrentContext();
   Maybe<bool> maybe = obj->Set(context_, index, value);
   return maybe.IsJust() && (*out = maybe.FromJust(), true);
 }
 
-extern "C" bool object_string_set(bool *out, Local<Object> obj,
-                                  const uint8_t *data, uint32_t len,
-                                  Local<Value> val) {
+extern "C" bool __unused object_string_set(bool *out, Local<Object> obj,
+                                           const uint8_t *data, uint32_t len,
+                                           Local<Value> val) {
   Isolate *isolate_ = Isolate::GetCurrent();
 
   Local<String> key;
