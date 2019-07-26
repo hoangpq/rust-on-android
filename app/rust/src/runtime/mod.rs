@@ -1,8 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use futures::{Async, Future};
-use jni::JNIEnv;
-use jni::objects::JObject;
 use libc::c_char;
 use tokio::runtime;
 
@@ -20,7 +18,6 @@ pub struct DenoC {
 #[allow(non_snake_case)]
 extern "C" {
     fn eval_script(d: *const DenoC, name: *const c_char, script: *const c_char);
-    fn lookup_and_eval_script(uuid: u32, script: *const c_char);
 }
 
 fn create_thread_pool_runtime() -> tokio::runtime::Runtime {

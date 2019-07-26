@@ -21,20 +21,20 @@ extern crate serde_json;
 extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
+#[macro_use]
 extern crate v8;
 extern crate v8_macros;
 
 use std::mem;
 
 use jni::JNIEnv;
-use jni::objects::JString;
 use libc::{c_char, size_t};
+use v8::fun::*;
 use v8::types::*;
 use v8_macros::v8_fn;
 
 #[macro_use]
 mod macros;
-mod ndk_util;
 #[macro_use]
 mod ndk_graphics;
 #[macro_use]
@@ -42,6 +42,7 @@ mod dex;
 #[macro_use]
 mod runtime;
 mod buffer;
+mod ndk_util;
 
 #[no_mangle]
 pub unsafe extern "C" fn get_android_version(env: &JNIEnv) -> i32 {
@@ -63,24 +64,27 @@ pub extern "C" fn worker_send_bytes(
     let _contents: *mut u8;
     unsafe {
         let args: Vec<Handle<JsArrayBuffer>> = vec![JsArrayBuffer::new(&"💖".as_bytes())];
-        let buf_len = _callback.call::<JsNumber, _, _>(args);
-        adb_debug!(buf_len);
+        _callback.call::<JsNumber, _, _>(args);
 
-        let name = JsString::new("name");
-        let value = JsString::new("Vampire");
+        let obj = JsObject::empty_object();
+        obj.set("name", JsString::new("Vampire"));
+        obj.set("age", JsNumber::new(28));
+        obj.set("symbol", JsArrayBuffer::new(&"💖".as_bytes()));
 
-        let obj = JsObject::new();
-        // obj.set(name, value);
+        let favorites = JsArray::empty_array();
+        favorites.set(0, JsString::new("Programming"));
+        favorites.set(1, JsString::new("Book"));
+        obj.set("favorites", favorites);
 
-        _contents = mem::transmute(_buf);
-        let slice: &[u8] = std::slice::from_raw_parts(_contents, _len as usize);
-        // let name = buffer::load_user_buf(slice).unwrap();
+        let result = _callback.call::<JsObject, _, _>(vec![obj]);
+        adb_debug!(result);
+
         c_str!("💖") as *const i8
     }
 }
 
 #[v8_fn]
-pub fn test_fn(args: &v8::CallbackInfo) {
+pub fn test_fn(args: &CallbackInfo) {
     args.set_return_value(JsArrayBuffer::new(&"💖".as_bytes()));
 }
 

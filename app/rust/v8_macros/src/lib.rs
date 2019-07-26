@@ -2,9 +2,9 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use syn;
 
+extern crate v8;
 #[macro_use]
 extern crate quote;
-extern crate v8;
 
 #[proc_macro_attribute]
 pub fn v8_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -16,7 +16,7 @@ pub fn v8_fn(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     (quote! {
         #[no_mangle]
-        #vis extern "C" fn #name(args: &v8::CallbackInfo) {
+        #vis extern "C" fn #name(args: &v8::fun::CallbackInfo) {
             (|#inputs|#block)(args);
         }
     })

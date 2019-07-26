@@ -291,14 +291,6 @@ Deno *lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
   return nullptr;
 }
 
-extern "C" void __unused lookup_and_eval_script(uint32_t uuid,
-                                                const char *script) {
-  Deno *deno;
-  if ((deno = lookup_deno_by_uuid(isolate_map_, uuid)) != nullptr) {
-    eval_script(deno, "eval.js", script);
-  }
-}
-
 // Utils for Rust represent
 extern "C" void __unused new_primitive_number(Local<Number> *out,
                                               double value) {
@@ -356,6 +348,37 @@ extern "C" void __unused new_object(Local<Object> *out) {
   *out = Object::New(isolate_);
 }
 
-extern "C" bool __unused object_set(bool *out, Local<Object> obj) {
+extern "C" bool __unused object_set(bool *out, Local<Object> obj,
+                                    Local<Value> key, Local<Value> val) {
+  Local<Context> context_ = Isolate::GetCurrent()->GetCurrentContext();
+  Maybe<bool> maybe = obj->Set(context_, key, val);
+  if (maybe.IsJust()) {
+    *out = maybe.FromJust();
+    return true;
+  }
+  return false;
+}
+
+extern "C" bool object_index_set(bool *out, Local<Object> obj, uint32_t index,
+                                 Local<Value> value) {
+  Local<Context> context_ = Isolate::GetCurrent()->GetCurrentContext();
+  Maybe<bool> maybe = obj->Set(context_, index, value);
+  return maybe.IsJust() && (*out = maybe.FromJust(), true);
+}
+
+extern "C" bool object_string_set(bool *out, Local<Object> obj,
+                                  const uint8_t *data, uint32_t len,
+                                  Local<Value> val) {
   Isolate *isolate_ = Isolate::GetCurrent();
+
+  Local<String> key;
+  MaybeLocal<String> maybe_key = String::NewFromUtf8(
+      isolate_, (const char *)data, NewStringType::kNormal, len);
+
+  if (!maybe_key.ToLocal(&key)) {
+    return false;
+  }
+
+  Maybe<bool> maybe = obj->Set(isolate_->GetCurrentContext(), key, val);
+  return maybe.IsJust() && (*out = maybe.FromJust(), true);
 }

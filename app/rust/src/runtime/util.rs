@@ -56,14 +56,17 @@ pub extern "C" fn init_event_loop() {
                     return string;
                 };
 
+                ArrayBuffer.prototype.toJSON = function() {
+                    const ar = new Uint8Array(this);
+                    return new TextDecoder().decode(ar);
+                }
+
                 // Send to Rust world by ArrayBuffer
                 const ab = new ArrayBuffer(10);
                 const bufView = new Uint8Array(ab);
 
-                $sendBuffer(ab, function(buf) {
-                  const ar = new Uint8Array(buf);
-                  console.log(`-> Received ${new TextDecoder().decode(ar)} from Rust <-`);
-                  return ar.length;
+                $sendBuffer(ab, data => {
+                    return data;
                 });
 
                 const users = ['hoangpq', 'firebase'];
@@ -72,10 +75,6 @@ pub extern "C" fn init_event_loop() {
                     return fetch(`https://api.github.com/users/${user}`)
                         .then(resp => resp.json());
                 }
-
-                const timer02 = setInterval(() => {
-                    console.log(`10s interval`);
-                }, 10000);
 
                 const start = Date.now();
                 setTimeout(() => {
