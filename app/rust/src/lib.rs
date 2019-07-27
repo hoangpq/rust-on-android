@@ -63,8 +63,6 @@ pub extern "C" fn worker_send_bytes(
 ) -> *const c_char {
     let _contents: *mut u8;
     unsafe {
-        _callback.call::<JsNumber, _, _>(vec![v8::new_array_buffer(&"💖".as_bytes())]);
-
         let info = js_object!(
             "name" => "Vampire",
             "gender" => "Male",
@@ -76,8 +74,14 @@ pub extern "C" fn worker_send_bytes(
             ]
         );
 
-        let result = _callback.call::<JsObject, _, _>(vec![info]);
+        let result = _callback.call::<JsNull, JsObject, _, _>(v8::null(), vec![info]);
         adb_debug!(result);
+
+        let get_name: Handle<JsFunction> = result.get("getName");
+        let args: Vec<Handle<JsValue>> = vec![];
+
+        let name: Handle<JsString> = get_name.call(result, args);
+        adb_debug!(format!("Name: {:?}", name));
 
         c_str!("💖") as *const i8
     }
@@ -85,7 +89,7 @@ pub extern "C" fn worker_send_bytes(
 
 #[v8_fn]
 pub fn test_fn(args: &CallbackInfo) {
-    args.set_return_value(JsArrayBuffer::new(&"💖".as_bytes()));
+    args.set_return_value(v8::new_array_buffer(&"💖".as_bytes()));
 }
 
 #[allow(dead_code)]

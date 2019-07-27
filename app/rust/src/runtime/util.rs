@@ -66,7 +66,10 @@ pub extern "C" fn init_event_loop() {
                 const bufView = new Uint8Array(ab);
 
                 $sendBuffer(ab, data => {
-                    return data;
+                    return {
+                        ...data,
+                        getName() { return this.name; }
+                    };
                 });
 
                 const users = ['hoangpq', 'firebase'];

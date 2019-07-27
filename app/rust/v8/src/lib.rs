@@ -15,7 +15,7 @@ mod macros;
 pub use macros::*;
 pub use sys::*;
 
-use crate::sys::types::{Handle, JsArray, JsArrayBuffer, JsNumber, JsObject, JsString};
+use crate::sys::types::{Handle, JsArray, JsArrayBuffer, JsNull, JsNumber, JsObject, JsString};
 
 pub fn new_string<'a>(data: &str) -> Handle<'a, JsString> {
     JsString::new(data)
@@ -35,4 +35,8 @@ pub fn empty_object<'a>() -> Handle<'a, JsObject> {
 
 pub fn new_array_buffer<'a>(data: &[u8]) -> Handle<'a, JsArrayBuffer> {
     JsArrayBuffer::new(data)
+}
+
+pub fn null<'a>() -> Handle<'a, JsNull> {
+    JsNull::new()
 }

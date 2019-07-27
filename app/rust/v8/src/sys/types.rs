@@ -12,7 +12,13 @@ extern "C" {
     fn new_array(local: &mut Local, len: u32);
     fn new_array_buffer(local: &mut Local, data: *mut libc::c_void, byte_length: libc::size_t);
     fn new_utf8_string(local: &mut Local, data: *const libc::c_char);
-    fn function_call(out: &mut Local, local: Local, argc: u32, argv: *mut c_void) -> bool;
+    fn function_call(
+        out: &mut Local,
+        local: Local,
+        this: Local,
+        argc: u32,
+        argv: *mut c_void,
+    ) -> bool;
     fn raw_value(val: Local) -> *const c_char;
     fn object_set(out: &mut bool, obj: Local, key: Local, value: Local) -> bool;
     fn object_index_set(out: &mut bool, obj: Local, index: u32, value: Local) -> bool;
@@ -23,6 +29,8 @@ extern "C" {
         len: u32,
         value: Local,
     ) -> bool;
+    fn object_string_get(out: &mut Local, obj: Local, ptr: *const u8, len: u32) -> bool;
+    fn primitive_null(out: &mut Local);
 }
 
 pub trait Managed: Copy {
@@ -41,22 +49,36 @@ fn build(s: &str) -> (*const u8, u32) {
 
 /// A property key in Javascript object
 pub trait PropertyKey {
+    unsafe fn get_from(self, out: &mut Local, obj: Local) -> bool;
     unsafe fn set_from(self, out: &mut bool, obj: Local, val: Local) -> bool;
 }
 
 impl PropertyKey for u32 {
+    unsafe fn get_from(self, out: &mut Local, obj: Local) -> bool {
+        unimplemented!()
+    }
+
     unsafe fn set_from(self, out: &mut bool, obj: Local, val: Local) -> bool {
         object_index_set(out, obj, self, val)
     }
 }
 
 impl<'a, K: Value> PropertyKey for Handle<'a, K> {
+    unsafe fn get_from(self, out: &mut Local, obj: Local) -> bool {
+        unimplemented!()
+    }
+
     unsafe fn set_from(self, out: &mut bool, obj: Local, val: Local) -> bool {
         object_set(out, obj, self.to_raw(), val)
     }
 }
 
 impl<'a> PropertyKey for &'a str {
+    unsafe fn get_from(self, out: &mut Local, obj: Local) -> bool {
+        let (ptr, len) = build(self);
+        object_string_get(out, obj, ptr, len)
+    }
+
     unsafe fn set_from(self, out: &mut bool, obj: Local, val: Local) -> bool {
         let (ptr, len) = build(self);
         object_string_set(out, obj, ptr, len, val)
@@ -97,6 +119,13 @@ pub trait Object: Value {
             let mut result = false;
             key.set_from(&mut result, self.to_raw(), val.to_raw());
         };
+    }
+    fn get<'a, T: Value, K: PropertyKey>(&self, key: K) -> Handle<'a, T> {
+        unsafe {
+            let mut out: Local = std::mem::zeroed();
+            key.get_from(&mut out, self.to_raw());
+            Handle::new_internal(T::from_raw(out))
+        }
     }
     fn set_from_raw<'a, T: 'a, K: PropertyKey, V: Into<Handle<'a, T>>>(&self, key: K, val: V)
     where
@@ -140,6 +169,7 @@ impl<'a, T: Managed + 'a> Handle<'a, T> {
     pub fn to_raw(self) -> Local {
         return self.value.to_raw();
     }
+
     pub(crate) fn new_internal(value: T) -> Handle<'a, T> {
         Handle {
             value,
@@ -176,6 +206,9 @@ impl Managed for JsValue {
     }
 }
 
+impl Value for JsValue {}
+impl Object for JsValue {}
+
 /// A JavaScript number.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -185,6 +218,7 @@ impl JsNumber {
     pub fn new<'a, T: Into<f64>>(x: T) -> Handle<'a, JsNumber> {
         JsNumber::new_internal(x.into())
     }
+
     pub(crate) fn new_internal<'a>(v: f64) -> Handle<'a, JsNumber> {
         unsafe {
             let mut local: Local = std::mem::zeroed();
@@ -215,6 +249,7 @@ impl JsObject {
     pub fn empty_object<'a>() -> Handle<'a, JsObject> {
         JsObject::new_internal()
     }
+
     pub(crate) fn new_internal<'a>() -> Handle<'a, JsObject> {
         unsafe {
             let mut local: Local = std::mem::zeroed();
@@ -277,6 +312,7 @@ impl JsString {
     pub fn new<'a>(data: &str) -> Handle<'a, JsString> {
         JsString::new_internal(data)
     }
+
     pub(crate) fn new_internal<'a>(data: &str) -> Handle<'a, JsString> {
         unsafe {
             let mut local: Local = std::mem::zeroed();
@@ -337,8 +373,9 @@ pub struct JsFunction<T: Object = JsObject> {
 }
 
 impl<CL: Object> JsFunction<CL> {
-    pub fn call<'a, 'b, R, A, AS>(self, args: AS) -> Handle<'a, R>
+    pub fn call<'a, 'b, T, R, A, AS>(self, this: Handle<'a, T>, args: AS) -> Handle<'a, R>
     where
+        T: Value + 'a,
         A: Value + 'b,
         R: Value + 'b,
         AS: IntoIterator<Item = Handle<'b, A>>,
@@ -349,6 +386,7 @@ impl<CL: Object> JsFunction<CL> {
             function_call(
                 &mut local,
                 self.to_raw(),
+                this.to_raw(),
                 args.len() as u32,
                 args.as_mut_ptr() as *mut c_void,
             );
@@ -370,5 +408,37 @@ impl<T: Object> Managed for JsFunction<T> {
             raw: h,
             marker: PhantomData,
         }
+    }
+}
+
+/// A Javascript null.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JsNull(Local);
+
+impl JsNull {
+    pub fn new<'a>() -> Handle<'a, JsNull> {
+        JsNull::new_internal()
+    }
+
+    pub(crate) fn new_internal<'a>() -> Handle<'a, JsNull> {
+        unsafe {
+            let mut local: Local = std::mem::zeroed();
+            primitive_null(&mut local);
+            Handle::new_internal(JsNull(local))
+        }
+    }
+}
+
+impl Value for JsNull {}
+impl Object for JsNull {}
+
+impl Managed for JsNull {
+    fn to_raw(self) -> Local {
+        self.0
+    }
+
+    fn from_raw(h: Local) -> Self {
+        JsNull(h)
     }
 }

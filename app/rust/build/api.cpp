@@ -33,12 +33,6 @@ const char *__unused jStringToChar(JNIEnv *env, jstring name) {
   return str;
 }
 
-extern "C" void __unused v8_function_call(Local<Function> fn, int32_t argc,
-                                          Local<Value> argv[]) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  fn->Call(isolate_->GetCurrentContext(), Null(isolate_), argc, argv);
-}
-
 extern "C" Local<Value>
     __unused v8_function_callback_info_get(FunctionCallbackInfo<Value> *info,
                                            int32_t index) {
@@ -48,18 +42,6 @@ extern "C" Local<Value>
 extern "C" int32_t __unused
 v8_function_callback_length(FunctionCallbackInfo<Value> *info) {
   return info->Length();
-}
-
-extern "C" void __unused v8_utf8_string_new(Local<String> *out,
-                                            const uint8_t *data, int32_t len) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  String::NewFromUtf8(isolate_, (const char *)data, NewStringType::kNormal, len)
-      .ToLocal(out);
-}
-
-extern "C" Local<Number> __unused v8_number_from_raw(uint64_t number) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  return Number::New(isolate_, number);
 }
 
 const char *ToCString(const String::Utf8Value &value) {
@@ -266,8 +248,8 @@ extern "C" void __unused eval_script(void *deno_, const char *name_s,
   }
 }
 
-Deno *lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
-                          uint32_t uuid) {
+Deno *__unused lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
+                                   uint32_t uuid) {
   auto it = isolate_map_.find(uuid);
   if (it != isolate_map_.end()) {
     return it->second;
@@ -304,15 +286,27 @@ extern "C" void __unused new_array_buffer(Local<ArrayBuffer> *out, void *data,
 }
 
 extern "C" bool __unused function_call(Local<Value> *out, Local<Function> fun,
-                                       uint32_t argc, Local<Value> argv[]) {
+                                       Local<Value> self, uint32_t argc,
+                                       Local<Value> argv[]) {
+
   Isolate *isolate_ = Isolate::GetCurrent();
   MaybeLocal<Value> maybe_result =
-      fun->Call(isolate_->GetCurrentContext(), Null(isolate_), argc, argv);
+      fun->Call(isolate_->GetCurrentContext(), self, argc, argv);
   return maybe_result.ToLocal(out);
 }
 
 extern "C" const char *__unused raw_value(Local<Value> val) {
   Isolate *isolate_ = Isolate::GetCurrent();
+
+  if (val->IsNullOrUndefined()) {
+    isolate_->ThrowException(String::NewFromUtf8(isolate_, "<Empty>"));
+  }
+
+  if (val->IsString()) {
+    String::Utf8Value utf8_val(val);
+    return *utf8_val;
+  }
+
   Local<String> result =
       JSON::Stringify(isolate_->GetCurrentContext(), val->ToObject(),
                       String::NewFromUtf8(isolate_, "  "))
@@ -351,19 +345,40 @@ extern "C" bool __unused object_index_set(bool *out, Local<Object> obj,
   return maybe.IsJust() && (*out = maybe.FromJust(), true);
 }
 
+bool string_get(Local<String> *key, const uint8_t *data, uint32_t len) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  MaybeLocal<String> maybe_key = String::NewFromUtf8(
+      isolate_, (const char *)data, NewStringType::kNormal, len);
+  return maybe_key.ToLocal(key);
+}
+
 extern "C" bool __unused object_string_set(bool *out, Local<Object> obj,
                                            const uint8_t *data, uint32_t len,
                                            Local<Value> val) {
+
   Isolate *isolate_ = Isolate::GetCurrent();
-
   Local<String> key;
-  MaybeLocal<String> maybe_key = String::NewFromUtf8(
-      isolate_, (const char *)data, NewStringType::kNormal, len);
-
-  if (!maybe_key.ToLocal(&key)) {
+  if (!string_get(&key, data, len)) {
     return false;
   }
 
   Maybe<bool> maybe = obj->Set(isolate_->GetCurrentContext(), key, val);
   return maybe.IsJust() && (*out = maybe.FromJust(), true);
+}
+
+extern "C" bool __unused object_string_get(Local<Value> *out, Local<Object> obj,
+                                           const uint8_t *data, uint32_t len) {
+
+  Isolate *isolate_ = Isolate::GetCurrent();
+  Local<String> key;
+  if (!string_get(&key, data, len)) {
+    return false;
+  }
+
+  MaybeLocal<Value> maybe_local = obj->Get(isolate_->GetCurrentContext(), key);
+  return maybe_local.ToLocal(out);
+}
+
+extern "C" void __unused primitive_null(Local<Primitive> *out) {
+  *out = Null(Isolate::GetCurrent());
 }
