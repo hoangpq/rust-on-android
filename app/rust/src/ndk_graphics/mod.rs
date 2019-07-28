@@ -1,13 +1,13 @@
 extern crate jni;
 extern crate libc;
 
-use std::{cmp, thread};
 use std::ffi::CString;
 use std::sync::mpsc;
+use std::{cmp, thread};
 
 use itertools::Itertools;
 use jni::objects::{JClass, JObject, JValue};
-use jni::sys::{jint, JNIEnv, jobject, jstring};
+use jni::sys::{jint, jobject, jstring, JNIEnv};
 use libc::{c_int, c_uint, c_void};
 
 use crate::dex;

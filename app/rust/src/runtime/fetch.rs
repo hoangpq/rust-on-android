@@ -1,10 +1,10 @@
-use futures::Future;
 use futures::stream::Stream;
+use futures::Future;
 use libc::{c_char, c_void};
 use reqwest::r#async::Response;
 
-use crate::runtime::{DenoC, OpAsyncFuture};
 use crate::runtime::isolate::Isolate;
+use crate::runtime::{DenoC, OpAsyncFuture};
 
 extern "C" {
     fn resolve(d: *const DenoC, promise_id: u32, data: *const c_char);

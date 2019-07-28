@@ -1,13 +1,13 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Once;
 
-use futures::{Future, Poll, task};
-use futures::Async::*;
 use futures::stream::{FuturesUnordered, Stream};
+use futures::Async::*;
+use futures::{task, Future, Poll};
 use libc::c_void;
 
-use crate::runtime::{DenoC, eval_script, OpAsyncFuture};
 use crate::runtime::timer::set_timeout;
+use crate::runtime::{eval_script, DenoC, OpAsyncFuture};
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(data: *mut libc::c_void, promise_id: u32, duration: u32);
