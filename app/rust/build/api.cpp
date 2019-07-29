@@ -316,10 +316,11 @@ extern "C" const char *__unused raw_value(Local<Value> val) {
   return *utf8;
 }
 
-extern "C" void __unused new_utf8_string(Local<String> *out, const char *data) {
-  Isolate *isolate_ = Isolate::GetCurrent();
-  *out = String::NewFromUtf8(isolate_, data,
-                             String::NewStringType::kInternalizedString);
+extern "C" void __unused new_utf8_string(Local<String> *out,
+                                         const uint8_t *data, uint32_t len) {
+  MaybeLocal<String> maybe_local = String::NewFromUtf8(
+      Isolate::GetCurrent(), (const char *)data, NewStringType::kNormal, len);
+  maybe_local.ToLocal(out);
 }
 
 extern "C" void __unused new_object(Local<Object> *out) {
