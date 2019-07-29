@@ -22,6 +22,7 @@ set_property(TARGET librust PROPERTY
 
 add_library(
         rust-prebuild
+        rust/utf8_util/build/util.cpp
         rust/build/api.cpp)
 
 add_library( # Sets the name of the library.

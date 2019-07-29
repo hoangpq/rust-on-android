@@ -1,9 +1,8 @@
-use std::sync::{Arc, Mutex};
-
-use futures::{Async, Future};
+use futures::Future;
 use libc::c_char;
 use tokio::runtime;
 
+pub mod event_loop;
 pub mod fetch;
 pub mod isolate;
 pub mod stream_cancel;
@@ -33,31 +32,3 @@ fn create_thread_pool_runtime() -> tokio::runtime::Runtime {
 
 pub type Buf = Box<[u8]>;
 pub type OpAsyncFuture = Box<dyn Future<Item = Buf, Error = ()> + Send>;
-
-#[derive(Clone)]
-pub struct Worker {
-    inner: Arc<Mutex<isolate::Isolate>>,
-}
-
-impl Worker {
-    fn new() -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(isolate::Isolate::new())),
-        }
-    }
-
-    fn execute(&mut self, script: &str) {
-        let mut isolate = self.inner.lock().unwrap();
-        isolate.execute(script);
-    }
-}
-
-impl Future for Worker {
-    type Item = ();
-    type Error = ();
-
-    fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
-        let mut isolate = self.inner.lock().unwrap();
-        isolate.poll().map_err(|err| adb_debug!(err))
-    }
-}

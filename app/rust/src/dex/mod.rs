@@ -89,7 +89,7 @@ where
     unsafe { env.call_static_method_unsafe(class, (class, name, sig), parsed.ret, args) }
 }
 
-pub fn find_class<'a>(env: &'a JNIEnv, class: String) -> Result<JClass<'a>> {
+pub fn _find_class<'a>(env: &'a JNIEnv, class: String) -> Result<JClass<'a>> {
     let table = CLASS_TABLE.lock().unwrap();
     let class = class.to_string();
 

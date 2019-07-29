@@ -23,9 +23,8 @@ extern crate tokio_threadpool;
 extern crate tokio_timer;
 #[macro_use]
 extern crate v8;
+extern crate utf8_util;
 extern crate v8_macros;
-
-use std::mem;
 
 use jni::JNIEnv;
 use libc::{c_char, size_t};
@@ -56,35 +55,43 @@ pub unsafe extern "C" fn get_android_version(env: &JNIEnv) -> i32 {
 type Buf = *mut u8;
 
 #[no_mangle]
-pub extern "C" fn worker_send_bytes(
+pub unsafe extern "C" fn worker_send_bytes(
     _buf: Buf,
     _len: size_t,
     _callback: Handle<JsFunction>,
 ) -> *const c_char {
-    let _contents: *mut u8;
-    unsafe {
-        let info = js_object!(
-            "name" => "Vampire",
-            "gender" => "Male",
-            "age" => 28,
-            "favorites" => vec![
-                "Book",
-                "Programming",
-                "Traveling"
-            ]
-        );
+    let info = js_object!(
+        "name" => "Vampire",
+        "gender" => "Male",
+        "age" => 28,
+        "favorites" => vec![
+            "Book",
+            "Programming",
+            "Traveling"
+        ]
+    );
 
-        let result = _callback.call::<JsNull, JsObject, _, _>(v8::null(), vec![info]);
-        adb_debug!(result);
+    let result = _callback.call::<JsNull, JsObject, _, _>(v8::null(), vec![info]);
+    adb_debug!(result);
 
-        let get_name: Handle<JsFunction> = result.get("getName");
-        let args: Vec<Handle<JsValue>> = vec![];
+    // String playground
+    let get_name: Handle<JsFunction> = result.get("getName");
+    let name: Handle<JsString> = get_name.call(result, v8::empty_args());
+    adb_debug!(format!("Name: {:?}", name));
 
-        let name: Handle<JsString> = get_name.call(result, args);
-        adb_debug!(format!("Name: {:?}", name));
+    // Promise playground
+    let get_promise: Handle<JsFunction> = result.get("getPromise");
+    let promise: Handle<JsPromise> = get_promise.call(result, v8::empty_args());
 
-        c_str!("💖") as *const i8
-    }
+    promise.then(JsFunction::new(promise_resolver));
+
+    c_str!("💖") as *const i8
+}
+
+#[v8_fn]
+pub fn promise_resolver(args: &CallbackInfo) {
+    let username: Handle<JsString> = args.get(0);
+    adb_debug!(format!("Username: {:?}", username));
 }
 
 #[v8_fn]

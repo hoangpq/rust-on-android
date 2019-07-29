@@ -1,4 +1,9 @@
+#[macro_use]
+extern crate lazy_static;
+extern crate utf8_util;
+
 use libc;
+use utf8_util::Utf8;
 
 #[derive(Clone, Copy)]
 #[repr(isize)]

@@ -43,7 +43,7 @@ pub fn fetch_async(d: *const DenoC, url: &str, promise_id: u32) -> OpAsyncFuture
 
 #[no_mangle]
 fn fetch(isolate_ptr: *const c_void, url: *mut c_char, promise_id: u32) {
-    let url = rust_str!(url);
+    let url = unsafe { rust_str!(url) };
     let isolate = unsafe { Isolate::from_raw_ptr(isolate_ptr) };
     isolate
         .pending_ops

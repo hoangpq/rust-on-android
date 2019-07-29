@@ -1,5 +1,6 @@
-use crate::sys::util::to_c_str;
-use std::borrow::Cow;
+use crate::sys::fun::FunctionCallback;
+use utf8_util::Utf8;
+
 use std::fmt::{Debug, Error, Formatter};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -7,8 +8,22 @@ use std::os::raw::{c_char, c_void};
 
 extern "C" {
     fn mem_same_handle(h1: Local, h2: Local) -> bool;
-    fn new_primitive_number(local: &mut Local, v: f64);
+    /// number
+    fn new_number(local: &mut Local, v: f64);
+    fn number_value(local: &mut Local) -> f64;
+    /// object
     fn new_object(local: &mut Local);
+    fn object_set(out: &mut bool, obj: Local, key: Local, value: Local) -> bool;
+    fn object_index_set(out: &mut bool, obj: Local, index: u32, value: Local) -> bool;
+    fn object_string_set(
+        out: &mut bool,
+        obj: Local,
+        ptr: *const u8,
+        len: u32,
+        value: Local,
+    ) -> bool;
+    fn object_string_get(out: &mut Local, obj: Local, ptr: *const u8, len: u32) -> bool;
+    /// array
     fn new_array(local: &mut Local, len: u32);
     fn new_array_buffer(local: &mut Local, data: *mut libc::c_void, byte_length: libc::size_t);
     fn new_utf8_string(local: &mut Local, data: *const u8, len: u32);
@@ -20,49 +35,15 @@ extern "C" {
         argv: *mut c_void,
     ) -> bool;
     fn raw_value(val: Local) -> *const c_char;
-    fn object_set(out: &mut bool, obj: Local, key: Local, value: Local) -> bool;
-    fn object_index_set(out: &mut bool, obj: Local, index: u32, value: Local) -> bool;
-    fn object_string_set(
-        out: &mut bool,
-        obj: Local,
-        ptr: *const u8,
-        len: u32,
-        value: Local,
-    ) -> bool;
-    fn object_string_get(out: &mut Local, obj: Local, ptr: *const u8, len: u32) -> bool;
-    fn primitive_null(out: &mut Local);
-}
-
-pub struct Utf8<'a> {
-    contents: Cow<'a, str>,
-}
-
-impl<'a> From<&'a str> for Utf8<'a> {
-    fn from(s: &'a str) -> Self {
-        Utf8 {
-            contents: Cow::from(s),
-        }
-    }
-}
-
-impl<'a> Utf8<'a> {
-    pub fn lower(&self) -> (*const u8, u32) {
-        (self.contents.as_ptr(), self.contents.len() as u32)
-    }
+    fn null_value(out: &mut Local);
+    fn new_function(out: &mut Local, handler: FunctionCallback);
+    fn promise_then(promise: &mut Local, handler: Local);
 }
 
 pub trait Managed: Copy {
     fn to_raw(self) -> Local;
 
     fn from_raw(h: Local) -> Self;
-}
-
-fn build(s: &str) -> (*const u8, u32) {
-    unsafe {
-        let ptr = to_c_str(s);
-        let len = libc::strlen(ptr);
-        (ptr as *const u8, len as u32)
-    }
 }
 
 /// A property key in Javascript object
@@ -93,12 +74,12 @@ impl<'a, K: Value> PropertyKey for Handle<'a, K> {
 
 impl<'a> PropertyKey for &'a str {
     unsafe fn get_from(self, out: &mut Local, obj: Local) -> bool {
-        let (ptr, len) = build(self);
+        let (ptr, len) = Utf8::from(self).lower();
         object_string_get(out, obj, ptr, len)
     }
 
     unsafe fn set_from(self, out: &mut bool, obj: Local, val: Local) -> bool {
-        let (ptr, len) = build(self);
+        let (ptr, len) = Utf8::from(self).lower();
         object_string_set(out, obj, ptr, len, val)
     }
 }
@@ -240,7 +221,7 @@ impl JsNumber {
     pub(crate) fn new_internal<'a>(v: f64) -> Handle<'a, JsNumber> {
         unsafe {
             let mut local: Local = std::mem::zeroed();
-            new_primitive_number(&mut local, v);
+            new_number(&mut local, v);
             Handle::new_internal(JsNumber(local))
         }
     }
@@ -391,6 +372,19 @@ pub struct JsFunction<T: Object = JsObject> {
     marker: PhantomData<T>,
 }
 
+impl JsFunction {
+    pub fn new<'a>(handler: FunctionCallback) -> Handle<'a, JsFunction> {
+        unsafe {
+            let mut local: Local = std::mem::zeroed();
+            new_function(&mut local, handler);
+            Handle::new_internal(JsFunction {
+                raw: local,
+                marker: PhantomData,
+            })
+        }
+    }
+}
+
 impl<CL: Object> JsFunction<CL> {
     pub fn call<'a, 'b, T, R, A, AS>(self, this: Handle<'a, T>, args: AS) -> Handle<'a, R>
     where
@@ -430,6 +424,38 @@ impl<T: Object> Managed for JsFunction<T> {
     }
 }
 
+/// A Javascript promise
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JsPromise<T: Object = JsObject> {
+    raw: Local,
+    marker: PhantomData<T>,
+}
+
+impl<CL: Object> JsPromise<CL> {
+    pub fn then<'a>(&'a self, handler: Handle<'a, JsFunction>) {
+        unsafe {
+            promise_then(&mut self.to_raw(), handler.to_raw());
+        }
+    }
+}
+
+impl<T: Object> Value for JsPromise<T> {}
+impl<T: Object> Object for JsPromise<T> {}
+
+impl<T: Object> Managed for JsPromise<T> {
+    fn to_raw(self) -> Local {
+        self.raw
+    }
+
+    fn from_raw(h: Local) -> Self {
+        JsPromise {
+            raw: h,
+            marker: PhantomData,
+        }
+    }
+}
+
 /// A Javascript null.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -443,7 +469,7 @@ impl JsNull {
     pub(crate) fn new_internal<'a>() -> Handle<'a, JsNull> {
         unsafe {
             let mut local: Local = std::mem::zeroed();
-            primitive_null(&mut local);
+            null_value(&mut local);
             Handle::new_internal(JsNull(local))
         }
     }

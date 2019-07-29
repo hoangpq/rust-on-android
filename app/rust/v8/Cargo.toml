@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2"
+utf8_util = { path = "../utf8_util" }

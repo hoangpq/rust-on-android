@@ -258,10 +258,14 @@ Deno *__unused lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
 }
 
 // Utils for Rust represent
-extern "C" void __unused new_primitive_number(Local<Number> *out,
-                                              double value) {
+extern "C" void __unused new_number(Local<Number> *out, double value) {
   Isolate *isolate_ = Isolate::GetCurrent();
   *out = Number::New(isolate_, value);
+}
+
+extern "C" double __unused number_value(Local<Number> *number) {
+  assert((*number)->IsNumber());
+  return (*number)->NumberValue();
 }
 
 extern "C" void __unused new_array(Local<Array> *out, uint32_t length) {
@@ -380,6 +384,27 @@ extern "C" bool __unused object_string_get(Local<Value> *out, Local<Object> obj,
   return maybe_local.ToLocal(out);
 }
 
-extern "C" void __unused primitive_null(Local<Primitive> *out) {
+extern "C" void __unused null_value(Local<Primitive> *out) {
   *out = Null(Isolate::GetCurrent());
+}
+
+extern "C" void new_function(Local<Function> *out, FunctionCallback cb) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  MaybeLocal<Function> maybe_local =
+      Function::New(isolate_->GetCurrentContext(), cb);
+  maybe_local.ToLocal(out);
+}
+
+extern "C" void __unused promise_then(Local<Promise> *promise,
+                                      Local<Function> handler) {
+  Isolate *isolate_ = Isolate::GetCurrent();
+  Local<Context> context_ = isolate_->GetCurrentContext();
+  MaybeLocal<Promise> maybe_local = (*promise)->Then(context_, handler);
+  maybe_local.ToLocal(promise);
+}
+
+extern "C" void callback_info_get(const FunctionCallbackInfo<Value> &args,
+                                  uint32_t index, Local<Value> *out) {
+  assert(args.Length() >= index);
+  *out = args[index];
 }
