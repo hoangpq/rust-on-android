@@ -11,7 +11,7 @@ extern "C" {
     fn new_object(local: &mut Local);
     fn new_array(local: &mut Local, len: u32);
     fn new_array_buffer(local: &mut Local, data: *mut libc::c_void, byte_length: libc::size_t);
-    fn new_utf8_string(local: &mut Local, data: *const libc::c_char);
+    fn new_utf8_string(local: &mut Local, data: *const u8, len: u32);
     fn function_call(
         out: &mut Local,
         local: Local,
@@ -31,6 +31,24 @@ extern "C" {
     ) -> bool;
     fn object_string_get(out: &mut Local, obj: Local, ptr: *const u8, len: u32) -> bool;
     fn primitive_null(out: &mut Local);
+}
+
+pub struct Utf8<'a> {
+    contents: Cow<'a, str>,
+}
+
+impl<'a> From<&'a str> for Utf8<'a> {
+    fn from(s: &'a str) -> Self {
+        Utf8 {
+            contents: Cow::from(s),
+        }
+    }
+}
+
+impl<'a> Utf8<'a> {
+    pub fn lower(&self) -> (*const u8, u32) {
+        (self.contents.as_ptr(), self.contents.len() as u32)
+    }
 }
 
 pub trait Managed: Copy {
@@ -315,8 +333,9 @@ impl JsString {
 
     pub(crate) fn new_internal<'a>(data: &str) -> Handle<'a, JsString> {
         unsafe {
+            let (ptr, len) = Utf8::from(data).lower();
             let mut local: Local = std::mem::zeroed();
-            new_utf8_string(&mut local, to_c_str(data));
+            new_utf8_string(&mut local, ptr, len);
             Handle::new_internal(JsString(local))
         }
     }
