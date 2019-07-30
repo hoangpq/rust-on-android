@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.os.Bundle
+import android.support.annotation.Keep
 import android.support.v7.app.AppCompatActivity
 import android.widget.Button
 import android.widget.ImageView
@@ -29,7 +30,7 @@ class GenerateImageActivity : AppCompatActivity() {
         imageView.setImageBitmap(bmp)
 
         btnGenImage.setOnClickListener {
-            blendBitmap(imageView, 0.004, -2.1, -1.5) {
+            blendBitmap(imageView, 0.004, -2.1, -1.5) @Keep {
                 Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
             }
         }
@@ -42,6 +43,7 @@ class GenerateImageActivity : AppCompatActivity() {
         }
 
         @JvmStatic
+        @Keep
         fun createImage(width: Int, height: Int, color: Int = Color.BLACK): Bitmap {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)

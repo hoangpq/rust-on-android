@@ -27,7 +27,7 @@ extern crate utf8_util;
 extern crate v8_macros;
 
 use jni::JNIEnv;
-use libc::{c_char, size_t};
+use libc::size_t;
 use v8::fun::CallbackInfo;
 use v8::types::*;
 use v8_macros::v8_fn;
@@ -59,7 +59,7 @@ pub unsafe extern "C" fn worker_send_bytes(
     _buf: Buf,
     _len: size_t,
     _callback: Handle<JsFunction>,
-) -> *const c_char {
+) -> *const libc::c_char {
     let info = js_object!(
         "name" => "Vampire",
         "gender" => "Male",
@@ -85,7 +85,7 @@ pub unsafe extern "C" fn worker_send_bytes(
 
     promise.then(JsFunction::new(promise_resolver));
 
-    c_str!("💖") as *const i8
+    c_str!("💖")
 }
 
 #[v8_fn]

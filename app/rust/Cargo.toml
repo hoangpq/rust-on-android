@@ -42,5 +42,5 @@ v8_macros = { path = "./v8_macros" }
 ndk_log = { path = "./ndk_log" }
 utf8_util = { path = "./utf8_util" }
 
-[profile.release]
-debug = true
+# [profile.release]
+# debug = true

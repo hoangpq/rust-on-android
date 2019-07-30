@@ -2,6 +2,10 @@
 source ~/.bash_profile
 dir=`pwd`
 
+export AARCH64LINUX_ANDROID_OPENSSL_INCLUDE_DIR="`pwd`/app/rust/openssl/include"
+export AARCH64_LINUX_ANDROID_OPENSSL_LIB_DIR="`pwd`/app/rust/openssl/lib"
+export AARCH64_LINUX_ANDROID_OPENSSL_DIR="`pwd`/app/rust/openssl"
+
 export I686_LINUX_ANDROID_OPENSSL_INCLUDE_DIR="`pwd`/app/rust/openssl/include"
 export I686_LINUX_ANDROID_OPENSSL_LIB_DIR="`pwd`/app/rust/openssl/lib"
 export I686_LINUX_ANDROID_OPENSSL_DIR="`pwd`/app/rust/openssl"

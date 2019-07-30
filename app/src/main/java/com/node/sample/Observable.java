@@ -1,5 +1,8 @@
 package com.node.sample;
 
+import android.support.annotation.Keep;
+
+@Keep
 public class Observable {
     public void subscribe() {
     }
