@@ -1,4 +1,3 @@
-use jni::JNIEnv;
 use jni_sys::jobject;
 use libc::{c_int, c_uint, c_void};
 
