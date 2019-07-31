@@ -2,19 +2,19 @@
 extern crate jni;
 extern crate libc;
 
-use std::{ffi::CString, sync::mpsc, thread};
-
-use jni::errors::Result;
-use jni::objects::{GlobalRef, JClass, JObject, JValue};
-use jni::sys::{jint, jobject, jstring, JNIEnv};
-use libc::{c_int, c_uint, c_void};
-
 mod android;
 mod mandelbrot;
 use crate::dex;
 
+use jni::errors::Result;
+use jni::objects::{GlobalRef, JClass, JObject, JValue};
+use jni::sys::{jint, jstring};
+use libc::{c_uint, c_void};
+use std::borrow::Cow;
+use std::{ffi::CString, sync::mpsc, thread};
+
 pub unsafe fn create_bitmap<'b>(
-    env: &'b jni::JNIEnv<'b>,
+    env: &'b jni::JNIEnv,
     width: c_uint,
     height: c_uint,
 ) -> Result<JValue<'b>> {
@@ -31,15 +31,10 @@ pub unsafe fn create_bitmap<'b>(
 pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
     env: jni::JNIEnv,
     _class: JClass,
-) -> jstring {
-    let ptr = CString::new(
-        "ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!".to_owned(),
-    )
-    .unwrap();
-    let output = env
-        .new_string(ptr.to_str().unwrap())
-        .expect("Couldn't create java string!");
-    output.into_inner()
+) -> Result<jstring> {
+    let raw = Cow::from("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!");
+    let output = env.new_string(raw)?;
+    Ok(output.into_inner())
 }
 
 unsafe fn blend_bitmap<'a>(
