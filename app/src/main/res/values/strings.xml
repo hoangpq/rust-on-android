@@ -5,4 +5,7 @@
     <string name="image_processing">Image Processing</string>
     <string name="node_versions">Node Versions</string>
     <string name="message">Message</string>
+    <string name="render">Render</string>
+    <string name="mandelbrot">Mandelbrot</string>
+    <string name="fractal">Fractal</string>
 </resources>

@@ -2,7 +2,8 @@
 extern crate jni;
 extern crate libc;
 
-mod android;
+pub mod android;
+mod fractal;
 mod mandelbrot;
 use crate::dex;
 
@@ -10,8 +11,9 @@ use jni::errors::Result;
 use jni::objects::{GlobalRef, JClass, JObject, JValue};
 use jni::sys::{jint, jstring};
 use libc::{c_uint, c_void};
-use std::borrow::Cow;
-use std::{ffi::CString, sync::mpsc, thread};
+use std::{sync::mpsc, thread};
+
+type RenderType = u32;
 
 pub unsafe fn create_bitmap<'b>(
     env: &'b jni::JNIEnv,
@@ -31,18 +33,18 @@ pub unsafe fn create_bitmap<'b>(
 pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
     env: jni::JNIEnv,
     _class: JClass,
-) -> Result<jstring> {
-    let raw = Cow::from("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!");
-    let output = env.new_string(raw)?;
-    Ok(output.into_inner())
+) -> jstring {
+    let output = env
+        .new_string("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!")
+        .expect("Couldn't create java string!");
+
+    output.into_inner()
 }
 
 unsafe fn blend_bitmap<'a>(
     vm: jni::JavaVM,
+    render_type: RenderType,
     image_view_ref: GlobalRef,
-    pixel_size: f64,
-    x0: f64,
-    y0: f64,
 ) -> Result<&'a str> {
     // Attach current thread
     let env = vm.attach_current_thread()?;
@@ -66,14 +68,11 @@ unsafe fn blend_bitmap<'a>(
     let pixels =
         std::slice::from_raw_parts_mut(pixels as *mut u8, (info.stride * info.height) as usize);
 
-    mandelbrot::draw(
-        pixels,
-        info.width as i64,
-        info.height as i64,
-        pixel_size,
-        x0,
-        y0,
-    );
+    match render_type {
+        0x000001 => mandelbrot::render(pixels, info.width as u32, info.height as u32),
+        0x000002 => fractal::render(pixels, info.width as u32, info.height as u32),
+        _ => {}
+    };
 
     android::bitmap_unlock_pixels(raw_env, bmp);
 
@@ -92,9 +91,7 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     env: jni::JNIEnv,
     _class: JObject,
     image_view: JObject,
-    pixel_size: f64,
-    x0: f64,
-    y0: f64,
+    render_type: u32,
     callback: JObject,
 ) {
     let vm = env.get_java_vm().unwrap();
@@ -102,7 +99,7 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     let (tx, rx) = mpsc::sync_channel::<&str>(1);
 
     thread::spawn(move || {
-        let msg = match blend_bitmap(vm, image_view_ref, pixel_size, x0, y0) {
+        let msg = match blend_bitmap(vm, render_type, image_view_ref) {
             Ok(msg) => msg,
             _ => "Failed to render!",
         };

@@ -29,7 +29,11 @@ fn generate_palette() -> Vec<Color> {
     return palette;
 }
 
-pub fn draw(buffer: &mut [u8], width: i64, height: i64, pixel_size: f64, x0: f64, y0: f64) {
+pub fn render(buffer: &mut [u8], width: u32, height: u32) {
+    let pixel_size = 0.004;
+    let x0 = -2.1;
+    let y0 = -1.5;
+
     let palette: Vec<Color> = generate_palette();
     iproduct!((0..width), (0..height)).foreach(|(i, j)| {
         let cr = x0 + pixel_size * (i as f64);

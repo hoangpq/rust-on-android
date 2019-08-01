@@ -4,17 +4,20 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.net.Uri
 import android.os.Bundle
 import android.support.annotation.Keep
 import android.support.v7.app.AppCompatActivity
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
 import com.node.util.Util
 
-class GenerateImageActivity : AppCompatActivity() {
+class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
+    private external fun blendBitmap(imageView: ImageView?, renderType: Int, callback: (String) -> Unit)
 
-    private external fun blendBitmap(imageView: ImageView, pixel_size: Double, x0: Double, y0: Double, callback: (String) -> Unit)
+    private var imageView: ImageView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,16 +26,25 @@ class GenerateImageActivity : AppCompatActivity() {
         // register class to dex helper
         Util.createReference("com/node/util/Util")
 
-        val btnGenImage = findViewById<Button>(R.id.btnGenImage)
-        val imageView = findViewById<ImageView>(R.id.imageView)
+        val genMandelbrot = findViewById<Button>(R.id.mandelbrot)
+        val genFractal = findViewById<Button>(R.id.fractal)
 
-        val bmp = createImage(800, 800)
-        imageView.setImageBitmap(bmp)
+        imageView = findViewById(R.id.imageView)
+        imageView?.setImageBitmap(createImage(800, 800))
 
-        btnGenImage.setOnClickListener {
-            blendBitmap(imageView, 0.004, -2.1, -1.5) @Keep {
-                Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
-            }
+        genMandelbrot.setOnClickListener(this)
+        genFractal.setOnClickListener(this)
+    }
+
+    override fun onClick(view: View?) {
+        val renderType = when (view?.id) {
+            R.id.mandelbrot -> 0x000001
+            R.id.fractal -> 0x00002
+            else -> 0x000003
+        }
+
+        blendBitmap(imageView, renderType) @Keep {
+            Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -42,8 +54,8 @@ class GenerateImageActivity : AppCompatActivity() {
             System.loadLibrary("image-gen")
         }
 
-        @JvmStatic
         @Keep
+        @JvmStatic
         fun createImage(width: Int, height: Int, color: Int = Color.BLACK): Bitmap {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
