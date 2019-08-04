@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.net.Uri
 import android.os.Bundle
 import android.support.annotation.Keep
 import android.support.v7.app.AppCompatActivity
@@ -12,6 +11,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
+import com.node.util.ResourceUtil
 import com.node.util.Util
 
 class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {

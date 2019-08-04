@@ -116,9 +116,8 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
         "(Ljava/lang/String;)V",
         &[JValue::from(JObject::from(env.new_string(msg).unwrap()))],
     ) {
-        env.exception_check().unwrap_or_else(|e| {
+        let _ = env.exception_check().map_err(|e| {
             adb_debug!(format!("{:?}", e));
-            true
         });
     }
 }

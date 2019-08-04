@@ -1,11 +1,14 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Once;
+use std::{
+    sync::atomic::{AtomicUsize, Ordering},
+    sync::Once,
+};
 
 use futures::stream::{FuturesUnordered, Stream};
 use futures::Async::*;
 use futures::{task, Future, Poll};
 use libc::c_void;
 
+use crate::runtime::resource;
 use crate::runtime::timer::set_timeout;
 use crate::runtime::{eval_script, DenoC, OpAsyncFuture};
 
@@ -19,6 +22,7 @@ extern "C" {
     fn set_deno_resolver(deno: *const DenoC);
     fn deno_lock(deno: *const DenoC);
     fn deno_unlock(deno: *const DenoC);
+    fn deno_get_env(env: *mut jni_sys::JNIEnv);
 }
 
 pub struct Isolate {
@@ -78,6 +82,22 @@ impl Isolate {
 
     pub unsafe fn initialize(&mut self) {
         set_deno_data(self.deno, self.as_raw_ptr());
+
+        /*let mut env = std::ptr::null_mut();
+        deno_get_env(&mut env);
+
+        // register vm
+        match jni::JavaVM::from_raw(env) {
+            Ok(vm) => match vm.get_env() {
+                Ok(env) => {
+                    let script = resource::load_resource(&env).unwrap();
+                    adb_debug!(format!("Script: {}", script));
+                }
+                _ => adb_debug!("Error: env error"),
+            },
+            _ => adb_debug!("Error: VM error"),
+        };*/
+
         eval_script(
             self.deno,
             c_str!("isolate.js"),

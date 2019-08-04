@@ -6,7 +6,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -16,15 +15,14 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.node.util.ResourceUtil;
 import com.node.util.Util;
 import com.node.util.Version;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 import static com.node.util.JsonUtil.parseVersion;
@@ -45,36 +43,16 @@ public class MainActivity extends AppCompatActivity {
 
     public native String getUtf8String();
 
-    private String readBuffer() throws IOException {
-        final Resources resources = getApplicationContext().getResources();
-        InputStream inputStream = resources.openRawResource(R.raw.core);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        StringBuilder builder = new StringBuilder();
-
-        String line;
-        while ((line = reader.readLine()) != null) {
-            builder.append(line);
-        }
-
-        reader.close();
-        return builder.toString();
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
-        try {
-            String buf = readBuffer();
-            Log.d("Buffer", buf);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
         // register class to dex helper
         Util.Companion.createReference("com/node/sample/MainActivity");
+        ResourceUtil.setContext(this);
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
