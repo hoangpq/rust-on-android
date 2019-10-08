@@ -1,4 +1,5 @@
 #include "api.h"
+#include "v8_jni/wrapper.h"
 
 extern "C" void __unused deno_lock(void *d_) {
   auto *d = Deno::unwrap(d_);
@@ -183,6 +184,8 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
 
   Local<External> env_ = External::New(deno->isolate_, deno);
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
+
+  JavaWrapper::Init(isolate_, global_);
 
   global_->Set(String::NewFromUtf8(isolate_, "$sendBuffer"),
                FunctionTemplate::New(isolate_, SendBuffer, env_));

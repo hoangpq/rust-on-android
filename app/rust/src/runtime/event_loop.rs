@@ -38,6 +38,14 @@ pub extern "C" fn init_event_loop() {
             let mut worker = Worker::new();
             worker.execute(
                 r#"
+
+                try {
+                    const j = new $java("java/lang/Long");
+                    console.log(j.package);
+                } catch (e) {
+                    console.log(e);
+                }
+
                 /** Text decoder */
                 function TextDecoder() {}
 

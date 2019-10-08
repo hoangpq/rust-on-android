@@ -1,5 +1,3 @@
-#include <features.h>
-
 #ifndef lib_api
 #define lib_api
 
@@ -8,6 +6,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <features.h>
 #include <iostream>
 #include <jni.h>
 #include <map>
@@ -44,10 +43,11 @@ Local<Function> get_function(Local<Object> obj, Local<String> key) {
 static JavaVM *vm;
 
 extern "C" void deno_get_env(JNIEnv **env) {
-    vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+  vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
 }
 
 extern "C" void register_vm(JavaVM *_vm) { vm = _vm; }
+extern "C" JavaVM *get_java_vm() { return vm; }
 
 void attach_current_thread(JNIEnv **env) {
   int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);

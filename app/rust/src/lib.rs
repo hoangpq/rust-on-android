@@ -42,6 +42,7 @@ mod dex;
 mod runtime;
 mod buffer;
 mod ndk_util;
+mod v8_jni;
 
 #[no_mangle]
 pub unsafe extern "C" fn get_android_version(env: &JNIEnv) -> i32 {

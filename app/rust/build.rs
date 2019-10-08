@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    println!(
+    /*println!(
         "cargo:rustc-link-search=native={}",
         Path::new(&dir).join("libnode/bin/x86").display()
-    );
+    );*/
     println!("cargo:rustc-link-search=dylib={}", "node");
 
     let dst = PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -22,6 +22,7 @@ fn main() {
         .flag_if_supported("-Wno-unused-parameter")
         .include("libnode/include/node")
         .include("build")
+        .file("build/v8_jni/wrapper.cpp")
         .file("build/api.cpp")
         .compile("api");
 }
