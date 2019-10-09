@@ -2,6 +2,7 @@ extern crate cc;
 
 use std::env;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();

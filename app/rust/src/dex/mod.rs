@@ -81,11 +81,9 @@ where
     let class_name = class.to_string();
 
     let class_ref = table.get(&class_name).unwrap();
-    let value = env
-        .call_method(class_ref.as_obj(), "get", "()Ljava/lang/Object;", &[])
-        .unwrap();
+    let value = env.call_method(class_ref.as_obj(), "get", "()Ljava/lang/Object;", &[])?;
 
-    let class = JClass::from(value.l().unwrap());
+    let class = JClass::from(value.l()?);
     unsafe { env.call_static_method_unsafe(class, (class, name, sig), parsed.ret, args) }
 }
 

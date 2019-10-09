@@ -52,6 +52,9 @@ public class MainActivity extends AppCompatActivity {
 
         // register class to dex helper
         Util.Companion.createReference("com/node/sample/MainActivity");
+        // register class to dex helper
+        Util.Companion.createReference("com/node/util/Util");
+
         ResourceUtil.setContext(this);
 
         final Button buttonVersions = findViewById(R.id.btVersions);

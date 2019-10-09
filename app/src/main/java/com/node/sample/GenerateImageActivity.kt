@@ -23,9 +23,6 @@ class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.processing_image)
 
-        // register class to dex helper
-        Util.createReference("com/node/util/Util")
-
         val genMandelbrot = findViewById<Button>(R.id.mandelbrot)
         val genFractal = findViewById<Button>(R.id.fractal)
 

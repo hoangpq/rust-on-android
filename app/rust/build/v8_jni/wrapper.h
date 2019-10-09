@@ -7,7 +7,8 @@
 using namespace v8;
 
 extern "C" {
-jobject new_integer(int32_t);
+jvalue new_integer(int32_t);
+void static_call(jvalue);
 }
 
 class JavaWrapper : public rust::ObjectWrap {
@@ -28,7 +29,7 @@ private:
                      const PropertyCallbackInfo<void> &info);
 
   std::string p_;
-  jobject obj_;
+  jvalue v_;
 
   static Persistent<FunctionTemplate> constructor_;
 };

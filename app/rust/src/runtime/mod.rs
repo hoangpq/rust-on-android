@@ -5,7 +5,6 @@ use tokio::runtime;
 pub mod event_loop;
 pub mod fetch;
 pub mod isolate;
-pub mod resource;
 pub mod stream_cancel;
 pub mod timer;
 pub mod util;

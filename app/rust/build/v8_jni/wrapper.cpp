@@ -21,7 +21,12 @@ void JavaWrapper::JNew(const FunctionCallbackInfo<Value> &args) {
   std::string val_s(*val);
 
   auto *wrapper = new JavaWrapper(val_s);
-  wrapper->obj_ = new_integer(42);
+  // wrapper->v_ = new_integer(42);
+
+  // jvalue j;
+  // j.i = (jint)100;
+
+  // static_call(j);
 
   wrapper->Wrap(args.This());
 
@@ -47,3 +52,5 @@ void JavaWrapper::Getter(Local<String> property,
 
 void JavaWrapper::Setter(Local<String> property, Local<Value> value,
                          const PropertyCallbackInfo<void> &info) {}
+
+#pragma clang diagnostic pop

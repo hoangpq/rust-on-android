@@ -1,8 +1,8 @@
+use crate::dex;
 use jni::errors::*;
-use jni::objects::{JObject, JValue};
-use jni::{AttachGuard, JNIEnv, JavaVM};
-use jni_sys::{jint, jobject};
-use libc::c_char;
+use jni::objects::JValue;
+use jni::{AttachGuard, JavaVM};
+use jni_sys::jvalue;
 use std::sync::{Arc, Once};
 
 static mut JVM: Option<Arc<JavaVM>> = None;
@@ -30,9 +30,14 @@ pub fn attach_current_thread() -> AttachGuard<'static> {
 }
 
 #[no_mangle]
-pub extern "C" fn new_integer(value: i32) -> jobject {
+pub extern "C" fn new_integer(val: i32) -> jvalue {
+    JValue::from(val).to_jni()
+}
+
+#[no_mangle]
+pub extern "C" fn static_call(val: JValue) -> Result<()> {
     let env = attach_current_thread();
-    env.new_object("java/lang/Integer", "(I)V", &[JValue::Int(value)])
-        .unwrap()
-        .into_inner()
+    dex::call_static_method(&env, "com/node/util/Util", "testMethod", "(I)I", &[val])?;
+
+    Ok(())
 }
