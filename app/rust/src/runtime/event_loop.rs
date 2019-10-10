@@ -40,8 +40,8 @@ pub extern "C" fn init_event_loop() {
                 r#"
 
                 try {
-                    const j = new $java("java/lang/Long");
-                    console.log(j.package);
+                    const rd = new $java("java/util/Random");
+                    console.log(rd.nextInt(1024));
                 } catch (e) {
                     console.log(e);
                 }
