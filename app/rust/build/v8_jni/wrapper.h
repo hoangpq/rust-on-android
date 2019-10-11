@@ -14,9 +14,15 @@ typedef struct {
   uint32_t len;
 } string_t;
 
+typedef struct {
+  jvalue value;
+  uint8_t t;
+} value_t;
+
 extern "C" {
+jobject new_class(string_t);
 jobject new_instance(string_t);
-jvalue instance_call(jobject, string_t, uint32_t, const jvalue *);
+value_t instance_call(jobject, string_t, const value_t *, uint32_t);
 void adb_debug(const char *);
 }
 
@@ -26,8 +32,7 @@ public:
   static void Init(Isolate *isolate_, Local<ObjectTemplate> exports);
 
 private:
-  explicit JavaWrapper(std::string packageName)
-      : package_(std::move(packageName)){};
+  explicit JavaWrapper(std::string packageName) : package_(packageName){};
   ~JavaWrapper() override = default;
 
   static void New(const FunctionCallbackInfo<Value> &args);
@@ -46,6 +51,7 @@ private:
   std::string package_;
   std::string method_;
   jvalue value_;
+  jobject class_;
 
   static Persistent<FunctionTemplate> constructor_;
 };

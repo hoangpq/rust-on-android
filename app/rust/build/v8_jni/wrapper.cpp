@@ -7,13 +7,20 @@ string_t _new_string_t(std::string s) {
   return st;
 }
 
+value_t _new_value_t(uint32_t val) {
+  value_t value;
+  value.value.i = (jint)val;
+  value.t = 0;
+  return value;
+}
+
 Persistent<FunctionTemplate> JavaWrapper::constructor_;
 
 void JavaWrapper::Init(Isolate *isolate_, Local<ObjectTemplate> exports) {
   // Java interoperable
   Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate_, New);
 
-  tpl->SetClassName(String::NewFromUtf8(isolate_, "java$"));
+  tpl->SetClassName(String::NewFromUtf8(isolate_, "Java"));
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
   tpl->InstanceTemplate()->SetCallAsFunctionHandler(Call, Handle<Value>());
   tpl->InstanceTemplate()->SetAccessor(
@@ -23,7 +30,7 @@ void JavaWrapper::Init(Isolate *isolate_, Local<ObjectTemplate> exports) {
   tpl->InstanceTemplate()->SetNamedPropertyHandler(Getter, Setter);
 
   constructor_.Reset(isolate_, tpl);
-  exports->Set(String::NewFromUtf8(isolate_, "$java"), tpl);
+  exports->Set(String::NewFromUtf8(isolate_, "Java"), tpl);
 }
 
 std::string v8str(Local<String> input) {
@@ -44,6 +51,7 @@ void JavaWrapper::New(const FunctionCallbackInfo<Value> &args) {
 
     if (!isMethodConstructor) {
       wrapper->value_.l = new_instance(_new_string_t(package));
+      wrapper->class_ = new_class(_new_string_t(package));
     }
 
     wrapper->Wrap(args.This());
@@ -87,25 +95,27 @@ void JavaWrapper::ToStringAccessor(Local<String> property,
 
 void JavaWrapper::Call(const FunctionCallbackInfo<Value> &args) {
   Isolate *isolate = args.GetIsolate();
-  HandleScope handleScope(isolate);
 
   int argc = args.Length();
-  jvalue *jargs = (jvalue *)malloc(argc * sizeof(jvalue));
+  value_t jargs[argc];
 
-  /*for (int i = 0; i < argc; i++) {
-    jvalue val;
+  for (int i = 0; i < argc; i++) {
     if (args[i]->IsNumber()) {
-      val.i = (jint)args[i]->Uint32Value();
+      jargs[i] = _new_value_t(args[i]->Uint32Value());
     }
-    jargs[i] = val;
-  }*/
-
-  jargs[0].i = (jint)100;
-
+  }
 
   auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(args.This());
-  jvalue val = instance_call(wrapper->value_.l, _new_string_t(wrapper->method_),
-                             argc, jargs);
+  value_t val =
+      instance_call(wrapper->value_.l, _new_string_t(wrapper->method_), jargs,
+                    static_cast<uint32_t>(argc));
 
-  args.GetReturnValue().Set(Number::New(isolate, (int)val.i));
+  switch (val.t) {
+  case 0:
+    args.GetReturnValue().Set(Number::New(isolate, (int)val.value.i));
+    break;
+  default:
+    args.GetReturnValue().Set(Undefined(isolate));
+    break;
+  }
 }

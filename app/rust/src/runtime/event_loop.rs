@@ -40,8 +40,8 @@ pub extern "C" fn init_event_loop() {
                 r#"
 
                 try {
-                    const rd = new $java("java/util/Random");
-                    console.log(rd.nextInt(1024));
+                    const rd = new Java("java/util/Random");
+                    console.log(`nextInt: ${rd.nextInt(1024)}`);
                 } catch (e) {
                     console.log(e);
                 }
@@ -126,16 +126,6 @@ pub extern "C" fn init_event_loop() {
                         console.log(`api call: ${Date.now() - start}`);
                     })
                     .catch(e => console.log(e.message));
-
-                (async function() {
-                    try {
-                        // fetch json api
-                        let resp = await fetch('https://freejsonapi.com/posts').then(resp => resp.json());
-                        console.log(`Total: ${resp.data.length}`);
-                    } catch (e) {
-                        console.log(e.message);
-                    }
-                })();
             "#,
             );
             worker
