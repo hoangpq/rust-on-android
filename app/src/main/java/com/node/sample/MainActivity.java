@@ -50,10 +50,10 @@ public class MainActivity extends AppCompatActivity {
 
         getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
-        // register class to dex helper
+        // FIXME: register class to dex helper
         Util.Companion.createReference("com/node/sample/MainActivity");
-        // register class to dex helper
         Util.Companion.createReference("com/node/util/Util");
+        Util.Companion.createReference("com/node/util/JNIHelper");
 
         ResourceUtil.setContext(this);
 

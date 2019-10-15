@@ -1,6 +1,6 @@
 #include "wrapper.h"
 
-string_t _new_string_t(std::string s) {
+string_t _new_string_t(const std::string &s) {
   string_t st;
   st.ptr = reinterpret_cast<const uint8_t *>(s.c_str());
   st.len = static_cast<uint32_t>(s.length());
@@ -93,29 +93,21 @@ void JavaWrapper::Setter(Local<String> property, Local<Value> value,
 void JavaWrapper::ToStringAccessor(Local<String> property,
                                    const PropertyCallbackInfo<Value> &info) {}
 
-void JavaWrapper::Call(const FunctionCallbackInfo<Value> &args) {
-  Isolate *isolate = args.GetIsolate();
+void JavaWrapper::Call(const FunctionCallbackInfo<Value> &info) {
+  Isolate *isolate = info.GetIsolate();
 
-  int argc = args.Length();
-  value_t jargs[argc];
+  int argc = info.Length();
+  auto *args = new value_t[argc];
 
   for (int i = 0; i < argc; i++) {
-    if (args[i]->IsNumber()) {
-      jargs[i] = _new_value_t(args[i]->Uint32Value());
+    if (info[i]->IsNumber()) {
+      args[i] = _new_value_t(info[i]->Uint32Value());
     }
   }
 
-  auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(args.This());
-  value_t val =
-      instance_call(wrapper->value_.l, _new_string_t(wrapper->method_), jargs,
-                    static_cast<uint32_t>(argc));
+  auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(info.This());
+  instance_call(wrapper->value_.l, _new_string_t(wrapper->method_), args,
+                static_cast<uint32_t>(argc), info);
 
-  switch (val.t) {
-  case 0:
-    args.GetReturnValue().Set(Number::New(isolate, (int)val.value.i));
-    break;
-  default:
-    args.GetReturnValue().Set(Undefined(isolate));
-    break;
-  }
+  delete args;
 }

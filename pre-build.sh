@@ -47,7 +47,7 @@ rm -f ./target/x86/librust.a
 
 # RUST_BACKTRACE=1 cargo +nightly build --target aarch64-linux-android --release
 # RUST_BACKTRACE=1 cargo +nightly build --target armv7-linux-androideabi --release
-RUST_BACKTRACE=1 cargo +nightly build --target i686-linux-android --release
+RUST_BACKTRACE=1 cargo +nightly build --target i686-linux-android
 
 # mkdir -p ./target/arm64-v8a
 # mkdir -p ./target/armeabi-v7a
@@ -55,7 +55,7 @@ mkdir -p ./target/x86
 
 # cp ./target/aarch64-linux-android/release/librust.a ./target/arm64-v8a/librust.a
 # cp ./target/armv7-linux-androideabi/release/librust.a ./target/armeabi-v7a/librust.a
-cp ./target/i686-linux-android/release/librust.a ./target/x86/librust.a
+cp ./target/i686-linux-android/debug/librust.a ./target/x86/librust.a
 
 # web assembly
 rustc +nightly --target wasm32-unknown-unknown -O src/main.rs

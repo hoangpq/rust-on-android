@@ -84,7 +84,7 @@ where
     let value = env.call_method(class_ref.as_obj(), "get", "()Ljava/lang/Object;", &[])?;
 
     let class = JClass::from(value.l()?);
-    unsafe { env.call_static_method_unsafe(class, (class, name, sig), parsed.ret, args) }
+    env.call_static_method_unchecked(class, (class, name, sig), parsed.ret, args)
 }
 
 pub fn _find_class<'a>(env: &'a JNIEnv, class: String) -> Result<JClass<'a>> {

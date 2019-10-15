@@ -22,7 +22,8 @@ typedef struct {
 extern "C" {
 jobject new_class(string_t);
 jobject new_instance(string_t);
-value_t instance_call(jobject, string_t, const value_t *, uint32_t);
+void instance_call(jobject, string_t, const value_t *, uint32_t,
+                   const FunctionCallbackInfo<Value> &);
 void adb_debug(const char *);
 }
 
