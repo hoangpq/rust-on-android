@@ -1,7 +1,9 @@
-use crate::runtime::isolate;
-use futures::{Async, Future};
 use std::sync::{Arc, Mutex};
 use std::thread;
+
+use futures::{Async, Future};
+
+use crate::runtime::isolate;
 
 #[derive(Clone)]
 pub struct Worker {
@@ -38,14 +40,32 @@ pub extern "C" fn init_event_loop() {
             let mut worker = Worker::new();
             worker.execute(
                 r#"
-
-                try {
-                    const rd = new Java("java/util/Random");
-                    console.log(`nextInt: ${rd.nextInt(1024)}`);
-                } catch (e) {
-                    console.log(e);
+                function javaFunction(target, prop) {
+                    return function invoke(...args) {
+                        return $invokeJavaFn(target, prop, args || []);
+                    }
                 }
 
+                const javaHandler = {
+                    get(target, prop, receiver) {
+                        return javaFunction(target, prop);
+                    }
+                };
+
+                const java = {
+                  import(package) {
+                    return new Proxy(new Java(package), javaHandler);
+                  }
+                };
+
+                const random = java.import('java/util/Random'); 
+                console.log(`nextInt: ${random.nextInt(123)}`);
+                console.log(`nextInt: ${random.nextInt(456)}`);
+                
+                Promise.resolve().then(() => {
+                    console.log(`nextInt: ${random.nextInt(789)}`);
+                });
+                
                 /** Text decoder */
                 function TextDecoder() {}
 

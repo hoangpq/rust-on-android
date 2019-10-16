@@ -21,7 +21,6 @@ extern "C" {
     fn set_deno_resolver(deno: *const DenoC);
     fn deno_lock(deno: *const DenoC);
     fn deno_unlock(deno: *const DenoC);
-    fn deno_get_env(env: *mut jni_sys::JNIEnv);
 }
 
 pub struct Isolate {

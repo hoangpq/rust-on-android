@@ -1,4 +1,5 @@
 #include "api.h"
+#include "util/util.h"
 #include "v8_jni/wrapper.h"
 
 extern "C" void __unused deno_lock(void *d_) {
@@ -119,6 +120,29 @@ void NewTimer(const FunctionCallbackInfo<Value> &args) {
   d->recv_cb_(d->user_data_, args[0]->Uint32Value(), args[1]->Uint32Value());
 }
 
+void InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
+  assert(info[0]->IsObject());
+  assert(info[1]->IsString());
+  assert(info[2]->IsArray());
+
+  auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(info[0]->ToObject());
+  std::string methodName(v8str(info[1]->ToString()));
+  Local<Array> array = Local<Array>::Cast(info[2]);
+
+  uint32_t argc = array->Length();
+  auto *args = new value_t[argc];
+  for (unsigned int i = 0; i < argc; i++) {
+    if (array->Has(i)) {
+      if (array->Get(i)->IsInt32()) {
+        args[i] = _new_int_value_(array->Get(i)->Uint32Value());
+      }
+    }
+  }
+
+  string_t name = _new_string_t(methodName);
+  instance_call(wrapper->GetInstancePtr(), name, args, argc, info);
+}
+
 /* do not remove */
 extern "C" void __unused fire_callback(void *d_, uint32_t promise_id) {
   auto d = Deno::unwrap(d_);
@@ -186,6 +210,9 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
 
   JavaWrapper::Init(isolate_, global_);
+
+  global_->Set(String::NewFromUtf8(isolate_, "$invokeJavaFn"),
+               FunctionTemplate::New(isolate_, InvokeJavaFunction));
 
   global_->Set(String::NewFromUtf8(isolate_, "$sendBuffer"),
                FunctionTemplate::New(isolate_, SendBuffer, env_));

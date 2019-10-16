@@ -1,13 +1,14 @@
-use crate::dex;
-use jni::objects::JValue::Object;
-use jni::objects::{GlobalRef, JList, JObject, JValue};
-use jni::{AttachGuard, JavaVM};
-use jni_sys::{jint, jobject, jsize, jvalue, JNIEnv};
-use std::any::Any;
 use std::borrow::Cow;
 use std::slice;
 use std::sync::{Arc, Once};
+
+use jni::objects::{GlobalRef, JObject, JValue};
+use jni::sys::{jlong, jvalue};
+use jni::{AttachGuard, JavaVM};
 use v8::fun::CallbackInfo;
+
+use crate::dex;
+use crate::dex::unwrap;
 
 static mut JVM: Option<Arc<JavaVM>> = None;
 static INIT: Once = Once::new();
@@ -66,43 +67,32 @@ pub extern "C" fn new_integer(val: i32) -> jvalue {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn new_class(class_name: string_t) -> GlobalRef {
-    let env = attach_current_thread();
-    let class_name = class_name.to_string();
-    let class_name = env.new_string(class_name.replace("/", "."));
-
-    let class = env.call_static_method(
-        "java/lang/Class",
-        "forName",
-        "(Ljava/lang/String;)Ljava/lang/Class;",
-        &[JValue::from(JObject::from(class_name.unwrap()))],
-    );
-
-    env.new_global_ref(class.unwrap().l().unwrap()).unwrap()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn new_instance(class: string_t) -> GlobalRef {
+pub unsafe extern "C" fn new_instance(class: string_t) -> jlong {
     let class = class.to_string();
     let env = attach_current_thread();
-    let instance = env.new_object(class, "()V", &[]);
-    env.new_global_ref(instance.unwrap()).unwrap()
+    let instance = unwrap(&env, env.new_object(class, "()V", &[]));
+    let instance_ref = unwrap(&env, env.new_global_ref(instance));
+    Box::into_raw(Box::new(instance_ref)) as jlong
 }
 
 fn new_int(env: &AttachGuard<'static>, value: i32) -> JObject<'static> {
-    env.new_object(INTEGER_CLASS, "(I)V", &[JValue::from(value)])
-        .unwrap()
+    unwrap(
+        &env,
+        env.new_object(INTEGER_CLASS, "(I)V", &[JValue::from(value)]),
+    )
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn instance_call(
-    instance: GlobalRef,
+    instance_ptr: jlong,
     name: string_t,
     args: *const value_t,
     argc: u32,
     info: &CallbackInfo,
 ) {
     assert!(!args.is_null());
+
+    let global_ref = &mut *(instance_ptr as *mut GlobalRef);
 
     let name = name.to_string();
     let env = attach_current_thread();
@@ -124,26 +114,29 @@ pub unsafe extern "C" fn instance_call(
                 0 => new_int(&env, item.value.i),
                 _ => JObject::null(),
             };
-            env.set_object_array_element(types, index as i32, new_int(&env, item.t.into()));
-            env.set_object_array_element(values, index as i32, value);
+
+            env.set_object_array_element(types, index as i32, new_int(&env, item.t.into()))
+                .unwrap();
+            env.set_object_array_element(values, index as i32, value)
+                .unwrap();
         }
 
         (JObject::from(types), JObject::from(values))
     };
 
-    if let Ok(value) = dex::call_static_method(
+    match dex::call_static_method(
         &env,
         "com/node/util/JNIHelper",
         "callMethod",
         "(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Integer;[Ljava/lang/Object;)Ljava/lang/Object;",
         &[
-            JValue::Object(instance.as_obj()),
+            JValue::Object(global_ref.as_obj()),
             JValue::Object(method_name),
             JValue::Object(types),
             JValue::Object(values),
         ],
     ) {
-        if let JValue::Object(resp) = value {
+        Ok(value) => if let JValue::Object(resp) = value {
             let internal = env.call_method(resp, "getInternal", "()Ljava/lang/Object;", &[]).unwrap();
             let sig = env.get_field(resp, "sig", "I").unwrap().i().unwrap() as u8;
 
@@ -151,8 +144,11 @@ pub unsafe extern "C" fn instance_call(
                 0u8 => info.set_return_value(v8::new_number(internal.to_jni().i)),
                 _ => info.set_return_value(v8::null())
             }
+        },
+        Err(error) => {
+            adb_debug!(error)
         }
-    }
+    };
 
     info.set_return_value(v8::null())
 }

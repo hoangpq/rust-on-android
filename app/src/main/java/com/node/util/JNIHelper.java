@@ -27,7 +27,9 @@ public class JNIHelper {
         classToIndex.put(String.class, 3);
     }
 
-    static Object callMethod(Object instance, String name, Integer[] types, Object[] values) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    synchronized static Object callMethod(Object instance, String name, Integer[] types, Object[] values)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
         Class[] classes = new Class[types.length];
         for (int i = 0; i < types.length; i++) {
             classes[i] = indexToClass.get(types[i]);
@@ -36,11 +38,7 @@ public class JNIHelper {
         Method method = instance.getClass().getDeclaredMethod(name, classes);
         Object result = method.invoke(instance, values);
 
-        Response resp = new Response();
-        resp.setInternal(result);
-        resp.setSig(classToIndex.get(method.getReturnType()));
-
-        return resp;
+        return new Response(result, classToIndex.get(method.getReturnType()));
     }
 
 }

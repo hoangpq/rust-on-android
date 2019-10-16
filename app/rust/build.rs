@@ -23,6 +23,7 @@ fn main() {
         .flag_if_supported("-Wno-unused-parameter")
         .include("libnode/include/node")
         .include("build")
+        .file("build/util/util.cpp")
         .file("build/v8_jni/wrapper.cpp")
         .file("build/api.cpp")
         .compile("api");

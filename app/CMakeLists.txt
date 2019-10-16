@@ -23,6 +23,7 @@ set_property(TARGET librust PROPERTY
 add_library(
         rust-prebuild
         rust/utf8_util/build/util.cpp
+        rust/build/util/util.cpp
         rust/build/v8_jni/wrapper.cpp
         rust/build/api.cpp)
 
