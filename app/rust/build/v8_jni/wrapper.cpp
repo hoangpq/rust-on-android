@@ -43,6 +43,4 @@ void JavaWrapper::Call(const FunctionCallbackInfo<Value> &info) {
     info.GetReturnValue().Set(Undefined(isolate_));
 }
 
-JavaWrapper::~JavaWrapper() {
-    adb_debug("Destroyed");
-}
+JavaWrapper::~JavaWrapper() { adb_debug("Destroyed"); }

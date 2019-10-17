@@ -46,6 +46,20 @@ v8_function_callback_length(FunctionCallbackInfo<Value> *info) {
   return info->Length();
 }
 
+extern "C" void throw_exception(const uint8_t *data, uint32_t len) {
+    Isolate *isolate_ = Isolate::GetCurrent();
+    Local<String> message = String::NewFromUtf8(isolate_, (const char *) data,
+                                                NewStringType::kNormal, len)
+            .ToLocalChecked();
+    isolate_->ThrowException(message);
+}
+
+extern "C" void show_value(jvalue value) {
+    char ss[1000];
+    sprintf(ss, "%lf", static_cast<double>(value.d));
+    adb_debug(ss);
+}
+
 const char *ToCString(const String::Utf8Value &value) {
   return *value ? *value : "<string conversion failed>";
 }

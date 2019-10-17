@@ -1,14 +1,20 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::string::ToString;
 use std::sync::Mutex;
 
+use futures::future::result;
 use jni::errors::Result;
 use jni::objects::{AutoLocal, GlobalRef, JClass, JString, JValue};
 use jni::signature::TypeSignature;
-use jni::strings::JNIString;
+use jni::strings::{JNIString, JavaStr};
 use jni::JNIEnv;
 
 use crate::ndk_util::jni_string_to_string;
+
+extern "C" {
+    fn throw_exception(data: *const u8, len: u32);
+}
 
 lazy_static! {
     static ref CLASS_TABLE: Mutex<HashMap<String, GlobalRef>> = Mutex::new(HashMap::new());
@@ -24,11 +30,31 @@ pub fn print_exception(env: &JNIEnv) {
 }
 
 #[allow(dead_code)]
+pub fn throw_js_exception(env: &JNIEnv, message: JValue) -> Result<()> {
+    let message = JavaStr::from_env(env, JString::from(message.l()?))?;
+    let message: Cow<str> = (&message).into();
+
+    unsafe {
+        throw_exception(message.as_ptr(), message.len() as u32);
+    }
+
+    Ok(())
+}
+
+#[allow(dead_code)]
 pub fn unwrap<T>(env: &JNIEnv, res: Result<T>) -> T {
     res.unwrap_or_else(|e| {
         print_exception(&env);
         panic!(e)
     })
+}
+
+#[allow(dead_code)]
+pub fn unwrap_js<T>(env: &JNIEnv, res: Result<T>) -> Option<T> {
+    match res {
+        Ok(result) => Some(result),
+        Err(_) => None,
+    }
 }
 
 #[no_mangle]

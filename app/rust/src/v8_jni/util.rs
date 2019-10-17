@@ -1,3 +1,5 @@
+extern crate cast;
+
 use std::borrow::Cow;
 use std::slice;
 use std::sync::{Arc, Once};
@@ -8,15 +10,16 @@ use jni::{AttachGuard, JavaVM};
 use v8::fun::CallbackInfo;
 
 use crate::dex;
-use crate::dex::unwrap;
+use crate::dex::{unwrap, unwrap_js};
 
 static mut JVM: Option<Arc<JavaVM>> = None;
 static INIT: Once = Once::new();
 
-static ARRAY_LIST_CLASS: &str = "java/util/ArrayList";
 static STRING_CLASS: &str = "java/lang/String";
 static INTEGER_CLASS: &str = "java/lang/Integer";
 static OBJECT_CLASS: &str = "java/lang/Object";
+
+static JNI_HELPER_CLASS: &str = "com/node/util/JNIHelper";
 
 #[repr(C)]
 pub struct string_t {
@@ -90,8 +93,6 @@ pub unsafe extern "C" fn instance_call(
     argc: u32,
     info: &CallbackInfo,
 ) {
-    assert!(!args.is_null());
-
     let global_ref = &mut *(instance_ptr as *mut GlobalRef);
 
     let name = name.to_string();
@@ -124,9 +125,9 @@ pub unsafe extern "C" fn instance_call(
         (JObject::from(types), JObject::from(values))
     };
 
-    match dex::call_static_method(
+    let result = unwrap_js(&env, dex::call_static_method(
         &env,
-        "com/node/util/JNIHelper",
+        JNI_HELPER_CLASS,
         "callMethod",
         "(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Integer;[Ljava/lang/Object;)Ljava/lang/Object;",
         &[
@@ -135,20 +136,68 @@ pub unsafe extern "C" fn instance_call(
             JValue::Object(types),
             JValue::Object(values),
         ],
-    ) {
-        Ok(value) => if let JValue::Object(resp) = value {
-            let internal = env.call_method(resp, "getInternal", "()Ljava/lang/Object;", &[]).unwrap();
-            let sig = env.get_field(resp, "sig", "I").unwrap().i().unwrap() as u8;
+    ));
 
-            return match sig {
-                0u8 => info.set_return_value(v8::new_number(internal.to_jni().i)),
-                _ => info.set_return_value(v8::null())
-            }
-        },
-        Err(error) => {
-            adb_debug!(error)
+    if let Some(JValue::Object(resp)) = result {
+        let internal = unwrap(
+            &env,
+            env.call_method(resp, "getInternal", "()Ljava/lang/Object;", &[]),
+        );
+
+        let sig = unwrap(&env, env.get_field(resp, "sig", "I"));
+        let sig = unwrap(&env, sig.i()) as u8;
+
+        let has_error = unwrap(&env, env.get_field(resp, "hasError", "Z"));
+        let has_error = unwrap(&env, has_error.z());
+
+        if has_error {
+            dex::throw_js_exception(&env, internal).unwrap();
+            return;
         }
-    };
+
+        return match sig {
+            0u8 => {
+                let value = unwrap(
+                    &env,
+                    dex::call_static_method(
+                        &env,
+                        JNI_HELPER_CLASS,
+                        "intValue",
+                        "(Ljava/lang/Object;)I",
+                        &[internal],
+                    ),
+                );
+                info.set_return_value(v8::new_number(value.i().unwrap()))
+            }
+            1u8 => {
+                let value = unwrap(
+                    &env,
+                    dex::call_static_method(
+                        &env,
+                        JNI_HELPER_CLASS,
+                        "longValue",
+                        "(Ljava/lang/Object;)J",
+                        &[internal],
+                    ),
+                );
+                info.set_return_value(v8::new_number(cast::f64(value.j().unwrap())));
+            }
+            2u8 => {
+                let value = unwrap(
+                    &env,
+                    dex::call_static_method(
+                        &env,
+                        JNI_HELPER_CLASS,
+                        "doubleValue",
+                        "(Ljava/lang/Object;)D",
+                        &[internal],
+                    ),
+                );
+                info.set_return_value(v8::new_number(value.d().unwrap()))
+            }
+            _ => info.set_return_value(v8::null()),
+        };
+    }
 
     info.set_return_value(v8::null())
 }

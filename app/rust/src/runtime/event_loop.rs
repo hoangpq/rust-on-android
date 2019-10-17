@@ -59,13 +59,24 @@ pub extern "C" fn init_event_loop() {
                 };
 
                 const random = java.import('java/util/Random'); 
+
                 console.log(`nextInt: ${random.nextInt(123)}`);
-                console.log(`nextInt: ${random.nextInt(456)}`);
-                
+                console.log(`nextLong: ${random.nextLong()}`);
+                console.log(`nextLong: ${random.nextLong()}`);
+                console.log(`nextLong: ${random.nextLong()}`);
+                console.log(`nextLong: ${random.nextLong()}`);
+
+                setTimeout(() => {
+                    console.log(`nextDouble: ${random.nextDouble()}`);
+                    console.log('timeout');
+                }, 0);
+
                 Promise.resolve().then(() => {
                     console.log(`nextInt: ${random.nextInt(789)}`);
+                    console.log('promise');
                 });
-                
+
+
                 /** Text decoder */
                 function TextDecoder() {}
 
@@ -110,6 +121,7 @@ pub extern "C" fn init_event_loop() {
                     const ar = new Uint8Array(this);
                     return new TextDecoder().decode(ar);
                 }
+
 
                 // Send to Rust world by ArrayBuffer
                 const ab = new ArrayBuffer(10);
