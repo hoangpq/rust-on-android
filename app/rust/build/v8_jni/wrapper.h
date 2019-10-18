@@ -10,6 +10,12 @@
 
 using namespace v8;
 
+extern "C" {
+jlong get_current_activity();
+bool is_method(jlong, string_t);
+bool is_field(jlong, string_t);
+}
+
 class JavaWrapper : public rust::ObjectWrap {
 
 public:
@@ -35,10 +41,14 @@ private:
   static void ToStringAccessor(Local<String> property,
                                const PropertyCallbackInfo<Value> &info);
 
+    static void IsField(const FunctionCallbackInfo<Value> &args);
+
+    static void IsMethod(const FunctionCallbackInfo<Value> &args);
+
   static void Call(const FunctionCallbackInfo<Value> &args);
 
   std::string package_;
-    jobject instance_;
+    jobject instance_ = nullptr;
     jlong ptr_;
 
   static Persistent<FunctionTemplate> constructor_;

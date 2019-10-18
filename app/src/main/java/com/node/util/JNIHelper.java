@@ -1,18 +1,23 @@
 package com.node.util;
 
 import android.support.annotation.Keep;
+import android.support.v7.app.AppCompatActivity;
 import android.util.SparseArray;
 
 import com.node.util.v8.Response;
 
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 
 @Keep
 public class JNIHelper {
     private static SparseArray<Class> indexToClass = new SparseArray<>();
     private static HashMap<Class, Integer> classToIndex = new HashMap<>();
+    private static WeakReference<AppCompatActivity> currentActivity;
 
     static {
         // index to class
@@ -43,8 +48,53 @@ public class JNIHelper {
         return (Double) object;
     }
 
+    public static WeakReference getCurrentActivity() {
+        return currentActivity;
+    }
+
+    public static void setCurrentActivity(AppCompatActivity activity) {
+        currentActivity = new WeakReference<>(activity);
+    }
+
+    public static long getLongValue(Object instance, String name) throws NoSuchFieldException, IllegalAccessException {
+        Field field = instance.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        if (Modifier.isStatic(field.getModifiers())) {
+            return field.getLong(null);
+        }
+        return field.getLong(instance);
+    }
+
+    public static boolean isField(Object instance, String field) {
+        if (instance instanceof WeakReference) {
+            instance = ((WeakReference) instance).get();
+        }
+        try {
+            instance.getClass().getDeclaredField(field);
+            return true;
+        } catch (NoSuchFieldException e) {
+            return false;
+        }
+    }
+
+    public static boolean isMethod(Object instance, String method) {
+        if (instance instanceof WeakReference) {
+            instance = ((WeakReference) instance).get();
+        }
+        try {
+            instance.getClass().getDeclaredMethod(method);
+            return true;
+        } catch (NoSuchMethodException | SecurityException e) {
+            return false;
+        }
+    }
+
     static Object callMethod(Object instance, String name, Integer[] types, Object[] values)
             throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
+        if (instance instanceof WeakReference) {
+            instance = ((WeakReference) instance).get();
+        }
 
         Class[] classes = new Class[types.length];
         for (int i = 0; i < types.length; i++) {

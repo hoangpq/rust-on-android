@@ -15,6 +15,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.node.util.JNIHelper;
 import com.node.util.ResourceUtil;
 import com.node.util.Util;
 import com.node.util.Version;
@@ -41,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
 
     public native void releaseVM();
 
+    @SuppressWarnings("JniMissingFunction")
     public native String getUtf8String();
 
     @Override
@@ -55,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
         Util.Companion.createReference("com/node/util/Util");
         Util.Companion.createReference("com/node/util/JNIHelper");
 
+        JNIHelper.setCurrentActivity(this);
         ResourceUtil.setContext(this);
 
         final Button buttonVersions = findViewById(R.id.btVersions);
@@ -104,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
                     // Copy the node project from assets into the application's data path.
                     copyAssetFolder(getApplicationContext()
                             .getAssets(), "deps", nodeDir);
+
 
                     saveLastUpdateTime();
                 }

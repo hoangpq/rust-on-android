@@ -4,7 +4,8 @@ use std::borrow::Cow;
 use std::slice;
 use std::sync::{Arc, Once};
 
-use jni::objects::{GlobalRef, JObject, JValue};
+use jni::objects::{GlobalRef, JObject, JString, JValue};
+use jni::strings::JavaStr;
 use jni::sys::{jlong, jvalue};
 use jni::{AttachGuard, JavaVM};
 use v8::fun::CallbackInfo;
@@ -21,6 +22,10 @@ static OBJECT_CLASS: &str = "java/lang/Object";
 
 static JNI_HELPER_CLASS: &str = "com/node/util/JNIHelper";
 
+extern "C" {
+    fn get_java_vm() -> *mut jni_sys::JavaVM;
+}
+
 #[repr(C)]
 pub struct string_t {
     ptr: *const u8,
@@ -34,17 +39,23 @@ pub struct value_t {
 }
 
 impl string_t {
-    pub fn to_string(&self) -> Cow<'_, str> {
-        let data = unsafe {
+    fn to_slice(&self) -> &[u8] {
+        unsafe {
             assert!(!self.ptr.is_null());
             slice::from_raw_parts(self.ptr, self.len as usize)
-        };
-        String::from_utf8_lossy(data)
+        }
+    }
+    pub fn to_string(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(self.to_slice())
+    }
+    pub fn to_jstring(&self, env: &AttachGuard<'static>) -> jni::errors::Result<JString> {
+        env.new_string(String::from_utf8_lossy(self.to_slice()))
     }
 }
 
-extern "C" {
-    fn get_java_vm() -> *mut jni_sys::JavaVM;
+#[no_mangle]
+pub extern "C" fn new_integer(val: i32) -> jvalue {
+    JValue::from(val).to_jni()
 }
 
 pub fn jvm() -> &'static Arc<JavaVM> {
@@ -65,15 +76,84 @@ pub fn attach_current_thread() -> AttachGuard<'static> {
 }
 
 #[no_mangle]
-pub extern "C" fn new_integer(val: i32) -> jvalue {
-    JValue::from(val).to_jni()
+pub unsafe extern "C" fn is_field(instance_ptr: jlong, field: string_t) -> bool {
+    let global_ref = &mut *(instance_ptr as *mut GlobalRef);
+    let env = attach_current_thread();
+
+    let instance = unwrap(
+        &env,
+        dex::call_static_method(
+            &env,
+            JNI_HELPER_CLASS,
+            "isField",
+            "(Ljava/lang/Object;Ljava/lang/String;)Z",
+            &[
+                JValue::Object(global_ref.as_obj()),
+                JValue::Object(JObject::from(field.to_jstring(&env).unwrap())),
+            ],
+        ),
+    );
+
+    match instance.z() {
+        Ok(result) => result,
+        Err(_) => false,
+    }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn new_instance(class: string_t) -> jlong {
+pub unsafe extern "C" fn is_method(instance_ptr: jlong, method: string_t) -> bool {
+    let global_ref = &mut *(instance_ptr as *mut GlobalRef);
+    let env = attach_current_thread();
+
+    let instance = unwrap(
+        &env,
+        dex::call_static_method(
+            &env,
+            JNI_HELPER_CLASS,
+            "isMethod",
+            "(Ljava/lang/Object;Ljava/lang/String;)Z",
+            &[
+                JValue::Object(global_ref.as_obj()),
+                JValue::Object(JObject::from(method.to_jstring(&env).unwrap())),
+            ],
+        ),
+    );
+
+    match instance.z() {
+        Ok(result) => result,
+        Err(_) => false,
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn set_private_ptr() {}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_current_activity() -> jlong {
+    let env = attach_current_thread();
+    let weak_ref = unwrap(
+        &env,
+        dex::call_static_method(
+            &env,
+            JNI_HELPER_CLASS,
+            "getCurrentActivity",
+            "()Ljava/lang/ref/WeakReference;",
+            &[],
+        ),
+    );
+
+    let instance = unwrap(&env, weak_ref.l());
+    let instance_ref = unwrap(&env, env.new_global_ref(instance));
+    Box::into_raw(Box::new(instance_ref)) as jlong
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn new_instance(class: string_t, args: *const value_t, argc: u32) -> jlong {
+    let ctor_args = if argc > 0u32 { &[] } else { &[] };
+
     let class = class.to_string();
     let env = attach_current_thread();
-    let instance = unwrap(&env, env.new_object(class, "()V", &[]));
+    let instance = unwrap(&env, env.new_object(class, "()V", ctor_args));
     let instance_ref = unwrap(&env, env.new_global_ref(instance));
     Box::into_raw(Box::new(instance_ref)) as jlong
 }

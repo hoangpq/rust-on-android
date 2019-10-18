@@ -41,6 +41,8 @@ pub extern "C" fn init_event_loop() {
             worker.execute(
                 r#"
                 function javaFunction(target, prop) {
+                    console.log(target.isMethod(prop));
+                    console.log(target.isField(prop));
                     return function invoke(...args) {
                         return $invokeJavaFn(target, prop, args || []);
                     }
@@ -54,28 +56,19 @@ pub extern "C" fn init_event_loop() {
 
                 const java = {
                   import(package) {
-                    return new Proxy(new Java(package), javaHandler);
+                    return function wrapper(...args) {
+                        return new Proxy(new Java(package, args), javaHandler);
+                    }
                   }
                 };
 
-                const random = java.import('java/util/Random'); 
-
-                console.log(`nextInt: ${random.nextInt(123)}`);
-                console.log(`nextLong: ${random.nextLong()}`);
-                console.log(`nextLong: ${random.nextLong()}`);
-                console.log(`nextLong: ${random.nextLong()}`);
-                console.log(`nextLong: ${random.nextLong()}`);
-
-                setTimeout(() => {
-                    console.log(`nextDouble: ${random.nextDouble()}`);
-                    console.log('timeout');
-                }, 0);
-
-                Promise.resolve().then(() => {
-                    console.log(`nextInt: ${random.nextInt(789)}`);
-                    console.log('promise');
-                });
-
+                const Random = java.import('java/util/Random');
+                const random = new Random();
+                
+                const Color = java.import('android/graphics/Color');
+                const color = new Color();
+                
+                console.log(`nextDouble: ${random.nextDouble()}`);
 
                 /** Text decoder */
                 function TextDecoder() {}
