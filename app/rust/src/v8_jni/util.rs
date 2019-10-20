@@ -1,17 +1,24 @@
 extern crate cast;
 
-use std::borrow::Cow;
-use std::slice;
+use std::borrow::{Borrow, Cow};
+use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::sync::{Arc, Once};
+use std::{panic, slice};
 
+use itertools::Itertools;
 use jni::objects::{GlobalRef, JObject, JString, JValue};
-use jni::strings::JavaStr;
+use jni::strings::{JNIStr, JavaStr};
 use jni::sys::{jlong, jvalue};
+use jni::JNIEnv;
 use jni::{AttachGuard, JavaVM};
+use jni_sys::jint;
 use v8::fun::CallbackInfo;
 
 use crate::dex;
 use crate::dex::{unwrap, unwrap_js};
+use crate::runtime::util::adb_debug;
+use crate::v8_jni::_rust_get_string;
 
 static mut JVM: Option<Arc<JavaVM>> = None;
 static INIT: Once = Once::new();
@@ -23,19 +30,14 @@ static OBJECT_CLASS: &str = "java/lang/Object";
 static JNI_HELPER_CLASS: &str = "com/node/util/JNIHelper";
 
 extern "C" {
-    fn get_java_vm() -> *mut jni_sys::JavaVM;
+    fn get_java_vm() -> *mut jni::sys::JavaVM;
+    fn get_main_thread_env() -> *mut jni::sys::JNIEnv;
 }
 
 #[repr(C)]
 pub struct string_t {
     ptr: *const u8,
     len: u32,
-}
-
-#[repr(C)]
-pub struct value_t {
-    value: jvalue,
-    t: i8,
 }
 
 impl string_t {
@@ -48,8 +50,45 @@ impl string_t {
     pub fn to_string(&self) -> Cow<'_, str> {
         String::from_utf8_lossy(self.to_slice())
     }
-    pub fn to_jstring(&self, env: &AttachGuard<'static>) -> jni::errors::Result<JString> {
+    pub fn to_jstring<'a>(&self, env: &'a JNIEnv) -> jni::errors::Result<JString<'a>> {
         env.new_string(String::from_utf8_lossy(self.to_slice()))
+    }
+}
+
+#[repr(C)]
+#[derive(Copy)]
+pub union data_t {
+    pub i: i32,
+    pub s: jlong,
+}
+
+impl Clone for data_t {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+#[repr(C)]
+#[derive(Copy)]
+pub struct value_t {
+    pub data: data_t,
+    pub t: u8,
+}
+
+impl Clone for value_t {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl value_t {
+    pub fn to_int<'a>(&self, env: &'a JNIEnv) -> JObject<'a> {
+        new_int(&env, unsafe { self.data.i })
+    }
+    pub fn to_string<'a>(&self, env: &'a JNIEnv) -> JObject<'a> {
+        adb_debug!(format!("rust: {}", self.data.s));
+        let s = unsafe { _rust_get_string(self.data.s) };
+        *unwrap(&env, env.new_string(s))
     }
 }
 
@@ -72,6 +111,13 @@ pub fn jvm() -> &'static Arc<JavaVM> {
 pub fn attach_current_thread() -> AttachGuard<'static> {
     jvm()
         .attach_current_thread()
+        .expect("failed to attach jvm thread")
+}
+
+#[allow(dead_code)]
+pub fn attach_current_thread_as_daemon() -> JNIEnv<'static> {
+    jvm()
+        .attach_current_thread_as_daemon()
         .expect("failed to attach jvm thread")
 }
 
@@ -126,7 +172,45 @@ pub unsafe extern "C" fn is_method(instance_ptr: jlong, method: string_t) -> boo
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_private_ptr() {}
+pub unsafe extern "C" fn test_method(instance_ptr: jlong, args: *const value_t, argc: u32) {
+    let global_ref = &mut *(instance_ptr as *mut GlobalRef);
+    let env = attach_current_thread_as_daemon();
+
+    let args = slice::from_raw_parts(args, argc as usize);
+
+    let args = args
+        .iter()
+        .map(|value| {
+            JValue::Object(match value.t {
+                0 => value.to_int(&env),
+                3 => value.to_string(&env),
+                _ => JObject::null(),
+            })
+        })
+        .collect::<Vec<JValue>>();
+
+    let instance = unwrap(
+        &env,
+        dex::call_method(
+            &env,
+            global_ref.as_obj(),
+            "get",
+            "()Ljava/lang/Object;",
+            &[],
+        ),
+    );
+
+    unwrap(
+        &env,
+        dex::call_method(
+            &env,
+            instance.l().unwrap(),
+            "setBackgroundColor",
+            "(Ljava/lang/String;)V",
+            &args[..],
+        ),
+    );
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn get_current_activity() -> jlong {
@@ -148,17 +232,19 @@ pub unsafe extern "C" fn get_current_activity() -> jlong {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn new_instance(class: string_t, args: *const value_t, argc: u32) -> jlong {
-    let ctor_args = if argc > 0u32 { &[] } else { &[] };
-
+pub unsafe extern "C" fn new_instance<'a>(
+    class: string_t,
+    args: *const value_t,
+    argc: u32,
+) -> jlong {
     let class = class.to_string();
     let env = attach_current_thread();
-    let instance = unwrap(&env, env.new_object(class, "()V", ctor_args));
+    let instance = unwrap(&env, env.new_object(class, "()V", &[]));
     let instance_ref = unwrap(&env, env.new_global_ref(instance));
     Box::into_raw(Box::new(instance_ref)) as jlong
 }
 
-fn new_int(env: &AttachGuard<'static>, value: i32) -> JObject<'static> {
+fn new_int<'a>(env: &'a JNIEnv, value: i32) -> JObject<'a> {
     unwrap(
         &env,
         env.new_object(INTEGER_CLASS, "(I)V", &[JValue::from(value)]),
@@ -192,7 +278,8 @@ pub unsafe extern "C" fn instance_call(
 
         for (index, item) in args.iter().enumerate() {
             let value = match item.t {
-                0 => new_int(&env, item.value.i),
+                0 => item.to_int(&env),
+                3 => item.to_string(&env),
                 _ => JObject::null(),
             };
 

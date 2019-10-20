@@ -7,11 +7,18 @@ string_t _new_string_t(const std::string &s) {
   return st;
 }
 
-value_t _new_int_value_(uint32_t val) {
-  value_t value;
-  value.value.i = (jint) val;
-  value.t = 0;
-  return value;
+value_t _new_int_value(uint32_t val) {
+  value_t v;
+  v.data.i = val;
+  v.t = 0;
+  return v;
+}
+
+value_t _new_string_value(char *bytes, int length) {
+  value_t v;
+  v.data.s = _rust_new_string(bytes);
+  v.t = 3;
+  return v;
 }
 
 std::string v8str(Local<String> input) {

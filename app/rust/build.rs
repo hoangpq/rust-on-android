@@ -1,6 +1,8 @@
 extern crate cc;
 
 use std::env;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -21,6 +23,7 @@ fn main() {
         .cpp(true)
         .flag_if_supported("-w")
         .flag_if_supported("-Wno-unused-parameter")
+        .include("/Users/hoangpq/Library/Android/sdk/ndk-bundle/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/include")
         .include("libnode/include/node")
         .include("build")
         .file("build/util/util.cpp")

@@ -40,35 +40,39 @@ pub extern "C" fn init_event_loop() {
             let mut worker = Worker::new();
             worker.execute(
                 r#"
-                function javaFunction(target, prop) {
-                    console.log(target.isMethod(prop));
-                    console.log(target.isField(prop));
-                    return function invoke(...args) {
-                        return $invokeJavaFn(target, prop, args || []);
-                    }
-                }
-
-                const javaHandler = {
-                    get(target, prop, receiver) {
-                        return javaFunction(target, prop);
-                    }
-                };
-
-                const java = {
-                  import(package) {
-                    return function wrapper(...args) {
-                        return new Proxy(new Java(package, args), javaHandler);
-                    }
-                  }
-                };
-
                 const Random = java.import('java/util/Random');
-                const random = new Random();
-                
-                const Color = java.import('android/graphics/Color');
-                const color = new Color();
-                
+                const random = new Random(10000);
+                 
+                console.log(`nextInt: ${random.nextInt()}`);
                 console.log(`nextDouble: ${random.nextDouble()}`);
+                
+                const context = java.import('context');
+                const colorList = [
+                    '#FFBF00',
+                    '#9966CC',
+                    '#FBCEB1',
+                    '#7FFFD4',
+                    '#007FFF',
+                    '#89CFF0',
+                    '#F5F5DC',
+                    '#0000FF',
+                    '#0095B6',
+                    '#8A2BE2',
+                    '#DE5D83',
+                    '#CD7F32',
+                    '#964B00',
+                    '#800020'
+                ];
+                
+                function changeColor(context) {
+                    setInterval(() => {
+                        const color = colorList[Math.round(Math.random() * colorList.length)];
+                        console.log(color);
+                        context.testMethod(color);
+                    }, 1000);
+                }
+                
+                changeColor(context);
 
                 /** Text decoder */
                 function TextDecoder() {}

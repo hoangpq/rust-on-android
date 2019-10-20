@@ -36,7 +36,6 @@ add_library( # Sets the name of the library.
         src/main/cpp/lib/native-lib.cpp
         src/main/cpp/lib/node-ext.cpp
         # for v8
-        src/main/cpp/v8/jsobject.cpp
         src/main/cpp/v8/v8context.cpp)
 
 add_library(libnode
@@ -71,7 +70,8 @@ target_link_libraries( # Specifies the target library.
         libnode
         # Links the target library to the log library
         # included in the NDK.
-        ${log-lib})
+        log
+        android)
 
 # add imported target
 add_library(image-gen SHARED src/main/cpp/lib/image-gen.cpp)

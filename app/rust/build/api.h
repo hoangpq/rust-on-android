@@ -48,16 +48,8 @@ extern "C" void deno_get_env(JNIEnv **env) {
 
 extern "C" void register_vm(JavaVM *_vm) { vm = _vm; }
 extern "C" JavaVM *get_java_vm() { return vm; }
-
-void attach_current_thread(JNIEnv **env) {
-  int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
-  if (res != JNI_OK) {
-    res = vm->AttachCurrentThread(&(*env), nullptr);
-    if (JNI_OK != res) {
-      return;
-    }
-  }
-}
+extern "C" void attach_current_thread(JNIEnv **env);
+extern "C" void attach_current_thread_as_daemon(JNIEnv **env);
 
 class Deno {
 public:

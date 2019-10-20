@@ -30,17 +30,6 @@ Local<String> Util::ConvertToV8String(const string &s) {
   return String::NewFromUtf8(isolate, s.c_str());
 }
 
-string Util::GetPackageName(JNIEnv *env, jclass class_) {
-  jclass utilClass = env->FindClass("com/node/util/JNIUtils");
-  jmethodID getPackageName = env->GetStaticMethodID(
-      utilClass, "getPackageName", "(Ljava/lang/Class;)Ljava/lang/String;");
-
-  auto packageName =
-      (jstring)env->CallStaticObjectMethod(utilClass, getPackageName, class_);
-
-  return JavaToString(env, packageName);
-}
-
 void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
   jint res =
       g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);

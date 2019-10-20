@@ -250,6 +250,38 @@ impl Isolate {
                 function clearTimeout(id) {
                   _clearTimer(id);
                 }
+                
+                const slice = Array.prototype.slice;
+                
+                function javaFunction(target, prop) {
+                    // console.log(target.isMethod(prop));
+                    // console.log(target.isField(prop));
+                    return function invoke() {
+                        return $invokeJavaFn(target, prop, slice.call(arguments));
+                    }
+                }
+
+                const javaHandler = {
+                    get(target, prop, receiver) {
+                        return javaFunction(target, prop);
+                    }
+                };
+                
+                const java = {
+                  import(name) {
+                    if (name === 'context') {
+                        const context = new Java('context', []);
+                        // context.testMethod('#99ffff');
+                        // return new Proxy(context, javaHandler);
+                        return context;
+                    }
+                    return function wrapper() {
+                        const instance = new Java(name, slice.call(arguments));
+                        return new Proxy(instance, javaHandler);
+                    }
+                  }
+                };
+                
         "#
             ),
         );

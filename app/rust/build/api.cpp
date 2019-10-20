@@ -54,12 +54,6 @@ extern "C" void throw_exception(const uint8_t *data, uint32_t len) {
     isolate_->ThrowException(message);
 }
 
-extern "C" void show_value(jvalue value) {
-    char ss[1000];
-    sprintf(ss, "%lf", static_cast<double>(value.d));
-    adb_debug(ss);
-}
-
 const char *ToCString(const String::Utf8Value &value) {
   return *value ? *value : "<string conversion failed>";
 }
@@ -147,8 +141,13 @@ void InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
   auto *args = new value_t[argc];
   for (unsigned int i = 0; i < argc; i++) {
     if (array->Has(i)) {
-      if (array->Get(i)->IsInt32()) {
-        args[i] = _new_int_value_(array->Get(i)->Uint32Value());
+        Local<Value> value = array->Get(i);
+        if (value->IsInt32()) {
+            args[i] = _new_int_value(value->Uint32Value());
+        }
+        if (value->IsString()) {
+            String::Utf8Value val(value->ToString());
+            args[i] = _new_string_value(*val, val.length());
       }
     }
   }
@@ -451,4 +450,24 @@ extern "C" void callback_info_get(const FunctionCallbackInfo<Value> &args,
                                   uint32_t index, Local<Value> *out) {
   assert(args.Length() >= index);
   *out = args[index];
+}
+
+extern "C" void attach_current_thread(JNIEnv **env) {
+    int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+    if (res != JNI_OK) {
+        res = vm->AttachCurrentThread(&(*env), nullptr);
+        if (JNI_OK != res) {
+            return;
+        }
+    }
+}
+
+extern "C" void attach_current_thread_as_daemon(JNIEnv **env) {
+    int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+    if (res != JNI_OK) {
+        res = vm->AttachCurrentThreadAsDaemon(&(*env), nullptr);
+        if (JNI_OK != res) {
+            return;
+        }
+    }
 }

@@ -1,4 +1,9 @@
 #include "wrapper.h"
+#include <unistd.h>
+
+extern "C" {
+void write_message(const void *, size_t count);
+}
 
 Persistent<FunctionTemplate> JavaWrapper::constructor_;
 
@@ -7,14 +12,14 @@ void JavaWrapper::Init(Isolate *isolate_, Local<ObjectTemplate> exports) {
 
   tpl->SetClassName(String::NewFromUtf8(isolate_, "Java"));
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
-  // tpl->InstanceTemplate()->SetCallAsFunctionHandler(Call, Handle<Value>());
-  // tpl->InstanceTemplate()->SetNamedPropertyHandler(Getter, Setter);
 
   Local<ObjectTemplate> proto = tpl->PrototypeTemplate();
   proto->Set(String::NewFromUtf8(isolate_, "isField"),
              FunctionTemplate::New(isolate_, IsField));
   proto->Set(String::NewFromUtf8(isolate_, "isMethod"),
              FunctionTemplate::New(isolate_, IsMethod));
+  proto->Set(String::NewFromUtf8(isolate_, "testMethod"),
+             FunctionTemplate::New(isolate_, TestMethod));
 
   constructor_.Reset(isolate_, tpl);
   exports->Set(String::NewFromUtf8(isolate_, "Java"), tpl);
@@ -30,28 +35,31 @@ void JavaWrapper::New(const FunctionCallbackInfo<Value> &info) {
     if (package == "context") {
       wrapper->ptr_ = get_current_activity();
     } else {
+      uint32_t argc = 0;
+      value_t *args = nullptr;
       string_t packageName = _new_string_t(package);
 
-      if (info.Length() == 1) {
-        wrapper->ptr_ = new_instance(packageName, nullptr, 0);
-      } else {
+      if (info[1]->IsArray()) {
         Local<Array> array = Local<Array>::Cast(info[1]);
-        uint32_t argc = array->Length();
+        if (array->Length() > 0) {
+          argc = array->Length();
+          args = new value_t[argc];
 
-        auto *args = new value_t[argc];
-        for (unsigned int i = 0; i < argc + 1; i++) {
-          if (array->Has(i)) {
-            if (array->Get(i)->IsInt32()) {
-              args[i] = _new_int_value_(array->Get(i)->Uint32Value());
+          for (unsigned int i = 0; i < argc + 1; i++) {
+            if (array->Has(i)) {
+              if (array->Get(i)->IsInt32()) {
+                args[i] = _new_int_value(array->Get(i)->Uint32Value());
+              }
             }
           }
         }
-        wrapper->ptr_ = new_instance(packageName, args, argc);
       }
+
+      wrapper->ptr_ = new_instance(packageName, args, argc);
+      delete args;
     }
 
     wrapper->Wrap(info.This());
-
     info.GetReturnValue().Set(info.This());
   }
 }
@@ -74,16 +82,37 @@ void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
           Boolean::New(isolate_, is_field(wrapper->ptr_, v8string_t(args[0]))));
 }
 
-void JavaWrapper::Getter(Local<String> property,
-                         const PropertyCallbackInfo<Value> &info) {
-  info.GetReturnValue().Set(info.This());
+int looperCallback(int fd, int events, void *data) {
+  message_t msg;
+  read(fd, &msg, sizeof(message_t)); // read message from pip
+
+  char ss[100];
+  sprintf(ss, "receive: %lld", msg.args[0].data.s);
+  adb_debug(ss);
+
+  test_method(msg.ptr, msg.args, msg.argc);
+  return 1;
 }
 
-void JavaWrapper::Setter(Local<String> property, Local<Value> value,
-                         const PropertyCallbackInfo<Value> &info) {}
+void JavaWrapper::TestMethod(const FunctionCallbackInfo<Value> &info) {
+  Isolate *isolate_ = info.GetIsolate();
+  auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(info.This());
+  // schedule to run on main thread
+  message_t msg;
+  msg.ptr = wrapper->ptr_;
+  msg.argc = 1;
 
-void JavaWrapper::ToStringAccessor(Local<String> property,
-                                   const PropertyCallbackInfo<Value> &info) {}
+  String::Utf8Value val(info[0]->ToString());
+  msg.args = new value_t[1];
+  msg.args[0] = _new_string_value(*val, val.length());;
+
+  char ss[100];
+  sprintf(ss, "send: %lld", msg.args[0].data.s);
+  adb_debug(ss);
+
+  write_message(&msg, sizeof(message_t));
+  info.GetReturnValue().Set(Undefined(isolate_));
+}
 
 void JavaWrapper::Call(const FunctionCallbackInfo<Value> &info) {
   Isolate *isolate_ = info.GetIsolate();

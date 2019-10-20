@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-prettier --write **/*/*.js
+prettier --write **/rust/**/*.js

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use futures::future::result;
 use jni::errors::Result;
-use jni::objects::{AutoLocal, GlobalRef, JClass, JString, JValue};
+use jni::objects::{AutoLocal, GlobalRef, JClass, JObject, JString, JValue};
 use jni::signature::TypeSignature;
 use jni::strings::{JNIString, JavaStr};
 use jni::JNIEnv;
@@ -111,6 +111,29 @@ where
 
     let class = JClass::from(value.l()?);
     env.call_static_method_unchecked(class, (class, name, sig), parsed.ret, args)
+}
+
+pub fn call_method<'a, U, V>(
+    env: &'a JNIEnv,
+    instance: JObject,
+    name: U,
+    sig: V,
+    args: &[JValue],
+) -> Result<JValue<'a>>
+where
+    U: Into<JNIString>,
+    V: Into<JNIString> + AsRef<str>,
+{
+    let table = CLASS_TABLE.lock().unwrap();
+    let parsed = TypeSignature::from_str(&sig)?;
+
+    let class = unwrap(
+        &env,
+        env.call_method(instance, "getClass", "()Ljava/lang/Class;", &[]),
+    );
+
+    let class = env.auto_local(unwrap(&env, class.l()));
+    env.call_method_unchecked(instance, (&class, name, sig), parsed.ret, args)
 }
 
 pub fn _find_class<'a>(env: &'a JNIEnv, class: String) -> Result<JClass<'a>> {

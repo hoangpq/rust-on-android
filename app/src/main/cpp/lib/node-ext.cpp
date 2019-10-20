@@ -63,10 +63,7 @@ void AndroidError(const FunctionCallbackInfo<Value> &args) {
   LOGE("%s", jsonString);
 }
 
-void OnLoad(const FunctionCallbackInfo<Value> &args) {
-  // JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
-  init_event_loop();
-}
+    void OnLoad(const FunctionCallbackInfo<Value> &args) { init_event_loop(); }
 
 // Override header
 class ModuleWrap {
@@ -119,6 +116,13 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   g_ctx.javaVM = vm;
   g_ctx.mainActivityObj = nullptr;
   Util::AttachCurrentThread(&g_ctx.env);
+
+  mainThreadLooper = ALooper_forThread();
+  ALooper_acquire(mainThreadLooper);
+  pipe(messagePipe);
+  ALooper_addFd(mainThreadLooper, messagePipe[0], 0, ALOOPER_EVENT_INPUT,
+                looperCallback, nullptr);
+
   return JNI_VERSION_1_6;
 }
 
@@ -150,6 +154,12 @@ Java_com_node_sample_MainActivity_releaseVM(JNIEnv *env, jobject instance) {
   g_ctx.mainActivityObj = nullptr;
   g_ctx.mainActivityClz = nullptr;
   g_ctx.mainActivity = nullptr;
+}
+
+JNIEnv *get_main_thread_env() { return g_ctx.env; }
+
+void write_message(const void *what, size_t count) {
+  write(messagePipe[1], what, count);
 }
 
 NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap,

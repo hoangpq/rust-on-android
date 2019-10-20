@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.support.annotation.Keep;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
@@ -29,6 +30,7 @@ import java.io.OutputStream;
 import static com.node.util.JsonUtil.parseVersion;
 import static com.node.util.RestUtil.fetch;
 
+@Keep
 public class MainActivity extends AppCompatActivity {
 
     static {
@@ -49,8 +51,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        getWindow().getDecorView().setBackgroundColor(Color.parseColor("#ffeef7f0"));
 
         // FIXME: register class to dex helper
         Util.Companion.createReference("com/node/sample/MainActivity");
@@ -90,6 +90,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         initNodeJS();
+    }
+
+    @Keep
+    public void setBackgroundColor(String color) {
+        try {
+            getWindow().getDecorView().setBackgroundColor(Color.parseColor(color));
+        } catch (Exception ex) {
+            Log.d("Kotlin", ex.getLocalizedMessage());
+        }
     }
 
     private void initNodeJS() {
