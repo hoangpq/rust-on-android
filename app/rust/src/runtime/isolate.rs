@@ -188,8 +188,6 @@ impl Isolate {
                     delay
                   };
 
-                  // console.log(getTime());
-
                   // Add promise to microtask queue
                   timerMap.set(timer.id, timer);
                   const promise = createResolvable();
@@ -251,11 +249,33 @@ impl Isolate {
                   _clearTimer(id);
                 }
                 
+                // For Java <-> JS bridge
+                
+                let uiTaskId = 0;
+                const uiTaskMap = new Map();
+                
+                function registerUITask() {
+                  let methods;
+                  const cmdId = uiTaskMap++;
+                  const promise = new Promise((resolve, reject) => {
+                    methods = { resolve, reject, cmdId };
+                  });
+                  const promise_ = Object.assign(promise, methods);
+                  promiseTable.set(cmdId, promise_);
+                  // Remove the promise
+                  promise.finally(() => {
+                    console.log(`Resolved`);
+                    promiseTable.delete(promise.cmdId);
+                  });
+                  return {
+                    promise: promise_,
+                    uiTaskId: promise_.cmdId
+                  };
+                }
+                
                 const slice = Array.prototype.slice;
                 
                 function javaFunction(target, prop) {
-                    // console.log(target.isMethod(prop));
-                    // console.log(target.isField(prop));
                     return function invoke() {
                         return $invokeJavaFn(target, prop, slice.call(arguments));
                     }
@@ -271,9 +291,7 @@ impl Isolate {
                   import(name) {
                     if (name === 'context') {
                         const context = new Java('context', []);
-                        // context.testMethod('#99ffff');
-                        // return new Proxy(context, javaHandler);
-                        return context;
+                        return new Proxy(context, javaHandler);
                     }
                     return function wrapper() {
                         const instance = new Java(name, slice.call(arguments));

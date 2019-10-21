@@ -32,3 +32,9 @@ string_t v8string_t(Local<Value> input) {
   std::string s(*val);
   return _new_string_t(s);
 }
+
+Local<Function> get_function(Local<Object> obj, Local<String> key) {
+    Local<Value> value = obj->Get(key);
+    assert(value->IsFunction());
+    return Local<Function>::Cast(value);
+}

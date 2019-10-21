@@ -86,10 +86,34 @@ impl value_t {
         new_int(&env, unsafe { self.data.i })
     }
     pub fn to_string<'a>(&self, env: &'a JNIEnv) -> JObject<'a> {
-        adb_debug!(format!("rust: {}", self.data.s));
         let s = unsafe { _rust_get_string(self.data.s) };
         *unwrap(&env, env.new_string(s))
     }
+}
+
+#[repr(C)]
+#[derive(Copy)]
+pub struct message_t {
+    pub ptr: jlong,
+    pub name: jlong,
+    pub args: *const value_t,
+    pub argc: u32,
+}
+
+impl Clone for message_t {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_new_message_t(msg: message_t) -> jlong {
+    Box::into_raw(Box::new(msg)) as jlong
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_get_message_t(ptr: jlong) -> message_t {
+    unsafe { *Box::from_raw(ptr as *mut message_t) }
 }
 
 #[no_mangle]
@@ -254,18 +278,19 @@ fn new_int<'a>(env: &'a JNIEnv, value: i32) -> JObject<'a> {
 #[no_mangle]
 pub unsafe extern "C" fn instance_call(
     instance_ptr: jlong,
-    name: string_t,
+    name: jlong,
     args: *const value_t,
     argc: u32,
     info: &CallbackInfo,
+    run_on_main_thread: bool,
 ) {
     let global_ref = &mut *(instance_ptr as *mut GlobalRef);
+    let name = *Box::from_raw(name as *mut String);
 
-    let name = name.to_string();
     let env = attach_current_thread();
-    let args = slice::from_raw_parts(args, argc as usize);
 
-    let method_name = JObject::from(env.new_string(name.to_string()).unwrap());
+    let method = JObject::from(env.new_string(name).unwrap());
+    let args = slice::from_raw_parts(args, argc as usize);
 
     let (types, values) = {
         let types = env
@@ -299,18 +324,14 @@ pub unsafe extern "C" fn instance_call(
         "(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Integer;[Ljava/lang/Object;)Ljava/lang/Object;",
         &[
             JValue::Object(global_ref.as_obj()),
-            JValue::Object(method_name),
+            JValue::Object(method),
             JValue::Object(types),
             JValue::Object(values),
         ],
     ));
 
     if let Some(JValue::Object(resp)) = result {
-        let internal = unwrap(
-            &env,
-            env.call_method(resp, "getInternal", "()Ljava/lang/Object;", &[]),
-        );
-
+        let internal = unwrap(&env, env.get_field(resp, "internal", "Ljava/lang/Object;"));
         let sig = unwrap(&env, env.get_field(resp, "sig", "I"));
         let sig = unwrap(&env, sig.i()) as u8;
 
@@ -334,7 +355,9 @@ pub unsafe extern "C" fn instance_call(
                         &[internal],
                     ),
                 );
-                info.set_return_value(v8::new_number(value.i().unwrap()))
+                if !run_on_main_thread {
+                    info.set_return_value(v8::new_number(value.i().unwrap()))
+                }
             }
             1u8 => {
                 let value = unwrap(
@@ -347,7 +370,9 @@ pub unsafe extern "C" fn instance_call(
                         &[internal],
                     ),
                 );
-                info.set_return_value(v8::new_number(cast::f64(value.j().unwrap())));
+                if !run_on_main_thread {
+                    info.set_return_value(v8::new_number(cast::f64(value.j().unwrap())));
+                }
             }
             2u8 => {
                 let value = unwrap(
@@ -360,11 +385,19 @@ pub unsafe extern "C" fn instance_call(
                         &[internal],
                     ),
                 );
-                info.set_return_value(v8::new_number(value.d().unwrap()))
+                if !run_on_main_thread {
+                    info.set_return_value(v8::new_number(value.d().unwrap()))
+                }
             }
-            _ => info.set_return_value(v8::null()),
+            _ => {
+                if !run_on_main_thread {
+                    info.set_return_value(v8::null())
+                }
+            }
         };
     }
 
-    info.set_return_value(v8::null())
+    if !run_on_main_thread {
+        info.set_return_value(v8::null())
+    }
 }

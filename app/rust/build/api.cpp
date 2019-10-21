@@ -47,11 +47,11 @@ v8_function_callback_length(FunctionCallbackInfo<Value> *info) {
 }
 
 extern "C" void throw_exception(const uint8_t *data, uint32_t len) {
-    Isolate *isolate_ = Isolate::GetCurrent();
-    Local<String> message = String::NewFromUtf8(isolate_, (const char *) data,
-                                                NewStringType::kNormal, len)
-            .ToLocalChecked();
-    isolate_->ThrowException(message);
+  Isolate *isolate_ = Isolate::GetCurrent();
+  Local<String> message = String::NewFromUtf8(isolate_, (const char *) data,
+                                              NewStringType::kNormal, len)
+          .ToLocalChecked();
+  isolate_->ThrowException(message);
 }
 
 const char *ToCString(const String::Utf8Value &value) {
@@ -128,34 +128,6 @@ void NewTimer(const FunctionCallbackInfo<Value> &args) {
   d->recv_cb_(d->user_data_, args[0]->Uint32Value(), args[1]->Uint32Value());
 }
 
-void InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
-  assert(info[0]->IsObject());
-  assert(info[1]->IsString());
-  assert(info[2]->IsArray());
-
-  auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(info[0]->ToObject());
-  std::string methodName(v8str(info[1]->ToString()));
-  Local<Array> array = Local<Array>::Cast(info[2]);
-
-  uint32_t argc = array->Length();
-  auto *args = new value_t[argc];
-  for (unsigned int i = 0; i < argc; i++) {
-    if (array->Has(i)) {
-        Local<Value> value = array->Get(i);
-        if (value->IsInt32()) {
-            args[i] = _new_int_value(value->Uint32Value());
-        }
-        if (value->IsString()) {
-            String::Utf8Value val(value->ToString());
-            args[i] = _new_string_value(*val, val.length());
-      }
-    }
-  }
-
-  string_t name = _new_string_t(methodName);
-  instance_call(wrapper->GetInstancePtr(), name, args, argc, info);
-}
-
 /* do not remove */
 extern "C" void __unused fire_callback(void *d_, uint32_t promise_id) {
   auto d = Deno::unwrap(d_);
@@ -222,11 +194,6 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   Local<External> env_ = External::New(deno->isolate_, deno);
   Local<ObjectTemplate> global_ = ObjectTemplate::New(deno->isolate_);
 
-  JavaWrapper::Init(isolate_, global_);
-
-  global_->Set(String::NewFromUtf8(isolate_, "$invokeJavaFn"),
-               FunctionTemplate::New(isolate_, InvokeJavaFunction));
-
   global_->Set(String::NewFromUtf8(isolate_, "$sendBuffer"),
                FunctionTemplate::New(isolate_, SendBuffer, env_));
 
@@ -253,12 +220,17 @@ extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
 
   global_->Set(String::NewFromUtf8(isolate_, "console"), console_);
 
+  JavaWrapper::Init(isolate_, global_);
+
   Local<Context> context_ = Context::New(isolate_, nullptr, global_);
+  JavaWrapper::SetContext(context_);
+
   deno->ResetContext(context_);
   deno->ResetTemplate(global_);
   deno->recv_cb_ = recv_cb;
 
   isolate_map_[deno->uuid_] = deno;
+
   return deno->Into();
 }
 
@@ -453,21 +425,21 @@ extern "C" void callback_info_get(const FunctionCallbackInfo<Value> &args,
 }
 
 extern "C" void attach_current_thread(JNIEnv **env) {
-    int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
-    if (res != JNI_OK) {
-        res = vm->AttachCurrentThread(&(*env), nullptr);
-        if (JNI_OK != res) {
-            return;
-        }
+  int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+  if (res != JNI_OK) {
+    res = vm->AttachCurrentThread(&(*env), nullptr);
+    if (JNI_OK != res) {
+      return;
     }
+  }
 }
 
 extern "C" void attach_current_thread_as_daemon(JNIEnv **env) {
-    int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
-    if (res != JNI_OK) {
-        res = vm->AttachCurrentThreadAsDaemon(&(*env), nullptr);
-        if (JNI_OK != res) {
-            return;
-        }
+  int res = vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+  if (res != JNI_OK) {
+    res = vm->AttachCurrentThreadAsDaemon(&(*env), nullptr);
+    if (JNI_OK != res) {
+      return;
     }
+  }
 }

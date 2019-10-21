@@ -27,6 +27,7 @@ typedef struct value_t {
 
 typedef struct {
     jlong ptr;
+    jlong name;
     value_t *args;
     uint32_t argc;
 } message_t;
@@ -37,8 +38,8 @@ using namespace std;
 extern "C" {
 jlong _rust_new_string(const char *);
 jlong new_instance(string_t, const value_t *, uint32_t);
-void instance_call(jlong, string_t, const value_t *, uint32_t,
-                   const FunctionCallbackInfo<Value> &);
+void instance_call(jlong, jlong, const value_t *, uint32_t,
+                   const FunctionCallbackInfo<Value> &, bool);
 void adb_debug(const char *);
 }
 
@@ -50,5 +51,7 @@ value_t _new_string_value(char *, int);
 
 std::string v8str(Local<String> input);
 string_t v8string_t(Local<Value> input);
+
+Local<Function> get_function(Local<Object> obj, Local<String> key);
 
 #endif // JNI_UTIL_H_

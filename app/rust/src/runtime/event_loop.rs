@@ -66,13 +66,15 @@ pub extern "C" fn init_event_loop() {
                 
                 function changeColor(context) {
                     setInterval(() => {
-                        const color = colorList[Math.round(Math.random() * colorList.length)];
-                        console.log(color);
-                        context.testMethod(color);
+                        const color = colorList[Math.ceil(Math.random() * colorList.length)];
+                        console.log(context.setBackgroundColor(color));
                     }, 1000);
                 }
                 
                 changeColor(context);
+                
+                setInterval(() => {}, 100);
+                
 
                 /** Text decoder */
                 function TextDecoder() {}

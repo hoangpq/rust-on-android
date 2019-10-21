@@ -33,12 +33,6 @@ void test_fn(const FunctionCallbackInfo<Value> &);
 char *worker_send_bytes(void *, size_t, Local<Value> val);
 }
 
-Local<Function> get_function(Local<Object> obj, Local<String> key) {
-  Local<Value> value = obj->Get(key);
-  assert(value->IsFunction());
-  return Local<Function>::Cast(value);
-}
-
 // NDK vm instance
 static JavaVM *vm;
 

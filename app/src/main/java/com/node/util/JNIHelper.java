@@ -25,11 +25,13 @@ public class JNIHelper {
         indexToClass.append(1, long.class);
         indexToClass.append(2, double.class);
         indexToClass.append(3, String.class);
+        indexToClass.append(4, Void.class);
         // class to index
         classToIndex.put(int.class, 0);
         classToIndex.put(long.class, 1);
         classToIndex.put(double.class, 2);
         classToIndex.put(String.class, 3);
+        classToIndex.put(Void.class, 4);
     }
 
     public static Integer getIndexByClass(Class c) {
@@ -89,8 +91,7 @@ public class JNIHelper {
         }
     }
 
-    static Object callMethod(Object instance, String name, Integer[] types, Object[] values)
-            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    static Object callMethod(Object instance, String name, Integer[] types, Object[] values) {
 
         if (instance instanceof WeakReference) {
             instance = ((WeakReference) instance).get();
@@ -101,8 +102,18 @@ public class JNIHelper {
             classes[i] = indexToClass.get(types[i]);
         }
 
-        Method method = instance.getClass().getDeclaredMethod(name, classes);
-        Object result = method.invoke(instance, values);
+        Object result;
+        Method method;
+
+        try {
+            method = instance.getClass().getDeclaredMethod(name, classes);
+            result = method.invoke(instance, values);
+            if (null == result) {
+                return new Response(null, Integer.MAX_VALUE);
+            }
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException ex) {
+            return new Response(null, Integer.MAX_VALUE);
+        }
 
         return new Response(result, classToIndex.get(method.getReturnType()));
     }
