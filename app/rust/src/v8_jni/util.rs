@@ -1,29 +1,24 @@
 extern crate cast;
 
-use std::borrow::{Borrow, Cow};
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::borrow::Cow;
 use std::sync::{Arc, Once};
 use std::{panic, slice};
 
-use itertools::Itertools;
 use jni::objects::{GlobalRef, JObject, JString, JValue};
-use jni::strings::{JNIStr, JavaStr};
 use jni::sys::{jlong, jvalue};
 use jni::JNIEnv;
 use jni::{AttachGuard, JavaVM};
-use jni_sys::jint;
 use v8::fun::CallbackInfo;
+use v8::types::{JsNull, JsNumber, JsUndefined, Managed};
 
 use crate::dex;
 use crate::dex::{unwrap, unwrap_js};
-use crate::runtime::util::adb_debug;
+use crate::v8::types::{Handle, JsFunction, JsValue, Local};
 use crate::v8_jni::_rust_get_string;
 
 static mut JVM: Option<Arc<JavaVM>> = None;
 static INIT: Once = Once::new();
 
-static STRING_CLASS: &str = "java/lang/String";
 static INTEGER_CLASS: &str = "java/lang/Integer";
 static OBJECT_CLASS: &str = "java/lang/Object";
 
@@ -31,7 +26,6 @@ static JNI_HELPER_CLASS: &str = "com/node/util/JNIHelper";
 
 extern "C" {
     fn get_java_vm() -> *mut jni::sys::JavaVM;
-    fn get_main_thread_env() -> *mut jni::sys::JNIEnv;
 }
 
 #[repr(C)]
@@ -89,31 +83,6 @@ impl value_t {
         let s = unsafe { _rust_get_string(self.data.s) };
         *unwrap(&env, env.new_string(s))
     }
-}
-
-#[repr(C)]
-#[derive(Copy)]
-pub struct message_t {
-    pub ptr: jlong,
-    pub name: jlong,
-    pub args: *const value_t,
-    pub argc: u32,
-}
-
-impl Clone for message_t {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn _rust_new_message_t(msg: message_t) -> jlong {
-    Box::into_raw(Box::new(msg)) as jlong
-}
-
-#[no_mangle]
-pub extern "C" fn _rust_get_message_t(ptr: jlong) -> message_t {
-    unsafe { *Box::from_raw(ptr as *mut message_t) }
 }
 
 #[no_mangle]
@@ -276,14 +245,32 @@ fn new_int<'a>(env: &'a JNIEnv, value: i32) -> JObject<'a> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn instance_call(
+pub unsafe extern "C" fn instance_call_args(
     instance_ptr: jlong,
     name: jlong,
     args: *const value_t,
     argc: u32,
     info: &CallbackInfo,
-    run_on_main_thread: bool,
 ) {
+    info.set_return_value(internal_instance_call(instance_ptr, name, args, argc));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn instance_call_callback<'a>(
+    instance_ptr: jlong,
+    name: jlong,
+    args: *const value_t,
+    argc: u32,
+) -> Handle<'a, JsValue> {
+    internal_instance_call(instance_ptr, name, args, argc)
+}
+
+unsafe fn internal_instance_call<'a>(
+    instance_ptr: jlong,
+    name: jlong,
+    args: *const value_t,
+    argc: u32,
+) -> Handle<'a, JsValue> {
     let global_ref = &mut *(instance_ptr as *mut GlobalRef);
     let name = *Box::from_raw(name as *mut String);
 
@@ -340,7 +327,7 @@ pub unsafe extern "C" fn instance_call(
 
         if has_error {
             dex::throw_js_exception(&env, internal).unwrap();
-            return;
+            return v8::null().upcast();
         }
 
         return match sig {
@@ -355,9 +342,7 @@ pub unsafe extern "C" fn instance_call(
                         &[internal],
                     ),
                 );
-                if !run_on_main_thread {
-                    info.set_return_value(v8::new_number(value.i().unwrap()))
-                }
+                v8::new_number(unwrap(&env, value.i())).upcast()
             }
             1u8 => {
                 let value = unwrap(
@@ -370,9 +355,7 @@ pub unsafe extern "C" fn instance_call(
                         &[internal],
                     ),
                 );
-                if !run_on_main_thread {
-                    info.set_return_value(v8::new_number(cast::f64(value.j().unwrap())));
-                }
+                v8::new_number(cast::f64(unwrap(&env, value.j()))).upcast()
             }
             2u8 => {
                 let value = unwrap(
@@ -385,19 +368,11 @@ pub unsafe extern "C" fn instance_call(
                         &[internal],
                     ),
                 );
-                if !run_on_main_thread {
-                    info.set_return_value(v8::new_number(value.d().unwrap()))
-                }
+                v8::new_number(unwrap(&env, value.d())).upcast()
             }
-            _ => {
-                if !run_on_main_thread {
-                    info.set_return_value(v8::null())
-                }
-            }
+            _ => v8::null().upcast(),
         };
     }
 
-    if !run_on_main_thread {
-        info.set_return_value(v8::null())
-    }
+    v8::null().upcast()
 }

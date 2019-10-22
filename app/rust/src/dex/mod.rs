@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::string::ToString;
 use std::sync::Mutex;
 
-use futures::future::result;
 use jni::errors::Result;
 use jni::objects::{AutoLocal, GlobalRef, JClass, JObject, JString, JValue};
 use jni::signature::TypeSignature;
@@ -124,7 +123,6 @@ where
     U: Into<JNIString>,
     V: Into<JNIString> + AsRef<str>,
 {
-    let table = CLASS_TABLE.lock().unwrap();
     let parsed = TypeSignature::from_str(&sig)?;
 
     let class = unwrap(

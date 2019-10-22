@@ -93,12 +93,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Keep
-    public void setBackgroundColor(String color) {
+    public int setBackgroundColor(String color) {
         try {
             getWindow().getDecorView().setBackgroundColor(Color.parseColor(color));
         } catch (Exception ex) {
             Log.d("Kotlin", ex.getLocalizedMessage());
         }
+        return 1;
     }
 
     private void initNodeJS() {

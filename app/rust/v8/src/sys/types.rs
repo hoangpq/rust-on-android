@@ -7,6 +7,8 @@ use std::ops::{Deref, DerefMut};
 use std::os::raw::{c_char, c_void};
 
 extern "C" {
+    // cast
+    fn upcast_value(h1: Local, h2: &mut Local);
     fn mem_same_handle(h1: Local, h2: Local) -> bool;
     /// number
     fn new_number(local: &mut Local, v: f64);
@@ -36,6 +38,7 @@ extern "C" {
     ) -> bool;
     fn raw_value(val: Local) -> *const c_char;
     fn null_value(out: &mut Local);
+    fn undefined_value(out: &mut Local);
     fn new_function(out: &mut Local, handler: FunctionCallback);
     fn promise_then(promise: &mut Local, handler: Local);
 }
@@ -44,6 +47,8 @@ pub trait Managed: Copy {
     fn to_raw(self) -> Local;
 
     fn from_raw(h: Local) -> Self;
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue>;
 }
 
 /// A property key in Javascript object
@@ -203,6 +208,16 @@ impl Managed for JsValue {
     fn from_raw(h: Local) -> Self {
         JsValue(h)
     }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
+    }
+}
+
+impl JsValue {
+    fn downcast<'a, T: Managed + 'a>(self) -> Handle<'a, T> {
+        Handle::new_internal(T::from_raw(self.to_raw()))
+    }
 }
 
 impl Value for JsValue {}
@@ -237,6 +252,10 @@ impl Managed for JsNumber {
     fn from_raw(h: Local) -> Self {
         JsNumber(h)
     }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
+    }
 }
 
 /// A JavaScript object.
@@ -265,6 +284,10 @@ impl Managed for JsObject {
 
     fn from_raw(h: Local) -> Self {
         JsObject(h)
+    }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
     }
 }
 
@@ -300,6 +323,10 @@ impl Managed for JsArray {
     fn from_raw(h: Local) -> Self {
         JsArray(h)
     }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
+    }
 }
 
 /// A Javascript string.
@@ -333,6 +360,10 @@ impl Managed for JsString {
     fn from_raw(h: Local) -> Self {
         JsString(h)
     }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
+    }
 }
 
 /// A Javascript arraybuffer.
@@ -361,6 +392,10 @@ impl Managed for JsArrayBuffer {
 
     fn from_raw(h: Local) -> Self {
         JsArrayBuffer(h)
+    }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
     }
 }
 
@@ -422,6 +457,10 @@ impl<T: Object> Managed for JsFunction<T> {
             marker: PhantomData,
         }
     }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.raw))
+    }
 }
 
 /// A Javascript promise
@@ -454,6 +493,10 @@ impl<T: Object> Managed for JsPromise<T> {
             marker: PhantomData,
         }
     }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.raw))
+    }
 }
 
 /// A Javascript null.
@@ -485,5 +528,45 @@ impl Managed for JsNull {
 
     fn from_raw(h: Local) -> Self {
         JsNull(h)
+    }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
+    }
+}
+
+/// A Javascript undefined.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JsUndefined(Local);
+
+impl JsUndefined {
+    pub fn new<'a>() -> Handle<'a, JsUndefined> {
+        JsUndefined::new_internal()
+    }
+
+    pub(crate) fn new_internal<'a>() -> Handle<'a, JsUndefined> {
+        unsafe {
+            let mut local: Local = std::mem::zeroed();
+            undefined_value(&mut local);
+            Handle::new_internal(JsUndefined(local))
+        }
+    }
+}
+
+impl Value for JsUndefined {}
+impl Object for JsUndefined {}
+
+impl Managed for JsUndefined {
+    fn to_raw(self) -> Local {
+        self.0
+    }
+
+    fn from_raw(h: Local) -> Self {
+        JsUndefined(h)
+    }
+
+    fn upcast<'a>(self) -> Handle<'a, JsValue> {
+        Handle::new_internal(JsValue(self.0))
     }
 }

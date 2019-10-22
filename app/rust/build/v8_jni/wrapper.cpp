@@ -7,7 +7,7 @@ void write_message(const void *, size_t count);
 
 Persistent<FunctionTemplate> JavaWrapper::constructor_;
 Persistent<Function> JavaWrapper::registerUITask_;
-Persistent<Function> JavaWrapper::resolverUITask;
+Persistent<Function> JavaWrapper::resolverUITask_;
 Persistent<Context> JavaWrapper::resolverContext_;
 
 void JavaWrapper::Init(Isolate *isolate_, Local<ObjectTemplate> exports) {
@@ -27,14 +27,6 @@ void JavaWrapper::Init(Isolate *isolate_, Local<ObjectTemplate> exports) {
 
   exports->Set(String::NewFromUtf8(isolate_, "$invokeJavaFn"),
                FunctionTemplate::New(isolate_, InvokeJavaFunction));
-
-  // resolver
-  Local<Context> context_ = resolverContext_.Get(isolate_);
-  Context::Scope scope(context_);
-  Local<Object> global = context_->Global();
-  Local<Function> resolver_ =
-          get_function(global, String::NewFromUtf8(isolate_, "registerUITask"));
-  registerUITask_.Reset(isolate_, resolver_);
 }
 
 void JavaWrapper::SetContext(Local<Context> context_) {
@@ -102,10 +94,22 @@ void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
 int looperCallback(int fd, int events, void *data) {
   message_t msg;
   read(fd, &msg, sizeof(message_t));
+    {
+        Isolate *isolate_ = msg.isolate_;
+        Locker locker(isolate_);
+        HandleScope scope(isolate_);
 
-  int x = 10;
-  auto info = reinterpret_cast<FunctionCallbackInfo<Value> *>(&x);
-  instance_call(msg.ptr, msg.name, msg.args, msg.argc, *info, true);
+        Local<Context> context_ = JavaWrapper::resolverContext_.Get(isolate_);
+        Context::Scope contextScope(context_);
+
+        Local<Function> resolver_ = JavaWrapper::resolverUITask_.Get(isolate_);
+        Handle<Value> result =
+                instance_call_callback(msg.ptr, msg.name, msg.args, msg.argc);
+
+        const int argc = 2;
+        Local<Value> args[argc] = {Number::New(isolate_, msg.uuid), result};
+        resolver_->Call(context_, Null(isolate_), argc, args);
+    }
   return 1;
 }
 
@@ -141,26 +145,49 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
 
   jlong name = _rust_new_string(method.c_str());
   if (!wrapper->context_) {
-    instance_call(wrapper->ptr_, name, args, argc, info, false);
+      instance_call_args(wrapper->ptr_, name, args, argc, info);
   } else {
+      Local<Context> context_ = resolverContext_.Get(isolate_);
+      Local<Function> register_ = registerUITask_.Get(isolate_);
+
+      Context::Scope contextScope(context_);
+
+      Local<Object> result = Local<Object>::Cast(
+              register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
+
+      uint32_t uuid =
+              result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
+
     message_t msg;
     msg.ptr = wrapper->ptr_;
     msg.name = name;
     msg.argc = argc;
     msg.args = args;
+      msg.isolate_ = isolate_;
+      msg.context_ = &resolverContext_;
+      msg.uuid = uuid;
     write_message(&msg, sizeof(message_t));
 
-    /*Local<Context> context_ = isolate_->GetCurrentContext();
-    Local<Function> resolver_ = registerUITask_.Get(isolate_);
-    Local<Value> argv[0] = {};
-    Local<Object> result = Local<Object>::Cast(
-        resolver_->Call(context_, Null(isolate_), 0, argv).ToLocalChecked());
-
-    uint32_t uiTaskId =
-        result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
     info.GetReturnValue().Set(
-        result->Get(String::NewFromUtf8(isolate_, "promise")));*/
+            result->Get(String::NewFromUtf8(isolate_, "promise")));
   }
 }
 
+void JavaWrapper::CallbackRegister(Isolate *isolate_, Local<Context> context) {
+    Local<Object> global = context->Global();
+    resolverContext_.Reset(isolate_, context);
+
+    Local<Function> register_ =
+            get_function(global, String::NewFromUtf8(isolate_, "registerUITask"));
+    registerUITask_.Reset(isolate_, register_);
+
+    Local<Function> resolver_ =
+            get_function(global, String::NewFromUtf8(isolate_, "resolverUITask"));
+    resolverUITask_.Reset(isolate_, resolver_);
+}
+
 JavaWrapper::~JavaWrapper() { adb_debug("Destroyed"); }
+
+void java_register_callback(Isolate *isolate_, Local<Context> context) {
+    JavaWrapper::CallbackRegister(isolate_, context);
+}

@@ -30,6 +30,9 @@ typedef struct {
     jlong name;
     value_t *args;
     uint32_t argc;
+    Isolate *isolate_;
+    Persistent<Context> *context_;
+    uint32_t uuid;
 } message_t;
 
 using namespace v8;
@@ -38,15 +41,14 @@ using namespace std;
 extern "C" {
 jlong _rust_new_string(const char *);
 jlong new_instance(string_t, const value_t *, uint32_t);
-void instance_call(jlong, jlong, const value_t *, uint32_t,
-                   const FunctionCallbackInfo<Value> &, bool);
+void instance_call_args(jlong, jlong, const value_t *, uint32_t,
+                        const FunctionCallbackInfo<Value> &);
+Local<Value> instance_call_callback(jlong, jlong, const value_t *, uint32_t);
 void adb_debug(const char *);
 }
 
 string_t _new_string_t(const std::string &s);
-
 value_t _new_int_value(uint32_t val);
-
 value_t _new_string_value(char *, int);
 
 std::string v8str(Local<String> input);

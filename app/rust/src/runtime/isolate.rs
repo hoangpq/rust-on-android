@@ -85,6 +85,51 @@ impl Isolate {
             c_str!("isolate.js"),
             c_str!(
                 r#"
+                /** Text decoder */
+                function TextDecoder() {}
+
+                TextDecoder.prototype.decode = function(octets) {
+                    var string = '';
+                    var i = 0;
+                    while (i < octets.length) {
+                        var octet = octets[i];
+                        var bytesNeeded = 0;
+                        var codePoint = 0;
+                        if (octet <= 0x7f) {
+                            bytesNeeded = 0;
+                            codePoint = octet & 0xff;
+                        } else if (octet <= 0xdf) {
+                            bytesNeeded = 1;
+                            codePoint = octet & 0x1f;
+                        } else if (octet <= 0xef) {
+                            bytesNeeded = 2;
+                            codePoint = octet & 0x0f;
+                        } else if (octet <= 0xf4) {
+                            bytesNeeded = 3;
+                            codePoint = octet & 0x07;
+                        }
+                        if (octets.length - i - bytesNeeded > 0) {
+                            var k = 0;
+                            while (k < bytesNeeded) {
+                                octet = octets[i + k + 1];
+                                codePoint = (codePoint << 6) | (octet & 0x3f);
+                                k += 1;
+                            }
+                        } else {
+                            codePoint = 0xfffd;
+                            bytesNeeded = octets.length - i;
+                        }
+                        string += String.fromCodePoint(codePoint);
+                        i += bytesNeeded + 1;
+                    }
+                    return string;
+                };
+
+                ArrayBuffer.prototype.toJSON = function() {
+                    const ar = new Uint8Array(this);
+                    return new TextDecoder().decode(ar);
+                }
+                
                 function assert(cond, msg = 'assert') {
                     if (!cond) {
                         throw Error(msg);
@@ -251,26 +296,38 @@ impl Isolate {
                 
                 // For Java <-> JS bridge
                 
-                let uiTaskId = 0;
+                let uiTaskId = 1;
                 const uiTaskMap = new Map();
                 
                 function registerUITask() {
                   let methods;
-                  const cmdId = uiTaskMap++;
+                  
+                  const cmdId = uiTaskId++;
                   const promise = new Promise((resolve, reject) => {
                     methods = { resolve, reject, cmdId };
                   });
+                  
                   const promise_ = Object.assign(promise, methods);
-                  promiseTable.set(cmdId, promise_);
+                  uiTaskMap.set(cmdId, promise_);
+                  
                   // Remove the promise
-                  promise.finally(() => {
-                    console.log(`Resolved`);
-                    promiseTable.delete(promise.cmdId);
+                  promise_.finally(() => {
+                    console.log(`Remove: ${promise_.cmdId}`);
+                    uiTaskMap.delete(promise_.cmdId);
                   });
+                  
                   return {
-                    promise: promise_,
-                    uiTaskId: promise_.cmdId
+                    promise: promise,
+                    uiTaskId: cmdId
                   };
+                }
+                
+                function resolverUITask(cmdId, data) {
+                  Promise.resolve(cmdId).then(id => {
+                    if (!uiTaskMap.has(id)) return;
+                    const task = uiTaskMap.get(id);
+                    task.resolve(data);
+                  });
                 }
                 
                 const slice = Array.prototype.slice;

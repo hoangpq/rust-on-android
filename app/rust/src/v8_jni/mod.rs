@@ -1,10 +1,7 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
-use jni_sys::{jlong, jvalue};
-
-use crate::dex::unwrap;
-use crate::v8_jni::util::{attach_current_thread_as_daemon, data_t, jvm, value_t};
+use jni_sys::jlong;
 
 mod util;
 

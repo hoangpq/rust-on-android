@@ -18,6 +18,11 @@ impl CallbackInfo {
     pub fn set_return_value<T: Value>(&self, value: Handle<T>) {
         unsafe { set_return_value(&self.info, value.to_raw()) }
     }
+    pub fn set_return_value_checked<T: Value>(&self, value: Handle<T>, cond: bool) {
+        if cond {
+            self.set_return_value(value);
+        }
+    }
     pub fn get<'a, T: Value>(&self, index: u32) -> Handle<'a, T> {
         unsafe {
             let mut local: Local = std::mem::zeroed();
