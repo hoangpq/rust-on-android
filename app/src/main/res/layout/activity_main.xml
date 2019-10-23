@@ -51,7 +51,7 @@
         android:padding="10dp"
         android:text="@string/message"
         android:textAlignment="center"
-        android:textSize="20sp"
+        android:textSize="32sp"
         app:layout_constraintBottom_toTopOf="@+id/actionHolder2"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"

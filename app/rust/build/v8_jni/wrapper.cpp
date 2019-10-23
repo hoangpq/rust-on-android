@@ -94,22 +94,36 @@ void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
 int looperCallback(int fd, int events, void *data) {
   message_t msg;
   read(fd, &msg, sizeof(message_t));
-    {
-        Isolate *isolate_ = msg.isolate_;
-        Locker locker(isolate_);
-        HandleScope scope(isolate_);
+  {
 
-        Local<Context> context_ = JavaWrapper::resolverContext_.Get(isolate_);
-        Context::Scope contextScope(context_);
+    Isolate *isolate_ = msg.isolate_;
 
-        Local<Function> resolver_ = JavaWrapper::resolverUITask_.Get(isolate_);
-        Handle<Value> result =
-                instance_call_callback(msg.ptr, msg.name, msg.args, msg.argc);
+    if (nullptr != isolate_) {
+      Locker locker(isolate_);
+      isolate_->Enter();
 
-        const int argc = 2;
-        Local<Value> args[argc] = {Number::New(isolate_, msg.uuid), result};
-        resolver_->Call(context_, Null(isolate_), argc, args);
+      HandleScope scope(isolate_);
+      TryCatch tryCatch(isolate_);
+
+      Local<Context> context_ = JavaWrapper::resolverContext_.Get(isolate_);
+      Context::Scope contextScope(context_);
+
+      Local<Function> resolver_ = JavaWrapper::resolverUITask_.Get(isolate_);
+      Handle<Value> result =
+              instance_call_callback(msg.ptr, msg.name, msg.args, msg.argc);
+
+      const int argc = 2;
+      Local<Value> args[argc] = {Number::New(isolate_, msg.uuid), result};
+      MaybeLocal<Value> value =
+              resolver_->Call(context_, Null(isolate_), argc, args);
+
+      if (value.IsEmpty() && tryCatch.HasCaught()) {
+        String::Utf8Value exception(tryCatch.Exception());
+        adb_debug(*exception);
+      }
     }
+  }
+
   return 1;
 }
 
@@ -145,49 +159,51 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
 
   jlong name = _rust_new_string(method.c_str());
   if (!wrapper->context_) {
-      instance_call_args(wrapper->ptr_, name, args, argc, info);
+    instance_call_args(wrapper->ptr_, name, args, argc, info);
   } else {
-      Local<Context> context_ = resolverContext_.Get(isolate_);
-      Local<Function> register_ = registerUITask_.Get(isolate_);
+    Local<Context> context_ = resolverContext_.Get(isolate_);
+    Local<Function> register_ = registerUITask_.Get(isolate_);
 
-      Context::Scope contextScope(context_);
+    Context::Scope contextScope(context_);
 
-      Local<Object> result = Local<Object>::Cast(
-              register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
+    Local<Object> result = Local<Object>::Cast(
+            register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
 
-      uint32_t uuid =
-              result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
+    uint32_t uuid =
+            result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
 
     message_t msg;
     msg.ptr = wrapper->ptr_;
     msg.name = name;
     msg.argc = argc;
     msg.args = args;
-      msg.isolate_ = isolate_;
-      msg.context_ = &resolverContext_;
-      msg.uuid = uuid;
-    write_message(&msg, sizeof(message_t));
+    msg.isolate_ = isolate_;
+    msg.context_ = &resolverContext_;
+    msg.uuid = uuid;
 
     info.GetReturnValue().Set(
             result->Get(String::NewFromUtf8(isolate_, "promise")));
+
+    write_message(&msg, sizeof(message_t));
   }
 }
 
 void JavaWrapper::CallbackRegister(Isolate *isolate_, Local<Context> context) {
-    Local<Object> global = context->Global();
-    resolverContext_.Reset(isolate_, context);
+  Local<Object> global = context->Global();
 
-    Local<Function> register_ =
-            get_function(global, String::NewFromUtf8(isolate_, "registerUITask"));
-    registerUITask_.Reset(isolate_, register_);
+  resolverContext_.Reset(isolate_, context);
 
-    Local<Function> resolver_ =
-            get_function(global, String::NewFromUtf8(isolate_, "resolverUITask"));
-    resolverUITask_.Reset(isolate_, resolver_);
+  Local<Function> register_ =
+          get_function(global, String::NewFromUtf8(isolate_, "registerUITask"));
+  registerUITask_.Reset(isolate_, register_);
+
+  Local<Function> resolver_ =
+          get_function(global, String::NewFromUtf8(isolate_, "resolverUITask"));
+  resolverUITask_.Reset(isolate_, resolver_);
 }
 
 JavaWrapper::~JavaWrapper() { adb_debug("Destroyed"); }
 
 void java_register_callback(Isolate *isolate_, Local<Context> context) {
-    JavaWrapper::CallbackRegister(isolate_, context);
+  JavaWrapper::CallbackRegister(isolate_, context);
 }

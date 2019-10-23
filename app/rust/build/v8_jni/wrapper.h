@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <jni.h>
+#include <memory>
 
 #include "../util/util.h"
 
@@ -32,7 +33,6 @@ public:
     static void CallbackRegister(Isolate *isolate_, Local<Context> context);
 
     static Persistent<Function> resolverUITask_;
-
     static Persistent<Context> resolverContext_;
 
 private:
@@ -50,9 +50,9 @@ private:
 
     static void InvokeJavaFunction(const FunctionCallbackInfo<Value> &args);
 
+    jlong ptr_;
   std::string package_;
     bool context_ = false;
-    jlong ptr_;
 
   static Persistent<FunctionTemplate> constructor_;
     static Persistent<Function> registerUITask_;

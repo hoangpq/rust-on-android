@@ -312,7 +312,6 @@ impl Isolate {
                   
                   // Remove the promise
                   promise_.finally(() => {
-                    console.log(`Remove: ${promise_.cmdId}`);
                     uiTaskMap.delete(promise_.cmdId);
                   });
                   

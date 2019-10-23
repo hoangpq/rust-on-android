@@ -47,6 +47,9 @@ public class MainActivity extends AppCompatActivity {
     @SuppressWarnings("JniMissingFunction")
     public native String getUtf8String();
 
+    TextView txtMessage = null;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,10 +65,11 @@ public class MainActivity extends AppCompatActivity {
 
         final Button buttonVersions = findViewById(R.id.btVersions);
         final Button btnImageProcessing = findViewById(R.id.btImageProcessing);
-        final TextView txtMessage = findViewById(R.id.txtMessage);
         final Button evalScriptButton = findViewById(R.id.evalScriptBtn);
+        txtMessage = findViewById(R.id.txtMessage);
 
-        txtMessage.setText(getUtf8String());
+        setText(getUtf8String());
+
         // Listeners
         evalScriptButton.setOnClickListener(view -> {
         });
@@ -93,9 +97,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Keep
+    public void setText(String text) {
+        txtMessage.setText(text);
+    }
+
+    @Keep
     public int setBackgroundColor(String color) {
         try {
-            getWindow().getDecorView().setBackgroundColor(Color.parseColor(color));
+            int colorCode = Color.parseColor(color);
+            getWindow().getDecorView().setBackgroundColor(colorCode);
+            return colorCode;
         } catch (Exception ex) {
             Log.d("Kotlin", ex.getLocalizedMessage());
         }
