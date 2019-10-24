@@ -11,8 +11,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
-import com.node.util.ResourceUtil
-import com.node.util.Util
 
 class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
     private external fun blendBitmap(imageView: ImageView?, renderType: Int, callback: (String) -> Unit)
@@ -33,6 +31,11 @@ class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
         genFractal.setOnClickListener(this)
     }
 
+    @Keep
+    fun onRenderDone(message: String) {
+        Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+    }
+
     override fun onClick(view: View?) {
         val renderType = when (view?.id) {
             R.id.mandelbrot -> 0x000001
@@ -40,9 +43,7 @@ class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
             else -> 0x000003
         }
 
-        blendBitmap(imageView, renderType) @Keep {
-            Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
-        }
+        blendBitmap(imageView, renderType, ::onRenderDone)
     }
 
     companion object {

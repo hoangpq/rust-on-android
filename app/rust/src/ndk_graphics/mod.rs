@@ -2,18 +2,28 @@
 extern crate jni;
 extern crate libc;
 
-pub mod android;
-mod fractal;
-mod mandelbrot;
-use crate::dex;
+use std::os::raw::{c_int, c_uint, c_void};
+use std::thread;
 
 use jni::errors::Result;
 use jni::objects::{GlobalRef, JClass, JObject, JValue};
 use jni::sys::{jint, jstring};
-use libc::{c_uint, c_void};
-use std::{sync::mpsc, thread};
+use jni_sys::jlong;
+
+use crate::dex;
+use crate::dex::unwrap;
+use crate::v8_jni::attach_current_thread_as_daemon;
+
+pub mod android;
+mod fractal;
+mod mandelbrot;
 
 type RenderType = u32;
+type JNICallback = extern "C" fn(*mut c_void, data: jlong);
+
+extern "C" {
+    fn send_jni_callback_message(cb: JNICallback, data: jlong);
+}
 
 pub unsafe fn create_bitmap<'b>(
     env: &'b jni::JNIEnv,
@@ -42,7 +52,7 @@ pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
 }
 
 unsafe fn blend_bitmap<'a>(
-    vm: jni::JavaVM,
+    vm: &jni::JavaVM,
     render_type: RenderType,
     image_view_ref: GlobalRef,
 ) -> Result<&'a str> {
@@ -86,6 +96,17 @@ unsafe fn blend_bitmap<'a>(
     Ok("Render successfully")
 }
 
+struct BitmapPayload<'a> {
+    callback: GlobalRef,
+    msg: &'a str,
+}
+
+impl BitmapPayload<'_> {
+    pub fn dumps<'b>(callback: GlobalRef, msg: &'b str) -> jlong {
+        Box::into_raw(Box::new(BitmapPayload { callback, msg })) as jlong
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     env: jni::JNIEnv,
@@ -95,29 +116,49 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     callback: JObject,
 ) {
     let vm = env.get_java_vm().unwrap();
+
+    let callback = env.new_global_ref(callback).unwrap();
     let image_view_ref = env.new_global_ref(image_view).unwrap();
-    let (tx, rx) = mpsc::sync_channel::<&str>(1);
 
     thread::spawn(move || {
-        let msg = match blend_bitmap(vm, render_type, image_view_ref) {
+        let env = vm.attach_current_thread().unwrap();
+        let msg = match blend_bitmap(&vm, render_type, image_view_ref) {
             Ok(msg) => msg,
             _ => "Failed to render!",
         };
 
-        // Send to main thread
-        tx.send(msg).unwrap();
-    });
+        let data = BitmapPayload::dumps(callback, msg);
 
-    // <- msg
-    let msg = rx.recv().unwrap();
-    if let Err(_) = env.call_method(
-        callback,
-        "invoke",
-        "(Ljava/lang/String;)V",
-        &[JValue::from(JObject::from(env.new_string(msg).unwrap()))],
-    ) {
-        let _ = env.exception_check().map_err(|e| {
-            adb_debug!(format!("{:?}", e));
-        });
+        let mut callback = move |data: jlong| {
+            let env = attach_current_thread_as_daemon();
+            let data = unsafe { Box::from_raw(data as *mut BitmapPayload) };
+
+            unwrap(
+                &env,
+                env.call_method(
+                    (*data).callback.as_obj(),
+                    "invoke",
+                    "(Ljava/lang/String;)V",
+                    &[JValue::from(JObject::from(env.new_string("zzz").unwrap()))],
+                ),
+            );
+        };
+
+        send_jni_callback_message(unpack_closure(&mut callback), data);
+    });
+}
+
+unsafe fn unpack_closure<F>(closure: &mut F) -> JNICallback
+where
+    F: FnMut(jlong) + 'static,
+{
+    extern "C" fn trampoline<F>(ptr: *mut c_void, data: jlong)
+    where
+        F: FnMut(jlong) + 'static,
+    {
+        let closure: &mut F = unsafe { &mut *(ptr as *mut F) };
+        (*closure)(data);
     }
+
+    trampoline::<F>
 }

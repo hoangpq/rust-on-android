@@ -1,32 +1,24 @@
 extern crate cast;
 
 use std::borrow::Cow;
-use std::sync::{Arc, Once};
 use std::{panic, slice};
 
 use jni::objects::{GlobalRef, JObject, JString, JValue};
 use jni::sys::{jlong, jvalue};
+use jni::AttachGuard;
 use jni::JNIEnv;
-use jni::{AttachGuard, JavaVM};
 use v8::fun::CallbackInfo;
-use v8::types::{JsNull, JsNumber, JsUndefined, Managed};
+use v8::types::Managed;
 
 use crate::dex;
 use crate::dex::{unwrap, unwrap_js};
-use crate::v8::types::{Handle, JsFunction, JsValue, Local};
-use crate::v8_jni::_rust_get_string;
-
-static mut JVM: Option<Arc<JavaVM>> = None;
-static INIT: Once = Once::new();
+use crate::v8::types::{Handle, JsValue};
+use crate::v8_jni::{_rust_get_string, attach_current_thread, attach_current_thread_as_daemon};
 
 static INTEGER_CLASS: &str = "java/lang/Integer";
 static OBJECT_CLASS: &str = "java/lang/Object";
 
 static JNI_HELPER_CLASS: &str = "com/node/util/JNIHelper";
-
-extern "C" {
-    fn get_java_vm() -> *mut jni::sys::JavaVM;
-}
 
 #[repr(C)]
 pub struct string_t {
@@ -90,30 +82,6 @@ pub extern "C" fn new_integer(val: i32) -> jvalue {
     JValue::from(val).to_jni()
 }
 
-pub fn jvm() -> &'static Arc<JavaVM> {
-    INIT.call_once(|| unsafe {
-        if let Ok(vm) = JavaVM::from_raw(get_java_vm()) {
-            JVM = Some(Arc::new(vm));
-        }
-    });
-
-    unsafe { JVM.as_ref().unwrap() }
-}
-
-#[allow(dead_code)]
-pub fn attach_current_thread() -> AttachGuard<'static> {
-    jvm()
-        .attach_current_thread()
-        .expect("failed to attach jvm thread")
-}
-
-#[allow(dead_code)]
-pub fn attach_current_thread_as_daemon() -> JNIEnv<'static> {
-    jvm()
-        .attach_current_thread_as_daemon()
-        .expect("failed to attach jvm thread")
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn is_field(instance_ptr: jlong, field: string_t) -> bool {
     let global_ref = &mut *(instance_ptr as *mut GlobalRef);
@@ -142,7 +110,7 @@ pub unsafe extern "C" fn is_field(instance_ptr: jlong, field: string_t) -> bool 
 #[no_mangle]
 pub unsafe extern "C" fn is_method(instance_ptr: jlong, method: string_t) -> bool {
     let global_ref = &mut *(instance_ptr as *mut GlobalRef);
-    let env = attach_current_thread();
+    let env: AttachGuard = attach_current_thread();
 
     let instance = unwrap(
         &env,

@@ -47,23 +47,6 @@ void JavaWrapper::New(const FunctionCallbackInfo<Value> &info) {
       uint32_t argc = 0;
       value_t *args = nullptr;
       string_t packageName = _new_string_t(package);
-
-      if (info[1]->IsArray()) {
-        Local<Array> array = Local<Array>::Cast(info[1]);
-        if (array->Length() > 0) {
-          argc = array->Length();
-          args = new value_t[argc];
-
-          for (unsigned int i = 0; i < argc + 1; i++) {
-            if (array->Has(i)) {
-              if (array->Get(i)->IsInt32()) {
-                args[i] = _new_int_value(array->Get(i)->Uint32Value());
-              }
-            }
-          }
-        }
-      }
-
       wrapper->ptr_ = new_instance(packageName, args, argc);
       delete args;
     }
@@ -94,8 +77,10 @@ void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
 int looperCallback(int fd, int events, void *data) {
   message_t msg;
   read(fd, &msg, sizeof(message_t));
-  {
 
+  if (msg.jni_call_) {
+    msg.callback((void *) msg.callback, msg.callback_data_);
+  } else {
     Isolate *isolate_ = msg.isolate_;
 
     if (nullptr != isolate_) {
@@ -173,6 +158,7 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
             result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
 
     message_t msg;
+    msg.jni_call_ = false;
     msg.ptr = wrapper->ptr_;
     msg.name = name;
     msg.argc = argc;
@@ -206,4 +192,12 @@ JavaWrapper::~JavaWrapper() { adb_debug("Destroyed"); }
 
 void java_register_callback(Isolate *isolate_, Local<Context> context) {
   JavaWrapper::CallbackRegister(isolate_, context);
+}
+
+void send_jni_callback_message(JNICallback callback, jlong data) {
+  message_t msg;
+  msg.callback = callback;
+  msg.callback_data_ = data;
+  msg.jni_call_ = true;
+  write_message(&msg, sizeof(message_t));
 }

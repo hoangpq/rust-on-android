@@ -19,7 +19,9 @@ bool is_method(jlong, string_t);
 bool is_field(jlong, string_t);
 }
 
+// share to rust
 extern "C" int looperCallback(int fd, int events, void *data);
+extern "C" void send_jni_callback_message(JNICallback, jlong);
 
 void java_register_callback(Isolate *isolate_, Local<Context> context);
 

@@ -1,5 +1,6 @@
+use std::os::raw::{c_int, c_uint, c_void};
+
 use jni_sys::jobject;
-use libc::{c_int, c_uint, c_void};
 
 #[repr(C)]
 #[derive(Debug, Default)]
