@@ -9,7 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.16.4",
-    "webtorrent": "^0.103.1"
+    "express": "^4.16.4"
   }
 }
