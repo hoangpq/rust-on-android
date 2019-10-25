@@ -79,7 +79,7 @@ int looperCallback(int fd, int events, void *data) {
   read(fd, &msg, sizeof(message_t));
 
   if (msg.jni_call_) {
-    msg.callback((void *) msg.callback, msg.callback_data_);
+      msg.callback((void *) msg.callback, msg.callback_data_);
   } else {
     Isolate *isolate_ = msg.isolate_;
 

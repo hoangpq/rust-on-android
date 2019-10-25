@@ -1,14 +1,12 @@
 #![allow(non_snake_case)]
 extern crate jni;
-extern crate libc;
 
 use std::os::raw::{c_int, c_uint, c_void};
 use std::thread;
 
 use jni::errors::Result;
 use jni::objects::{GlobalRef, JClass, JObject, JValue};
-use jni::sys::{jint, jstring};
-use jni_sys::jlong;
+use jni::sys::{jint, jlong, jstring};
 
 use crate::dex;
 use crate::dex::unwrap;
@@ -96,14 +94,14 @@ unsafe fn blend_bitmap<'a>(
     Ok("Render successfully")
 }
 
-struct BitmapPayload<'a> {
+struct JNICallbackData<'a> {
     callback: GlobalRef,
     msg: &'a str,
 }
 
-impl BitmapPayload<'_> {
-    pub fn dumps<'b>(callback: GlobalRef, msg: &'b str) -> jlong {
-        Box::into_raw(Box::new(BitmapPayload { callback, msg })) as jlong
+impl JNICallbackData<'_> {
+    pub fn dumps(callback: GlobalRef, msg: &str) -> jlong {
+        Box::into_raw(Box::new(JNICallbackData { callback, msg })) as jlong
     }
 }
 
@@ -116,7 +114,6 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     callback: JObject,
 ) {
     let vm = env.get_java_vm().unwrap();
-
     let callback = env.new_global_ref(callback).unwrap();
     let image_view_ref = env.new_global_ref(image_view).unwrap();
 
@@ -127,11 +124,10 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
             _ => "Failed to render!",
         };
 
-        let data = BitmapPayload::dumps(callback, msg);
-
+        let jni_data = JNICallbackData::dumps(callback, msg);
         let mut callback = move |data: jlong| {
             let env = attach_current_thread_as_daemon();
-            let data = unsafe { Box::from_raw(data as *mut BitmapPayload) };
+            let data = Box::from_raw(data as *mut JNICallbackData);
 
             unwrap(
                 &env,
@@ -139,22 +135,24 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
                     (*data).callback.as_obj(),
                     "invoke",
                     "(Ljava/lang/String;)V",
-                    &[JValue::from(JObject::from(env.new_string("zzz").unwrap()))],
+                    &[JValue::from(JObject::from(
+                        env.new_string(data.msg).unwrap(),
+                    ))],
                 ),
             );
         };
 
-        send_jni_callback_message(unpack_closure(&mut callback), data);
+        send_jni_callback_message(unpack_closure(&mut callback), jni_data);
     });
 }
 
 unsafe fn unpack_closure<F>(closure: &mut F) -> JNICallback
 where
-    F: FnMut(jlong) + 'static,
+    F: FnMut(jlong),
 {
     extern "C" fn trampoline<F>(ptr: *mut c_void, data: jlong)
     where
-        F: FnMut(jlong) + 'static,
+        F: FnMut(jlong),
     {
         let closure: &mut F = unsafe { &mut *(ptr as *mut F) };
         (*closure)(data);

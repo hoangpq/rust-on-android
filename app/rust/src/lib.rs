@@ -8,7 +8,6 @@ extern crate futures;
 #[macro_use]
 extern crate itertools;
 extern crate jni;
-extern crate jni_sys;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
@@ -21,9 +20,9 @@ extern crate serde_json;
 extern crate tokio;
 extern crate tokio_threadpool;
 extern crate tokio_timer;
+extern crate utf8_util;
 #[macro_use]
 extern crate v8;
-extern crate utf8_util;
 extern crate v8_macros;
 
 use jni::JNIEnv;

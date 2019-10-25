@@ -1,6 +1,6 @@
 use std::os::raw::{c_int, c_uint, c_void};
 
-use jni_sys::jobject;
+use jni::sys::jobject;
 
 #[repr(C)]
 #[derive(Debug, Default)]
@@ -29,18 +29,18 @@ impl AndroidBitmapInfo {
 extern "C" {
     #[link_name = "AndroidBitmap_getInfo"]
     pub fn bitmap_get_info(
-        env: *mut jni_sys::JNIEnv,
+        env: *mut jni::sys::JNIEnv,
         bmp: jobject,
         info: *mut AndroidBitmapInfo,
     ) -> c_int;
 
     #[link_name = "AndroidBitmap_lockPixels"]
     pub fn bitmap_lock_pixels(
-        env: *mut jni_sys::JNIEnv,
+        env: *mut jni::sys::JNIEnv,
         bmp: jobject,
         pixels: *mut *mut c_void,
     ) -> c_int;
 
     #[link_name = "AndroidBitmap_unlockPixels"]
-    pub fn bitmap_unlock_pixels(env: *mut jni_sys::JNIEnv, bmp: jobject) -> c_int;
+    pub fn bitmap_unlock_pixels(env: *mut jni::sys::JNIEnv, bmp: jobject) -> c_int;
 }

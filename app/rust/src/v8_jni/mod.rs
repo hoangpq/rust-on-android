@@ -2,8 +2,8 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::sync::{Arc, Once};
 
+use jni::sys::jlong;
 use jni::{AttachGuard, JNIEnv, JavaVM};
-use jni_sys::jlong;
 
 mod util;
 

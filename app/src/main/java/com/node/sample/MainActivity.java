@@ -68,8 +68,6 @@ public class MainActivity extends AppCompatActivity {
         final Button evalScriptButton = findViewById(R.id.evalScriptBtn);
         txtMessage = findViewById(R.id.txtMessage);
 
-        setText(getUtf8String());
-
         // Listeners
         evalScriptButton.setOnClickListener(view -> {
         });
@@ -102,10 +100,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Keep
-    public int setBackgroundColor(String color) {
+    public int setTextColor(String color) {
         try {
             int colorCode = Color.parseColor(color);
-            getWindow().getDecorView().setBackgroundColor(colorCode);
+            txtMessage.setTextColor(colorCode);
             return colorCode;
         } catch (Exception ex) {
             Log.d("Kotlin", ex.getLocalizedMessage());

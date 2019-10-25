@@ -27,7 +27,7 @@ extern "C" void __unused set_deno_resolver(void *d_) {
   Local<Function> resolver_ = get_function(
       context_->Global(), String::NewFromUtf8(d->isolate_, "resolve"));
 
-    java_register_callback(d->isolate_, context_);
+  java_register_callback(d->isolate_, context_);
   d->resolver_.Reset(d->isolate_, resolver_);
 }
 
@@ -50,9 +50,9 @@ v8_function_callback_length(FunctionCallbackInfo<Value> *info) {
 
 extern "C" void throw_exception(const uint8_t *data, uint32_t len) {
   Isolate *isolate_ = Isolate::GetCurrent();
-    Local<String> message = String::NewFromUtf8(isolate_, (const char *) data,
-                                                NewStringType::kNormal, len)
-            .ToLocalChecked();
+  Local<String> message = String::NewFromUtf8(isolate_, (const char *) data,
+                                              NewStringType::kNormal, len)
+          .ToLocalChecked();
   isolate_->ThrowException(message);
 }
 
@@ -61,14 +61,14 @@ const char *ToCString(const String::Utf8Value &value) {
 }
 
 void Log(const FunctionCallbackInfo<Value> &args) {
-    auto d = Deno::unwrap(args.Data().As<External>()->Value());
-    lock_isolate(d->isolate_);
+  auto d = Deno::unwrap(args.Data().As<External>()->Value());
+  lock_isolate(d->isolate_);
 
-    int length = args.Length();
-    for (int i = 0; i < length; i++) {
-        String::Utf8Value value(args[i]->ToString());
-        adb_debug(ToCString(value));
-    }
+  int length = args.Length();
+  for (int i = 0; i < length; i++) {
+    String::Utf8Value value(args[i]->ToString());
+    adb_debug(ToCString(value));
+  }
 }
 
 // exception
@@ -282,8 +282,8 @@ Deno *__unused lookup_deno_by_uuid(std::map<uint32_t, Deno *> isolate_map_,
 // Utils for Rust represent
 extern "C" void __unused upcast_value(Local<Value> *source,
                                       Local<Value> *dest) {
-    // upcast
-    *dest = Local<Value>::Cast(*source);
+  // upcast
+  *dest = Local<Value>::Cast(*source);
 }
 
 extern "C" void __unused new_number(Local<Number> *out, double value) {
@@ -417,7 +417,7 @@ extern "C" void __unused null_value(Local<Primitive> *out) {
 }
 
 extern "C" void __unused undefined_value(Local<Primitive> *out) {
-    *out = Undefined(Isolate::GetCurrent());
+  *out = Undefined(Isolate::GetCurrent());
 }
 
 extern "C" void new_function(Local<Function> *out, FunctionCallback cb) {
