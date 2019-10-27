@@ -62,7 +62,7 @@ void JavaWrapper::IsMethod(const FunctionCallbackInfo<Value> &args) {
   auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(args.This());
 
   args.GetReturnValue().Set(
-          Boolean::New(isolate_, is_method(wrapper->ptr_, v8string_t(args[0]))));
+      Boolean::New(isolate_, is_method(wrapper->ptr_, v8string_t(args[0]))));
 }
 
 void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
@@ -71,7 +71,7 @@ void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
   auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(args.This());
 
   args.GetReturnValue().Set(
-          Boolean::New(isolate_, is_field(wrapper->ptr_, v8string_t(args[0]))));
+      Boolean::New(isolate_, is_field(wrapper->ptr_, v8string_t(args[0]))));
 }
 
 int looperCallback(int fd, int events, void *data) {
@@ -79,7 +79,7 @@ int looperCallback(int fd, int events, void *data) {
   read(fd, &msg, sizeof(message_t));
 
   if (msg.jni_call_) {
-      msg.callback((void *) msg.callback, msg.callback_data_);
+    msg.callback((void *)msg.callback, msg.callback_data_);
   } else {
     Isolate *isolate_ = msg.isolate_;
 
@@ -95,12 +95,12 @@ int looperCallback(int fd, int events, void *data) {
 
       Local<Function> resolver_ = JavaWrapper::resolverUITask_.Get(isolate_);
       Handle<Value> result =
-              instance_call_callback(msg.ptr, msg.name, msg.args, msg.argc);
+          instance_call_callback(msg.ptr, msg.name, msg.args, msg.argc);
 
       const int argc = 2;
       Local<Value> args[argc] = {Number::New(isolate_, msg.uuid), result};
       MaybeLocal<Value> value =
-              resolver_->Call(context_, Null(isolate_), argc, args);
+          resolver_->Call(context_, Null(isolate_), argc, args);
 
       if (value.IsEmpty() && tryCatch.HasCaught()) {
         String::Utf8Value exception(tryCatch.Exception());
@@ -152,10 +152,10 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
     Context::Scope contextScope(context_);
 
     Local<Object> result = Local<Object>::Cast(
-            register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
+        register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
 
     uint32_t uuid =
-            result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
+        result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
 
     message_t msg;
     msg.jni_call_ = false;
@@ -168,7 +168,7 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
     msg.uuid = uuid;
 
     info.GetReturnValue().Set(
-            result->Get(String::NewFromUtf8(isolate_, "promise")));
+        result->Get(String::NewFromUtf8(isolate_, "promise")));
 
     write_message(&msg, sizeof(message_t));
   }
@@ -180,11 +180,11 @@ void JavaWrapper::CallbackRegister(Isolate *isolate_, Local<Context> context) {
   resolverContext_.Reset(isolate_, context);
 
   Local<Function> register_ =
-          get_function(global, String::NewFromUtf8(isolate_, "registerUITask"));
+      get_function(global, String::NewFromUtf8(isolate_, "registerUITask"));
   registerUITask_.Reset(isolate_, register_);
 
   Local<Function> resolver_ =
-          get_function(global, String::NewFromUtf8(isolate_, "resolverUITask"));
+      get_function(global, String::NewFromUtf8(isolate_, "resolverUITask"));
   resolverUITask_.Reset(isolate_, resolver_);
 }
 

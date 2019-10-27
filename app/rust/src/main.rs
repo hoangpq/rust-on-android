@@ -1,5 +1,6 @@
 use std::slice;
 
+/// WebAssembly module
 #[no_mangle]
 #[allow(unused_mut)]
 pub fn modify(buf: *mut u8) {

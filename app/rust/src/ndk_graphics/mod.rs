@@ -62,8 +62,6 @@ unsafe fn blend_bitmap<'a>(
 
     let bmp = create_bitmap(&env, 800, 800)?.l()?.into_inner();
     let mut info = android::AndroidBitmapInfo::new();
-
-    // Get raw JNIEnv (without lifetime)
     let raw_env = env.get_native_interface();
 
     // Read bitmap info

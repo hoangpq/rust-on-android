@@ -39,7 +39,6 @@ mod ndk_graphics;
 mod dex;
 #[macro_use]
 mod runtime;
-mod buffer;
 mod ndk_util;
 mod v8_jni;
 

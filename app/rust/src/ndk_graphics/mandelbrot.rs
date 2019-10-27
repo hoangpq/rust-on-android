@@ -34,7 +34,6 @@ pub fn render(buffer: &mut [u8], width: u32, height: u32) {
     let x0 = -2.1;
     let y0 = -1.5;
 
-    let palette: Vec<Color> = generate_palette();
     iproduct!((0..width), (0..height)).foreach(|(i, j)| {
         let cr = x0 + pixel_size * (i as f64);
         let ci = y0 + pixel_size * (j as f64);

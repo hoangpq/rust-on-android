@@ -30,34 +30,34 @@ class JavaWrapper : public rust::ObjectWrap {
 public:
   static void Init(Isolate *isolate_, Local<ObjectTemplate> exports);
 
-    static void SetContext(Local<Context> context_);
+  static void SetContext(Local<Context> context_);
 
-    static void CallbackRegister(Isolate *isolate_, Local<Context> context);
+  static void CallbackRegister(Isolate *isolate_, Local<Context> context);
 
-    static Persistent<Function> resolverUITask_;
-    static Persistent<Context> resolverContext_;
+  static Persistent<Function> resolverUITask_;
+  static Persistent<Context> resolverContext_;
 
 private:
-    explicit JavaWrapper(std::string package) : package_(package) {};
+  explicit JavaWrapper(std::string package) : package_(package){};
 
-    ~JavaWrapper();
+  ~JavaWrapper();
 
   static void New(const FunctionCallbackInfo<Value> &args);
 
-    static void IsField(const FunctionCallbackInfo<Value> &args);
+  static void IsField(const FunctionCallbackInfo<Value> &args);
 
-    static void IsMethod(const FunctionCallbackInfo<Value> &args);
+  static void IsMethod(const FunctionCallbackInfo<Value> &args);
 
   static void Call(const FunctionCallbackInfo<Value> &args);
 
-    static void InvokeJavaFunction(const FunctionCallbackInfo<Value> &args);
+  static void InvokeJavaFunction(const FunctionCallbackInfo<Value> &args);
 
-    jlong ptr_;
+  jlong ptr_;
   std::string package_;
-    bool context_ = false;
+  bool context_ = false;
 
   static Persistent<FunctionTemplate> constructor_;
-    static Persistent<Function> registerUITask_;
+  static Persistent<Function> registerUITask_;
 };
 
 #endif // JNI_WRAPPER_H_

@@ -63,7 +63,7 @@ void AndroidError(const FunctionCallbackInfo<Value> &args) {
   LOGE("%s", jsonString);
 }
 
-    void OnLoad(const FunctionCallbackInfo<Value> &args) { init_event_loop(); }
+void OnLoad(const FunctionCallbackInfo<Value> &args) { init_event_loop(); }
 
 // Override header
 class ModuleWrap {

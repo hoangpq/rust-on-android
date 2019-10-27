@@ -50,9 +50,9 @@ v8_function_callback_length(FunctionCallbackInfo<Value> *info) {
 
 extern "C" void throw_exception(const uint8_t *data, uint32_t len) {
   Isolate *isolate_ = Isolate::GetCurrent();
-  Local<String> message = String::NewFromUtf8(isolate_, (const char *) data,
+  Local<String> message = String::NewFromUtf8(isolate_, (const char *)data,
                                               NewStringType::kNormal, len)
-          .ToLocalChecked();
+                              .ToLocalChecked();
   isolate_->ThrowException(message);
 }
 
