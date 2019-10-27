@@ -58,7 +58,7 @@ pub fn unwrap_js<T>(env: &JNIEnv, res: Result<T>) -> Option<T> {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_com_node_util_Util_00024Companion_createReference(
+pub extern "C" fn Java_com_node_util_Util_createReference(
     env: JNIEnv,
     _class: JClass,
     class_name: JString,
