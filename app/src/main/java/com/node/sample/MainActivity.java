@@ -32,6 +32,7 @@ import static com.node.util.RestUtil.fetch;
 
 @Keep
 public class MainActivity extends AppCompatActivity {
+    private TextView txtMessage = null;
 
     static {
         System.loadLibrary("native-lib");
@@ -44,21 +45,15 @@ public class MainActivity extends AppCompatActivity {
 
     public native void releaseVM();
 
-    @SuppressWarnings("JniMissingFunction")
-    public native String getUtf8String();
-
-    TextView txtMessage = null;
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         // FIXME: register class to dex helper
-        Util.Companion.createReference("com/node/sample/MainActivity");
-        Util.Companion.createReference("com/node/util/Util");
-        Util.Companion.createReference("com/node/util/JNIHelper");
+        Util.createReference("com/node/sample/MainActivity");
+        Util.createReference("com/node/util/Util");
+        Util.createReference("com/node/util/JNIHelper");
 
         JNIHelper.setCurrentActivity(this);
         ResourceUtil.setContext(this);
