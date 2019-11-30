@@ -12,8 +12,8 @@ use crate::dex;
 use crate::dex::unwrap;
 use crate::v8_jni::attach_current_thread_as_daemon;
 
-pub mod android;
 mod fractal;
+pub mod graphics;
 mod mandelbrot;
 
 type RenderType = u32;
@@ -61,15 +61,15 @@ unsafe fn blend_bitmap<'a>(
     let image_view = image_view_ref.as_obj();
 
     let bmp = create_bitmap(&env, 800, 800)?.l()?.into_inner();
-    let mut info = android::AndroidBitmapInfo::new();
+    let mut info = graphics::AndroidBitmapInfo::new();
     let raw_env = env.get_native_interface();
 
     // Read bitmap info
-    android::bitmap_get_info(raw_env, bmp, &mut info);
+    graphics::bitmap_get_info(raw_env, bmp, &mut info);
     let mut pixels = 0 as *mut c_void;
 
     // Lock pixel for draw
-    android::bitmap_lock_pixels(raw_env, bmp, &mut pixels);
+    graphics::bitmap_lock_pixels(raw_env, bmp, &mut pixels);
 
     let pixels =
         std::slice::from_raw_parts_mut(pixels as *mut u8, (info.stride * info.height) as usize);
@@ -80,7 +80,7 @@ unsafe fn blend_bitmap<'a>(
         _ => {}
     };
 
-    android::bitmap_unlock_pixels(raw_env, bmp);
+    graphics::bitmap_unlock_pixels(raw_env, bmp);
 
     env.call_method(
         image_view,

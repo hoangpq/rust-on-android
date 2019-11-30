@@ -24,11 +24,16 @@ extern "C" {
 #[macro_export]
 macro_rules! adb_debug {
     ($msg:expr) => {{
+        use std::ffi::CString;
         unsafe {
             $crate::__android_log_print(
                 $crate::LogPriority::DEBUG as libc::c_int,
-                c_str!("Rust Runtime"),
-                c_str!(format!("{:?}", $msg)),
+                CString::new("Rust Runtime")
+                    .expect("CString::new failed")
+                    .as_ptr(),
+                CString::new(format!("{:?}", $msg))
+                    .expect("CString::new failed")
+                    .as_ptr(),
             );
         };
     }};

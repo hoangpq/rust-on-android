@@ -110,6 +110,10 @@ public:
 
 } // namespace node
 
+static jdouble msqrt(JNIEnv *env, jclass clazz, jdouble value) {
+    return std::sqrt(value);
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   memset(&g_ctx, 0, sizeof(NodeContext));
   register_vm(vm);
@@ -122,6 +126,17 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   pipe(messagePipe);
   ALooper_addFd(mainThreadLooper, messagePipe[0], 0, ALOOPER_EVENT_INPUT,
                 looperCallback, nullptr);
+
+    JNIEnv *env = g_ctx.env;
+    jclass jniHelperClass = env->FindClass("com/node/util/JNIHelper");
+
+    // Register your class' native methods.
+    static const JNINativeMethod methods[] = {
+            {"sqrt", "(D)D", reinterpret_cast<void *>(msqrt)},
+    };
+
+    env->RegisterNatives(jniHelperClass, methods,
+                         sizeof(methods) / sizeof(JNINativeMethod));
 
   return JNI_VERSION_1_6;
 }
@@ -155,8 +170,6 @@ Java_com_node_sample_MainActivity_releaseVM(JNIEnv *env, jobject instance) {
   g_ctx.mainActivityClz = nullptr;
   g_ctx.mainActivity = nullptr;
 }
-
-JNIEnv *get_main_thread_env() { return g_ctx.env; }
 
 void write_message(const void *what, size_t count) {
   write(messagePipe[1], what, count);

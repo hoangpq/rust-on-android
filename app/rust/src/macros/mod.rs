@@ -24,9 +24,12 @@ macro_rules! rust_str {
 
 #[macro_export]
 macro_rules! c_str {
-    ( $str:expr ) => {
-        $crate::macros::to_c_str($str)
-    };
+    ( $str:expr ) => {{
+        use std::ffi::CString;
+        CString::new($str)
+            .expect("c_str macro::new failed")
+            .as_ptr()
+    }};
 }
 
 #[macro_export]

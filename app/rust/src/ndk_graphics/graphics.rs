@@ -12,12 +12,6 @@ pub struct AndroidBitmapInfo {
     pub flags: c_uint,
 }
 
-impl Drop for AndroidBitmapInfo {
-    fn drop(&mut self) {
-        adb_debug!(format!("Drop bitmap info {:?}", self));
-    }
-}
-
 impl AndroidBitmapInfo {
     pub fn new() -> Self {
         Self {

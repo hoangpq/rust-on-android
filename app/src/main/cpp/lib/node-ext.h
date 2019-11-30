@@ -3,6 +3,7 @@
 
 #include <android/log.h>
 #include <android/looper.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -21,9 +22,6 @@
 
 using namespace util;
 
-extern "C" jstring JNICALL
-Java_com_node_sample_MainActivity_getUtf8String(JNIEnv *, jobject);
-
 extern "C" void init_event_loop();
 extern "C" void register_vm(JavaVM *vm);
 
@@ -32,7 +30,6 @@ static ALooper *mainThreadLooper;
 static int messagePipe[2];
 
 extern "C" int looperCallback(int fd, int events, void *data);
-extern "C" JNIEnv *get_main_thread_env();
 extern "C" void write_message(const void *, size_t count);
 
 namespace node {
