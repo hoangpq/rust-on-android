@@ -1,15 +1,21 @@
 #![allow(non_snake_case)]
 extern crate jni;
 
-use std::os::raw::{c_int, c_uint, c_void};
+use std::borrow::Borrow;
+use std::os::raw::{c_uint, c_void};
 use std::thread;
 
+use itertools::Itertools;
 use jni::errors::Result;
-use jni::objects::{GlobalRef, JClass, JObject, JValue};
+use jni::objects::{GlobalRef, JClass, JObject, JString, JValue};
+use jni::signature::JavaType::Object;
+use jni::strings::JNIStr;
 use jni::sys::{jint, jlong, jstring};
+use jni::JNIEnv;
 
 use crate::dex;
 use crate::dex::unwrap;
+use crate::v8_jni;
 use crate::v8_jni::attach_current_thread_as_daemon;
 
 mod fractal;
@@ -17,10 +23,10 @@ pub mod graphics;
 mod mandelbrot;
 
 type RenderType = u32;
-type JNICallback = extern "C" fn(*mut c_void, data: jlong);
+type JNIClosure = extern "C" fn(*mut c_void, callback: jlong, value: jlong);
 
 extern "C" {
-    fn send_jni_callback_message(cb: JNICallback, data: jlong);
+    fn run_on_ui_thread(cb: JNIClosure, callback: jlong, data: jlong);
 }
 
 pub unsafe fn create_bitmap<'b>(
@@ -92,19 +98,50 @@ unsafe fn blend_bitmap<'a>(
     Ok("Render successfully")
 }
 
-struct JNICallbackData<'a> {
-    callback: GlobalRef,
-    msg: &'a str,
+#[repr(C)]
+pub union InternalJval<'a> {
+    pub s: &'a str,
+    pub i: i32,
 }
 
-impl JNICallbackData<'_> {
-    pub fn dumps(callback: GlobalRef, msg: &str) -> jlong {
-        Box::into_raw(Box::new(JNICallbackData { callback, msg })) as jlong
+#[repr(C)]
+pub struct JVal<'a> {
+    pub t: i32,
+    pub internal: InternalJval<'a>,
+}
+
+impl<'a> Drop for JVal<'a> {
+    fn drop(&mut self) {
+        adb_debug!(format!("JVal({:p}) dropped", &self));
+    }
+}
+
+impl<'a> JVal<'a> {
+    fn new_int(value: i32) -> Self {
+        Self {
+            internal: InternalJval { i: value },
+            t: 0,
+        }
+    }
+    fn new_str(value: &'a str) -> Self {
+        Self {
+            internal: InternalJval { s: value },
+            t: 1,
+        }
+    }
+    fn to_value(&self, env: &'a JNIEnv) -> JValue<'a> {
+        unsafe {
+            match self.t {
+                0i32 => JValue::from(self.internal.i),
+                1i32 => JValue::from(*env.new_string(self.internal.s).unwrap()),
+                _ => JValue::from(JObject::null()),
+            }
+        }
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
+pub extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     env: jni::JNIEnv,
     _class: JObject,
     image_view: JObject,
@@ -117,43 +154,61 @@ pub unsafe extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
 
     thread::spawn(move || {
         let env = vm.attach_current_thread().unwrap();
-        let msg = match blend_bitmap(&vm, render_type, image_view_ref) {
-            Ok(msg) => msg,
-            _ => "Failed to render!",
+        let msg = unsafe {
+            match blend_bitmap(&vm, render_type, image_view_ref) {
+                Ok(msg) => msg,
+                _ => "Failed to render!",
+            }
         };
 
-        let jni_data = JNICallbackData::dumps(callback, msg);
-        let mut callback = move |data: jlong| {
-            let env = attach_current_thread_as_daemon();
-            let data = Box::from_raw(data as *mut JNICallbackData);
+        let args = vec![JVal::new_str(msg)];
 
-            unwrap(
-                &env,
-                env.call_method(
-                    (*data).callback.as_obj(),
-                    "invoke",
-                    "(Ljava/lang/String;)V",
-                    &[JValue::from(JObject::from(
-                        env.new_string(data.msg).unwrap(),
-                    ))],
-                ),
+        unsafe {
+            run_on_ui(
+                &mut move |callback: jlong, data: jlong| {
+                    let env = attach_current_thread_as_daemon();
+                    let callback = Box::from_raw(callback as *mut GlobalRef);
+                    let args: Vec<JValue> = {
+                        let args = Box::from_raw(data as *mut Vec<JVal>);
+                        adb_debug!(format!("Debug: (args len): {}", args.len()));
+                        args.iter().map(|item| item.to_value(&env)).collect()
+                    };
+
+                    unwrap(
+                        &env,
+                        env.call_method(
+                            callback.as_obj(),
+                            "invoke",
+                            "(Ljava/lang/String;)V",
+                            &args,
+                        ),
+                    );
+                },
+                callback,
+                args,
             );
-        };
-
-        send_jni_callback_message(unpack_closure(&mut callback), jni_data);
+        }
     });
 }
 
-unsafe fn unpack_closure<F>(closure: &mut F) -> JNICallback
+unsafe fn run_on_ui<F: FnMut(jlong, jlong)>(f: &mut F, callback: GlobalRef, args: Vec<JVal>) {
+    run_on_ui_thread(
+        unpack_closure(f),
+        Box::into_raw(Box::new(callback)) as jlong,
+        Box::into_raw(Box::new(args)) as jlong,
+    )
+}
+
+unsafe fn unpack_closure<F>(_closure: &mut F) -> JNIClosure
 where
-    F: FnMut(jlong),
+    F: FnMut(jlong, jlong),
 {
-    extern "C" fn trampoline<F>(ptr: *mut c_void, data: jlong)
+    extern "C" fn trampoline<F>(ptr: *mut c_void, callback: jlong, data: jlong)
     where
-        F: FnMut(jlong),
+        F: FnMut(jlong, jlong),
     {
         let closure: &mut F = unsafe { &mut *(ptr as *mut F) };
-        (*closure)(data);
+        (*closure)(callback, data);
     }
 
     trampoline::<F>

@@ -21,9 +21,11 @@
 
 using namespace v8;
 
+using ResolverPersistent = Persistent<Promise::Resolver>;
 typedef void (*deno_recv_cb)(void *data, uint32_t promise_id, uint32_t delay);
 
-using ResolverPersistent = Persistent<Promise::Resolver>;
+// NDK vm instance
+static JavaVM *vm;
 
 // Rust bridge
 extern "C" {
@@ -31,19 +33,10 @@ void adb_debug(const char *);
 void fetch(void *data, const char *, uint32_t);
 void test_fn(const FunctionCallbackInfo<Value> &);
 char *worker_send_bytes(void *, size_t, Local<Value> val);
+void attach_current_thread(JNIEnv **env);
+void register_vm(JavaVM *_vm) { vm = _vm; }
+JavaVM *__unused get_java_vm() { return vm; }
 }
-
-// NDK vm instance
-static JavaVM *vm;
-
-extern "C" void deno_get_env(JNIEnv **env) {
-  vm->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
-}
-
-extern "C" void register_vm(JavaVM *_vm) { vm = _vm; }
-extern "C" JavaVM *get_java_vm() { return vm; }
-extern "C" void attach_current_thread(JNIEnv **env);
-extern "C" void attach_current_thread_as_daemon(JNIEnv **env);
 
 class Deno {
 public:
