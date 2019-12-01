@@ -1,17 +1,3 @@
-use std::ffi::CString;
-
-use libc::c_char;
-
-pub unsafe fn to_c_str<T>(input: T) -> *const c_char
-where
-    T: std::convert::Into<std::vec::Vec<u8>>,
-{
-    let c_str = CString::new(input).unwrap();
-    let ptr = c_str.as_ptr();
-    std::mem::forget(c_str);
-    ptr
-}
-
 #[macro_export]
 macro_rules! rust_str {
     ( $p:expr ) => {

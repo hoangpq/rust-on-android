@@ -10,7 +10,7 @@
 using namespace v8;
 using namespace std;
 
-typedef void (*JNICallback)(void *, jlong);
+typedef void (*JNIClosure)(void *, jlong, jlong);
 
 typedef struct {
   const uint8_t *ptr;
@@ -28,8 +28,9 @@ typedef struct value_t {
 } value_t;
 
 typedef struct {
-  JNICallback callback;
-  jlong callback_data_;
+    JNIClosure closure;
+    jlong callback_fn;
+    jlong callback_data;
   bool jni_call_;
   jlong ptr;
   jlong name;
