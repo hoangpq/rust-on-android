@@ -18,7 +18,7 @@ jlong get_current_activity();
 bool is_method(jlong, string_t);
 bool is_field(jlong, string_t);
 int looperCallback(int fd, int events, void *data);
-void run_on_ui_thread(JNIClosure, jlong, jlong);
+void send_message_to_looper(JNIClosure, jlong, jlong);
 }
 
 void java_register_callback(Isolate *isolate_, Local<Context> context);

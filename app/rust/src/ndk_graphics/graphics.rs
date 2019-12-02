@@ -1,6 +1,6 @@
 use std::os::raw::{c_int, c_uint, c_void};
 
-use jni::sys::jobject;
+use jni::objects::JObject;
 
 #[repr(C)]
 #[derive(Debug, Default)]
@@ -20,21 +20,43 @@ impl AndroidBitmapInfo {
     }
 }
 
-extern "C" {
-    #[link_name = "AndroidBitmap_getInfo"]
-    pub fn bitmap_get_info(
-        env: *mut jni::sys::JNIEnv,
-        bmp: jobject,
-        info: *mut AndroidBitmapInfo,
-    ) -> c_int;
+mod graphic_sys {
+    use std::os::raw::{c_int, c_void};
 
-    #[link_name = "AndroidBitmap_lockPixels"]
-    pub fn bitmap_lock_pixels(
-        env: *mut jni::sys::JNIEnv,
-        bmp: jobject,
-        pixels: *mut *mut c_void,
-    ) -> c_int;
+    use jni::sys::jobject;
 
-    #[link_name = "AndroidBitmap_unlockPixels"]
-    pub fn bitmap_unlock_pixels(env: *mut jni::sys::JNIEnv, bmp: jobject) -> c_int;
+    use crate::ndk_graphics::graphics::AndroidBitmapInfo;
+
+    extern "C" {
+        #[link_name = "AndroidBitmap_getInfo"]
+        pub fn bitmap_get_info(
+            env: *mut jni::sys::JNIEnv,
+            bmp: jobject,
+            info: *mut AndroidBitmapInfo,
+        ) -> c_int;
+
+        #[link_name = "AndroidBitmap_lockPixels"]
+        pub fn bitmap_lock_pixels(
+            env: *mut jni::sys::JNIEnv,
+            bmp: jobject,
+            pixels: *mut *mut c_void,
+        ) -> c_int;
+
+        #[link_name = "AndroidBitmap_unlockPixels"]
+        pub fn bitmap_unlock_pixels(env: *mut jni::sys::JNIEnv, bmp: jobject) -> c_int;
+    }
+}
+
+pub fn bitmap_get_info(env: &jni::JNIEnv, bmp: JObject, info: *mut AndroidBitmapInfo) {
+    unsafe { graphic_sys::bitmap_get_info(env.get_native_interface(), bmp.into_inner(), info) };
+}
+
+pub fn bitmap_lock_pixels(env: &jni::JNIEnv, bmp: JObject, pixels: *mut *mut c_void) {
+    unsafe {
+        graphic_sys::bitmap_lock_pixels(env.get_native_interface(), bmp.into_inner(), pixels)
+    };
+}
+
+pub fn bitmap_unlock_pixels(env: &jni::JNIEnv, bmp: JObject) -> c_int {
+    unsafe { graphic_sys::bitmap_unlock_pixels(env.get_native_interface(), bmp.into_inner()) }
 }

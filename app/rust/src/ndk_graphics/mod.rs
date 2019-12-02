@@ -1,16 +1,13 @@
 #![allow(non_snake_case)]
 extern crate jni;
 
-use std::borrow::Borrow;
 use std::os::raw::{c_uint, c_void};
+use std::ptr::null_mut;
 use std::thread;
 
-use itertools::Itertools;
 use jni::errors::Result;
-use jni::objects::{GlobalRef, JClass, JObject, JString, JValue};
-use jni::signature::JavaType::Object;
-use jni::strings::JNIStr;
-use jni::sys::{jint, jlong, jstring};
+use jni::objects::{GlobalRef, JObject, JValue};
+use jni::sys::{jint, jlong};
 use jni::JNIEnv;
 
 use crate::dex;
@@ -26,7 +23,7 @@ type RenderType = u32;
 type JNIClosure = extern "C" fn(*mut c_void, callback: jlong, value: jlong);
 
 extern "C" {
-    fn run_on_ui_thread(cb: JNIClosure, callback: jlong, data: jlong);
+    fn send_message_to_looper(cb: JNIClosure, callback: jlong, data: jlong);
 }
 
 pub unsafe fn create_bitmap<'b>(
@@ -43,39 +40,19 @@ pub unsafe fn create_bitmap<'b>(
     )
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn Java_com_node_sample_MainActivity_getUtf8String(
-    env: jni::JNIEnv,
-    _class: JClass,
-) -> jstring {
-    let output = env
-        .new_string("ｴｴｯ?工ｴｴｪｪ(๑̀⚬♊⚬́๑)ｪｪｴｴ工‼!!!")
-        .expect("Couldn't create java string!");
-
-    output.into_inner()
-}
-
-unsafe fn blend_bitmap<'a>(
-    vm: &jni::JavaVM,
-    render_type: RenderType,
-    image_view_ref: GlobalRef,
-) -> Result<&'a str> {
+unsafe fn blend_bitmap<'a>(render_type: RenderType, image_view: JObject) -> Result<&'a str> {
     // Attach current thread
-    let env = vm.attach_current_thread()?;
+    let env = v8_jni::jvm().attach_current_thread()?;
 
-    // Get raw bitmap object
-    let image_view = image_view_ref.as_obj();
-
-    let bmp = create_bitmap(&env, 800, 800)?.l()?.into_inner();
+    let bmp = create_bitmap(&env, 800, 800)?.l()?;
     let mut info = graphics::AndroidBitmapInfo::new();
-    let raw_env = env.get_native_interface();
 
     // Read bitmap info
-    graphics::bitmap_get_info(raw_env, bmp, &mut info);
+    graphics::bitmap_get_info(&env, bmp, &mut info);
     let mut pixels = 0 as *mut c_void;
 
     // Lock pixel for draw
-    graphics::bitmap_lock_pixels(raw_env, bmp, &mut pixels);
+    graphics::bitmap_lock_pixels(&env, bmp, &mut pixels);
 
     let pixels =
         std::slice::from_raw_parts_mut(pixels as *mut u8, (info.stride * info.height) as usize);
@@ -86,7 +63,7 @@ unsafe fn blend_bitmap<'a>(
         _ => {}
     };
 
-    graphics::bitmap_unlock_pixels(raw_env, bmp);
+    graphics::bitmap_unlock_pixels(&env, bmp);
 
     env.call_method(
         image_view,
@@ -148,14 +125,12 @@ pub extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
     render_type: u32,
     callback: JObject,
 ) {
-    let vm = env.get_java_vm().unwrap();
     let callback = env.new_global_ref(callback).unwrap();
     let image_view_ref = env.new_global_ref(image_view).unwrap();
 
     thread::spawn(move || {
-        let env = vm.attach_current_thread().unwrap();
         let msg = unsafe {
-            match blend_bitmap(&vm, render_type, image_view_ref) {
+            match blend_bitmap(render_type, image_view_ref.as_obj()) {
                 Ok(msg) => msg,
                 _ => "Failed to render!",
             }
@@ -168,9 +143,9 @@ pub extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
                 &mut move |callback: jlong, data: jlong| {
                     let env = attach_current_thread_as_daemon();
                     let callback = Box::from_raw(callback as *mut GlobalRef);
+
                     let args: Vec<JValue> = {
                         let args = Box::from_raw(data as *mut Vec<JVal>);
-                        adb_debug!(format!("Debug: (args len): {}", args.len()));
                         args.iter().map(|item| item.to_value(&env)).collect()
                     };
 
@@ -192,7 +167,7 @@ pub extern "C" fn Java_com_node_sample_GenerateImageActivity_blendBitmap(
 }
 
 unsafe fn run_on_ui<F: FnMut(jlong, jlong)>(f: &mut F, callback: GlobalRef, args: Vec<JVal>) {
-    run_on_ui_thread(
+    send_message_to_looper(
         unpack_closure(f),
         Box::into_raw(Box::new(callback)) as jlong,
         Box::into_raw(Box::new(args)) as jlong,

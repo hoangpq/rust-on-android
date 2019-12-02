@@ -1,0 +1,1 @@
+- https://s3.amazonaws.com/temp.michaelfbryan.com/callbacks/index.html#rust-closures

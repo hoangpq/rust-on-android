@@ -133,15 +133,3 @@ where
     let class = env.auto_local(unwrap(&env, class.l()));
     env.call_method_unchecked(instance, (&class, name, sig), parsed.ret, args)
 }
-
-pub fn _find_class<'a>(env: &'a JNIEnv, class: String) -> Result<JClass<'a>> {
-    let table = CLASS_TABLE.lock().unwrap();
-    let class = class.to_string();
-
-    let class_ref = table.get(&class).unwrap();
-    let value = env
-        .call_method(class_ref.as_obj(), "get", "()Ljava/lang/Object;", &[])
-        .unwrap();
-
-    Ok(JClass::from(value.l().unwrap()))
-}

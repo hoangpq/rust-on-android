@@ -79,7 +79,7 @@ int looperCallback(int fd, int events, void *data) {
   read(fd, &msg, sizeof(message_t));
 
   if (msg.jni_call_) {
-    (msg.closure)((void *) msg.closure, msg.callback_fn, msg.callback_data);
+      (msg.closure)((void *) msg.closure, msg.callback_fn, msg.callback_data);
   } else {
     Isolate *isolate_ = msg.isolate_;
 
@@ -194,8 +194,8 @@ void java_register_callback(Isolate *isolate_, Local<Context> context) {
   JavaWrapper::CallbackRegister(isolate_, context);
 }
 
-void run_on_ui_thread(JNIClosure closure, jlong callback_fn,
-                      jlong callback_data) {
+void send_message_to_looper(JNIClosure closure, jlong callback_fn,
+                            jlong callback_data) {
   message_t msg;
   msg.closure = closure;
   msg.callback_fn = callback_fn;
