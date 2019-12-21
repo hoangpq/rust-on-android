@@ -1,5 +1,8 @@
 # Experiment Android with Rust Tokio, v8 engine and C++.
 
+## Building
+  - [Rust for NDK development](https://hoangpq.github.io/posts/rust-ndk/)
+
 ## Rust Tokio to build Javascript event-loop.
   - [x] [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
   - [x] Timer(setTimeout, setInterval)
