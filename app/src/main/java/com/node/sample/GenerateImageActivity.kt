@@ -46,7 +46,7 @@ class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
     companion object {
 
         init {
-            System.loadLibrary("image-gen")
+            System.loadLibrary("native-lib")
         }
 
         @Keep

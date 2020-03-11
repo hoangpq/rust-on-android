@@ -1,7 +1,5 @@
 #include "node-ext.h"
 
-namespace node {
-
 using v8::Context;
 using v8::EscapableHandleScope;
 using v8::Exception;
@@ -19,8 +17,6 @@ using v8::Value;
 
 using v8::JSON;
 using v8::MaybeLocal;
-
-namespace loader {
 
 const char *ToCString(Local<String> str) {
   String::Utf8Value value(str);
@@ -63,97 +59,16 @@ void AndroidError(const FunctionCallbackInfo<Value> &args) {
   LOGE("%s", jsonString);
 }
 
-void OnLoad(const FunctionCallbackInfo<Value> &args) { init_event_loop(); }
-
-// Override header
-class ModuleWrap {
-public:
-  static void Initialize(v8::Local<v8::Object> target,
-                         v8::Local<v8::Value> unused,
-                         v8::Local<v8::Context> context){};
-};
-
-class AndroidModuleWrap : public ModuleWrap {
-public:
-  static void Initialize(Local<Object> target, Local<Value> unused,
-                         Local<Context> context, void *priv) {
-
-    Isolate *isolate_ = target->GetIsolate();
-
-    ModuleWrap::Initialize(target, unused, context);
-    // define function in global context
-    Local<Object> global = context->Global();
-
-    JNIEnv *env_;
-    Util::InitEnvironment(isolate_, &env_);
-    Local<External> jEnvRef = External::New(isolate_, env_);
-
-    global->Set(Util::ConvertToV8String("$toast"),
-                FunctionTemplate::New(isolate_, loader::AndroidToast, jEnvRef)
-                    ->GetFunction());
-
-    global->Set(
-        Util::ConvertToV8String("$log"),
-        FunctionTemplate::New(isolate_, loader::AndroidLog)->GetFunction());
-
-    global->Set(
-        Util::ConvertToV8String("$error"),
-        FunctionTemplate::New(isolate_, loader::AndroidError)->GetFunction());
-
-    global->Set(Util::ConvertToV8String("$load"),
-                FunctionTemplate::New(isolate_, loader::OnLoad, jEnvRef)
-                    ->GetFunction());
-  }
-};
-
-} // namespace loader
-
-} // namespace node
-
 static jdouble msqrt(JNIEnv *env, jclass clazz, jdouble value) {
-    return std::sqrt(value);
-}
-
-JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
-  memset(&g_ctx, 0, sizeof(NodeContext));
-  register_vm(vm);
-  g_ctx.javaVM = vm;
-  g_ctx.mainActivityObj = nullptr;
-  Util::AttachCurrentThread(&g_ctx.env);
-
-  mainThreadLooper = ALooper_forThread();
-  ALooper_acquire(mainThreadLooper);
-  pipe(messagePipe);
-  ALooper_addFd(mainThreadLooper, messagePipe[0], 0, ALOOPER_EVENT_INPUT,
-                looperCallback, nullptr);
-
-    JNIEnv *env = g_ctx.env;
-    jclass jniHelperClass = env->FindClass("com/node/util/JNIHelper");
-
-    // Register your class' native methods.
-    static const JNINativeMethod methods[] = {
-            {"sqrt", "(D)D", reinterpret_cast<void *>(msqrt)},
-    };
-
-    env->RegisterNatives(jniHelperClass, methods,
-                         sizeof(methods) / sizeof(JNINativeMethod));
-
-  return JNI_VERSION_1_6;
-}
-
-JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *) {
-  JNIEnv *env;
-  if (vm->GetEnv((void **)&env, JNI_VERSION_1_6) != JNI_EDETACHED) {
-    vm->DetachCurrentThread();
-  }
+  return std::sqrt(value);
 }
 
 extern "C" void JNICALL Java_com_node_sample_MainActivity_initVM(
-    JNIEnv *env, jobject instance, jobject callback) {
+        JNIEnv *env, jobject instance, jobject callback) {
 
   // init objects
   jclass clz = env->GetObjectClass(callback);
-  g_ctx.mainActivityClz = (jclass)env->NewGlobalRef(clz);
+  g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
   g_ctx.mainActivityObj = env->NewGlobalRef(callback);
   g_ctx.mainActivity = env->NewGlobalRef(instance);
 }
@@ -175,5 +90,36 @@ void write_message(const void *what, size_t count) {
   write(messagePipe[1], what, count);
 }
 
-NODE_MODULE_CONTEXT_AWARE_BUILTIN(module_wrap,
-                                  node::loader::AndroidModuleWrap::Initialize);
+JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
+  memset(&g_ctx, 0, sizeof(NodeContext));
+  register_vm(vm);
+  g_ctx.javaVM = vm;
+  g_ctx.mainActivityObj = nullptr;
+  Util::AttachCurrentThread(&g_ctx.env);
+
+  mainThreadLooper = ALooper_forThread();
+  ALooper_acquire(mainThreadLooper);
+  pipe(messagePipe);
+  ALooper_addFd(mainThreadLooper, messagePipe[0], 0, ALOOPER_EVENT_INPUT,
+                looperCallback, nullptr);
+
+  JNIEnv *env = g_ctx.env;
+  jclass jniHelperClass = env->FindClass("com/node/util/JNIHelper");
+
+  // Register your class' native methods.
+  static const JNINativeMethod methods[] = {
+          {"sqrt", "(D)D", reinterpret_cast<void *>(msqrt)},
+  };
+
+  env->RegisterNatives(jniHelperClass, methods,
+                       sizeof(methods) / sizeof(JNINativeMethod));
+
+  return JNI_VERSION_1_6;
+}
+
+JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *) {
+  JNIEnv *env;
+  if (vm->GetEnv((void **)&env, JNI_VERSION_1_6) != JNI_EDETACHED) {
+    vm->DetachCurrentThread();
+  }
+}

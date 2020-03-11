@@ -1,6 +1,3 @@
-#![allow(improper_ctypes)]
-#![feature(stmt_expr_attributes)]
-
 extern crate bytes;
 extern crate core;
 extern crate curl;
@@ -25,11 +22,14 @@ extern crate utf8_util;
 extern crate v8;
 extern crate v8_macros;
 
+use jni::objects::JClass;
 use jni::JNIEnv;
 use libc::size_t;
 use v8::fun::CallbackInfo;
 use v8::types::*;
 use v8_macros::v8_fn;
+
+use crate::runtime::event_loop::init_event_loop;
 
 #[macro_use]
 mod macros;
@@ -49,6 +49,12 @@ pub unsafe extern "C" fn get_android_version(env: &JNIEnv) -> i32 {
         .unwrap()
         .i()
         .unwrap() as i32
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn Java_com_node_sample_MainActivity_demoMain(env: JNIEnv, _class: JClass) {
+    init_event_loop();
 }
 
 type Buf = *mut u8;

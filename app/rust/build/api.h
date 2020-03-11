@@ -9,6 +9,7 @@
 #include <features.h>
 #include <iostream>
 #include <jni.h>
+#include <libplatform/libplatform.h>
 #include <map>
 #include <string>
 #include <thread>

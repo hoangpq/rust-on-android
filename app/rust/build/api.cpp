@@ -187,14 +187,20 @@ extern "C" void __unused SendBuffer(const FunctionCallbackInfo<Value> &args) {
 }
 
 extern "C" void *__unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
-  // Create a new Isolate and make it the current one.
+  V8::InitializeICU();
+  Platform *platform_ = platform::CreateDefaultPlatform();
+  V8::InitializePlatform(platform_);
+  V8::Initialize();
+
   Isolate::CreateParams create_params;
   create_params.array_buffer_allocator =
       ArrayBuffer::Allocator::NewDefaultAllocator();
-  // create_params.array_buffer_allocator->Allocate(1024);
-
   Isolate *isolate_ = Isolate::New(create_params);
-  lock_isolate(isolate_);
+
+  Isolate::Scope isolate_scope(isolate_);
+  HandleScope scope(isolate_);
+  Handle<v8::Context> context = Context::New(isolate_);
+  Context::Scope context_scope(context);
 
   auto deno = new Deno(isolate_, uuid);
 

@@ -33,10 +33,7 @@ add_library( # Sets the name of the library.
         SHARED
         # Provides a relative path to your source file(s).
         src/main/cpp/utils/utils.cpp
-        src/main/cpp/lib/native-lib.cpp
-        src/main/cpp/lib/node-ext.cpp
-        # for v8
-        src/main/cpp/v8/v8context.cpp)
+        src/main/cpp/lib/node-ext.cpp)
 
 add_library(libnode
         SHARED
@@ -72,8 +69,3 @@ target_link_libraries( # Specifies the target library.
         # included in the NDK.
         log
         android)
-
-# add imported target
-add_library(image-gen SHARED src/main/cpp/lib/image-gen.cpp)
-
-target_link_libraries(image-gen jnigraphics ${log-lib} librust)

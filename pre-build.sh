@@ -2,6 +2,8 @@
 source ~/.bash_profile
 dir=`pwd`
 
+NDK_HOME=/Users/hoangpq/contribute/android-ndk-r20b
+
 export AARCH64LINUX_ANDROID_OPENSSL_INCLUDE_DIR="`pwd`/app/rust/openssl/include"
 export AARCH64_LINUX_ANDROID_OPENSSL_LIB_DIR="`pwd`/app/rust/openssl/lib"
 export AARCH64_LINUX_ANDROID_OPENSSL_DIR="`pwd`/app/rust/openssl"
@@ -20,10 +22,8 @@ export PATH="$PATH":"$NDK_STANDALONE/arm/bin"
 export PATH="$PATH":"$NDK_STANDALONE/x86/bin"
 
 create_standalone_ndk() {
-    rustup default nightly
-    rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android
-    rustup target add wasm32-unknown-unknown
-    cargo +nightly install wasm-gc --force
+    rustup +nightly-2019-06-24 target add aarch64-linux-android armv7-linux-androideabi i686-linux-android
+    rustup +nightly-2019-06-24 target add wasm32-unknown-unknown
 
     mkdir -p ${NDK_STANDALONE}
     ${NDK_HOME}/build/tools/make_standalone_toolchain.py --api 21 --arch arm64\
@@ -46,8 +46,8 @@ cd `pwd`/app/rust
 rm -f ./target/x86/librust.a
 
 # RUST_BACKTRACE=1 cargo +nightly build --target aarch64-linux-android --release
-# RUST_BACKTRACE=1 cargo +nightly build --target armv7-linux-androideabi --release
-RUST_BACKTRACE=1 cargo +nightly build --target i686-linux-android
+# RUST_BACKTRACE=1 cargo build --target armv7-linux-androideabi --release
+RUST_BACKTRACE=1 cargo +nightly-2019-06-24 build --target i686-linux-android
 
 # mkdir -p ./target/arm64-v8a
 # mkdir -p ./target/armeabi-v7a
@@ -56,9 +56,3 @@ mkdir -p ./target/x86
 # cp ./target/aarch64-linux-android/release/librust.a ./target/arm64-v8a/librust.a
 # cp ./target/armv7-linux-androideabi/release/librust.a ./target/armeabi-v7a/librust.a
 cp ./target/i686-linux-android/debug/librust.a ./target/x86/librust.a
-
-# web assembly
-rustc +nightly --target wasm32-unknown-unknown -O src/main.rs
-wasm-gc main.wasm wa.wasm && rm main.wasm
-
-cp ./wa.wasm "${dir}/app/src/main/assets/deps" && rm ./wa.wasm
