@@ -68,8 +68,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // initNodeJS();
-
         new Thread(this::demoMain).start();
 
     }

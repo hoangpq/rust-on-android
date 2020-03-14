@@ -1,6 +1,5 @@
 extern crate bytes;
 extern crate core;
-extern crate curl;
 extern crate futures;
 #[macro_use]
 extern crate itertools;

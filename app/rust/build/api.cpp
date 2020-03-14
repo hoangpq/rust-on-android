@@ -66,22 +66,26 @@ void Log(const FunctionCallbackInfo<Value> &args) {
 
   int length = args.Length();
   for (int i = 0; i < length; i++) {
-    String::Utf8Value value(args[i]->ToString());
+      String::Utf8Value value(d->isolate_, args[i]->ToString(d->isolate_));
     adb_debug(ToCString(value));
   }
 }
 
 // exception
 void ExceptionString(TryCatch *try_catch) {
-  String::Utf8Value exception(try_catch->Exception());
+    Isolate *isolate = Isolate::GetCurrent();
+    Local<Context> context = isolate->GetCurrentContext();
+
+    String::Utf8Value exception(isolate, try_catch->Exception());
   const char *exception_string = ToCString(exception);
   adb_debug(exception_string);
 
   Handle<Message> message = try_catch->Message();
   if (!message.IsEmpty()) {
-    String::Utf8Value filename(message->GetScriptOrigin().ResourceName());
+      String::Utf8Value filename(isolate,
+                                 message->GetScriptOrigin().ResourceName());
     const char *filename_string = ToCString(filename);
-    int line_number = message->GetLineNumber();
+      int line_number = message->GetLineNumber(context).ToChecked();
     char s[1024];
     // (filename):(line number)
     sprintf(s, "%s:%i", filename_string, line_number);
@@ -96,8 +100,10 @@ void Fetch(const FunctionCallbackInfo<Value> &args) {
   auto d = Deno::unwrap(args.Data().As<External>()->Value());
   lock_isolate(d->isolate_);
 
-  String::Utf8Value url(args[0]->ToString());
-  uint32_t promise_id = args[1]->Uint32Value();
+    Local<Context> context = d->isolate_->GetCurrentContext();
+
+    String::Utf8Value url(d->isolate_, args[0]->ToString(d->isolate_));
+    uint32_t promise_id = args[1]->Uint32Value(context).ToChecked();
 
   fetch(d->user_data_, *url, promise_id);
 }
@@ -121,7 +127,7 @@ void Toast(const FunctionCallbackInfo<Value> &args) {
   auto d = reinterpret_cast<Deno *>(args.Data().As<External>()->Value());
   lock_isolate(d->isolate_);
 
-  String::Utf8Value value(args[0]->ToObject());
+    String::Utf8Value value(d->isolate_, args[0]->ToObject(d->isolate_));
 }
 
 void NewTimer(const FunctionCallbackInfo<Value> &args) {
@@ -132,7 +138,9 @@ void NewTimer(const FunctionCallbackInfo<Value> &args) {
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
 
-  d->recv_cb_(d->user_data_, args[0]->Uint32Value(), args[1]->Uint32Value());
+    Local<Context> context = d->isolate_->GetCurrentContext();
+    d->recv_cb_(d->user_data_, args[0]->Uint32Value(context).ToChecked(),
+                args[1]->Uint32Value(context).ToChecked());
 }
 
 /* do not remove */
@@ -299,7 +307,8 @@ extern "C" void __unused new_number(Local<Number> *out, double value) {
 
 extern "C" double __unused number_value(Local<Number> *number) {
   assert((*number)->IsNumber());
-  return (*number)->NumberValue();
+    Isolate *isolate = Isolate::GetCurrent();
+    return (*number)->NumberValue(isolate->GetCurrentContext()).ToChecked();
 }
 
 extern "C" void __unused new_array(Local<Array> *out, uint32_t length) {
@@ -341,16 +350,16 @@ extern "C" const char *__unused raw_value(Local<Value> val) {
   }
 
   if (val->IsString()) {
-    String::Utf8Value utf8_val(val);
+      String::Utf8Value utf8_val(isolate_, val);
     return *utf8_val;
   }
 
   Local<String> result =
-      JSON::Stringify(isolate_->GetCurrentContext(), val->ToObject(),
-                      String::NewFromUtf8(isolate_, "  "))
+          JSON::Stringify(isolate_->GetCurrentContext(), val->ToObject(isolate_),
+                          String::NewFromUtf8(isolate_, "  "))
           .ToLocalChecked();
 
-  String::Utf8Value utf8(result);
+    String::Utf8Value utf8(isolate_, result);
   return *utf8;
 }
 

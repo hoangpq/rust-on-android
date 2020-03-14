@@ -19,12 +19,14 @@ using v8::JSON;
 using v8::MaybeLocal;
 
 const char *ToCString(Local<String> str) {
-  String::Utf8Value value(str);
+    Isolate *isolate = Isolate::GetCurrent();
+    String::Utf8Value value(isolate, str);
   return *value ? *value : "<string conversion failed>";
 }
 
 void AndroidToast(const FunctionCallbackInfo<Value> &args) {
-  Local<String> str = args[0]->ToString();
+    Isolate *isolate = args.GetIsolate();
+    Local<String> str = args[0]->ToString(isolate);
   const char *msg = ToCString(str);
 
   JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
@@ -43,7 +45,7 @@ void AndroidLog(const FunctionCallbackInfo<Value> &args) {
 
   EscapableHandleScope handle_scope(isolate);
   Local<String> result = handle_scope.Escape(
-      JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
+          JSON::Stringify(context, args[0]->ToObject(isolate)).ToLocalChecked());
   const char *jsonString = ToCString(result);
   LOGD("%s", jsonString);
 }
@@ -54,7 +56,7 @@ void AndroidError(const FunctionCallbackInfo<Value> &args) {
 
   EscapableHandleScope handle_scope(isolate);
   Local<String> result = handle_scope.Escape(
-      JSON::Stringify(context, args[0]->ToObject()).ToLocalChecked());
+          JSON::Stringify(context, args[0]->ToObject(isolate)).ToLocalChecked());
   const char *jsonString = ToCString(result);
   LOGE("%s", jsonString);
 }
@@ -68,7 +70,7 @@ extern "C" void JNICALL Java_com_node_sample_MainActivity_initVM(
 
   // init objects
   jclass clz = env->GetObjectClass(callback);
-  g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
+    g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
   g_ctx.mainActivityObj = env->NewGlobalRef(callback);
   g_ctx.mainActivity = env->NewGlobalRef(instance);
 }

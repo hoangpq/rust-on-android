@@ -25,13 +25,11 @@ enum PersistentContainerCallbackType {
   kNotWeak,
   // These correspond to v8::WeakCallbackType
   kWeakWithParameter,
-  kWeakWithInternalFields,
-  kWeak = kWeakWithParameter  // For backwards compatibility.  Deprecate.
+    kWeakWithInternalFields
 };
 
-
 /**
- * A default trait implemenation for PersistentValueMap which uses std::map
+ * A default trait implementation for PersistentValueMap which uses std::map
  * as a backing map.
  *
  * Users will have to implement their own weak callbacks & dispose traits.
@@ -94,11 +92,11 @@ class DefaultPersistentValueMapTraits : public StdMapTraits<K, V> {
 
   static WeakCallbackDataType* WeakCallbackParameter(
       MapType* map, const K& key, Local<V> value) {
-    return NULL;
+      return nullptr;
   }
   static MapType* MapFromWeakCallbackInfo(
       const WeakCallbackInfo<WeakCallbackDataType>& data) {
-    return NULL;
+      return nullptr;
   }
   static K KeyFromWeakCallbackInfo(
       const WeakCallbackInfo<WeakCallbackDataType>& data) {
@@ -197,24 +195,14 @@ class PersistentValueMapBase {
   }
 
   /**
-   * Call Isolate::SetReference with the given parent and the map value.
-   */
-  void SetReference(const K& key,
-      const Persistent<Object>& parent) {
-    GetIsolate()->SetReference(
-      reinterpret_cast<internal::Object**>(parent.val_),
-      reinterpret_cast<internal::Object**>(FromVal(Traits::Get(&impl_, key))));
-  }
-
-  /**
    * Call V8::RegisterExternallyReferencedObject with the map value for given
    * key.
    */
   void RegisterExternallyReferencedObject(K& key) {
     assert(Contains(key));
     V8::RegisterExternallyReferencedObject(
-        reinterpret_cast<internal::Object**>(FromVal(Traits::Get(&impl_, key))),
-        reinterpret_cast<internal::Isolate*>(GetIsolate()));
+            reinterpret_cast<internal::Address *>(FromVal(Traits::Get(&impl_, key))),
+            reinterpret_cast<internal::Isolate*>(GetIsolate()));
   }
 
   /**
@@ -312,7 +300,7 @@ class PersistentValueMapBase {
 
   static PersistentContainerValue ClearAndLeak(Global<V>* persistent) {
     V* v = persistent->val_;
-    persistent->val_ = 0;
+      persistent->val_ = nullptr;
     return reinterpret_cast<PersistentContainerValue>(v);
   }
 
@@ -350,7 +338,7 @@ class PersistentValueMapBase {
     bool hasValue = value != kPersistentContainerNotFound;
     if (hasValue) {
       returnValue->SetInternal(
-          *reinterpret_cast<internal::Object**>(FromVal(value)));
+              *reinterpret_cast<internal::Address *>(FromVal(value)));
     }
     return hasValue;
   }
@@ -393,9 +381,14 @@ class PersistentValueMap : public PersistentValueMapBase<K, V, Traits> {
    */
   Global<V> SetUnique(const K& key, Global<V>* persistent) {
     if (Traits::kCallbackType != kNotWeak) {
+        WeakCallbackType callback_type =
+                Traits::kCallbackType == kWeakWithInternalFields
+                ? WeakCallbackType::kInternalFields
+                : WeakCallbackType::kParameter;
       Local<V> value(Local<V>::New(this->isolate(), *persistent));
       persistent->template SetWeak<typename Traits::WeakCallbackDataType>(
-        Traits::WeakCallbackParameter(this, key, value), WeakCallback);
+              Traits::WeakCallbackParameter(this, key, value), WeakCallback,
+              callback_type);
     }
     PersistentContainerValue old_value =
         Traits::Set(this->impl(), key, this->ClearAndLeak(persistent));
@@ -638,7 +631,7 @@ class PersistentValueVector {
  private:
   static PersistentContainerValue ClearAndLeak(Global<V>* persistent) {
     V* v = persistent->val_;
-    persistent->val_ = 0;
+      persistent->val_ = nullptr;
     return reinterpret_cast<PersistentContainerValue>(v);
   }
 

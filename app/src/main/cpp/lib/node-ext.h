@@ -1,6 +1,7 @@
 #ifndef _node_extension_h_
 #define _node_extension_h_
 
+#include "v8.h"
 #include <android/log.h>
 #include <android/looper.h>
 #include <cmath>
@@ -11,8 +12,6 @@
 #include <pthread.h>
 #include <string>
 #include <unistd.h>
-
-#include "v8.h"
 
 #include "../utils/utils.h"
 
@@ -27,9 +26,12 @@ static int messagePipe[2];
 extern "C" int looperCallback(int fd, int events, void *data);
 extern "C" void write_message(const void *, size_t count);
 
-void AndroidToast(const FunctionCallbackInfo<Value> &args);
-void AndroidLog(const FunctionCallbackInfo<Value> &args);
-void AndroidError(const FunctionCallbackInfo<Value> &args);
-void OnLoad(const FunctionCallbackInfo<Value> &args);
+void AndroidToast(const FunctionCallbackInfo<v8::Value> &args);
+
+void AndroidLog(const FunctionCallbackInfo<v8::Value> &args);
+
+void AndroidError(const FunctionCallbackInfo<v8::Value> &args);
+
+void OnLoad(const FunctionCallbackInfo<v8::Value> &args);
 
 #endif

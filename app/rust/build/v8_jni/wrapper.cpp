@@ -35,9 +35,10 @@ void JavaWrapper::SetContext(Local<Context> context_) {
 
 void JavaWrapper::New(const FunctionCallbackInfo<Value> &info) {
   assert(info[0]->IsString());
+    Isolate *isolate = Isolate::GetCurrent();
 
   if (info.IsConstructCall()) {
-    std::string package = v8str(info[0]->ToString());
+      std::string package = v8str(info[0]->ToString(isolate));
     auto *wrapper = new JavaWrapper(package);
 
     if (package == "context") {
@@ -103,7 +104,7 @@ int looperCallback(int fd, int events, void *data) {
           resolver_->Call(context_, Null(isolate_), argc, args);
 
       if (value.IsEmpty() && tryCatch.HasCaught()) {
-        String::Utf8Value exception(tryCatch.Exception());
+          String::Utf8Value exception(isolate_, tryCatch.Exception());
         adb_debug(*exception);
       }
     }
@@ -123,20 +124,22 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
   assert(info[2]->IsArray());
 
   Isolate *isolate_ = info.GetIsolate();
-  auto *wrapper = rust::ObjectWrap::Unwrap<JavaWrapper>(info[0]->ToObject());
-  std::string method(v8str(info[1]->ToString()));
+    auto *wrapper =
+            rust::ObjectWrap::Unwrap<JavaWrapper>(info[0]->ToObject(isolate_));
+    std::string method(v8str(info[1]->ToString(isolate_)));
   Local<Array> array = Local<Array>::Cast(info[2]);
 
+    Local<Context> context = isolate_->GetCurrentContext();
   uint32_t argc = array->Length();
   auto *args = new value_t[argc];
   for (unsigned int i = 0; i < argc; i++) {
-    if (array->Has(i)) {
+      if (array->Has(context, i).ToChecked()) {
       Local<Value> value = array->Get(i);
       if (value->IsInt32()) {
-        args[i] = _new_int_value(value->Uint32Value());
+          args[i] = _new_int_value(value->Uint32Value(context).ToChecked());
       }
       if (value->IsString()) {
-        String::Utf8Value val(value->ToString());
+          String::Utf8Value val(isolate_, value->ToString(isolate_));
         args[i] = _new_string_value(*val, val.length());
       }
     }
@@ -154,8 +157,9 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
     Local<Object> result = Local<Object>::Cast(
         register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
 
-    uint32_t uuid =
-        result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))->Uint32Value();
+      uint32_t uuid = result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))
+              ->Uint32Value(context_)
+              .ToChecked();
 
     message_t msg;
     msg.jni_call_ = false;

@@ -6,16 +6,14 @@ cmake_minimum_required(VERSION 3.4.1)
 
 project(android)
 
-# Creates and names a library, sets it as either STATIC
-# or SHARED, and provides the relative paths to its source code.
-# You can define multiple libraries, and CMake builds them for you.
-# Gradle automatically packages shared libraries with your APK.
+set(CMAKE_CXX_STANDARD 11)
 
 #Includes node's header files.
-include_directories(rust/libnode/include/node/)
+include_directories(rust/libnode/include/node)
 
 # add imported target
 add_library(librust STATIC IMPORTED)
+
 # point the imported target at the real file
 set_property(TARGET librust PROPERTY
         IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/target/${ANDROID_ABI}/librust.a)
@@ -35,16 +33,20 @@ add_library( # Sets the name of the library.
         src/main/cpp/utils/utils.cpp
         src/main/cpp/lib/node-ext.cpp)
 
-add_library(libnode
+set(libv8 ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libv8.a)
+set(libssl ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libssl.a)
+set(libcrypto ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libcrypto.a)
+
+add_library(libinspector
         SHARED
         IMPORTED)
 
 set_target_properties( # Specifies the target library.
-        libnode
+        libinspector
         # Specifies the parameter you want to define.
-        PROPERTIES IMPORTED_LOCATION
+        PROPERTIES
         # Provides the path to the library you want to import.
-        ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libnode.so)
+        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libinspector.so)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
@@ -62,10 +64,4 @@ find_library( # Sets the name of the path variable.
 # build script, prebuilt third-party libraries, or system libraries.
 target_link_libraries( # Specifies the target library.
         native-lib
-        librust
-        jnigraphics
-        libnode
-        # Links the target library to the log library
-        # included in the NDK.
-        log
-        android)
+        librust jnigraphics libinspector log z android ${libssl} ${libcrypto} ${libv8})

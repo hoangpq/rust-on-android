@@ -5,6 +5,10 @@ use futures::{Async, Future};
 
 use crate::runtime::isolate;
 
+extern "C" {
+    fn RunServer();
+}
+
 #[derive(Clone)]
 pub struct Worker {
     inner: Arc<Mutex<isolate::Isolate>>,
@@ -36,14 +40,12 @@ impl Future for Worker {
 #[no_mangle]
 pub extern "C" fn init_event_loop() {
     thread::spawn(move || {
-        let main_future = futures::lazy(move || {
+        let main_future = futures::lazy(move || unsafe {
             let mut worker = Worker::new();
             worker.execute(
                 r#"
                 // to keep event loop alive
-                setInterval(() => {
-                    console.log('interval 500');
-                }, 500);
+                setInterval(() => { }, 500);
                 
                 const Random = java.import('java/util/Random');
                 const random = new Random(10000);
@@ -142,9 +144,11 @@ pub extern "C" fn init_event_loop() {
                     .catch(e => console.log(e.message));*/
             "#,
             );
+
             worker
         });
 
+        thread::spawn(|| unsafe { RunServer() });
         tokio::runtime::current_thread::run(main_future);
     });
 }

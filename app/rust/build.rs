@@ -8,7 +8,6 @@ use std::process::exit;
 
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-
     let dst = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let build = dst.join("build");
 
