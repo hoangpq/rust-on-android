@@ -92,7 +92,7 @@ pub extern "C" fn init_event_loop() {
                 function createTimeString() {
                     const date = new Date();
                     const h = date.getHours();
-                    const m = date.getMinutes() + 1;
+                    const m = date.getMinutes();
                     const s = date.getSeconds();
                     return `${format(h)}:${format(m)}:${format(s)}`;
                 }
