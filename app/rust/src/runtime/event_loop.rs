@@ -5,10 +5,6 @@ use futures::{Async, Future};
 
 use crate::runtime::isolate;
 
-extern "C" {
-    fn RunServer();
-}
-
 #[derive(Clone)]
 pub struct Worker {
     inner: Arc<Mutex<isolate::Isolate>>,
@@ -148,7 +144,6 @@ pub extern "C" fn init_event_loop() {
             worker
         });
 
-        thread::spawn(|| unsafe { RunServer() });
         tokio::runtime::current_thread::run(main_future);
     });
 }

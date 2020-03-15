@@ -15,6 +15,8 @@ import com.node.util.JNIHelper;
 import com.node.util.ResourceUtil;
 import com.node.util.Util;
 
+import inspector.Inspector;
+
 @Keep
 public class MainActivity extends AppCompatActivity {
     private TextView txtMessage = null;
@@ -68,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        new Thread(Inspector::runServer).start();
         new Thread(this::demoMain).start();
 
     }

@@ -37,17 +37,6 @@ set(libv8 ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libv8.a)
 set(libssl ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libssl.a)
 set(libcrypto ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libcrypto.a)
 
-add_library(libinspector
-        SHARED
-        IMPORTED)
-
-set_target_properties( # Specifies the target library.
-        libinspector
-        # Specifies the parameter you want to define.
-        PROPERTIES
-        # Provides the path to the library you want to import.
-        IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/rust/libnode/bin/${ANDROID_ABI}/libinspector.so)
-
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
 # default, you only need to specify the name of the public NDK library
@@ -64,4 +53,4 @@ find_library( # Sets the name of the path variable.
 # build script, prebuilt third-party libraries, or system libraries.
 target_link_libraries( # Specifies the target library.
         native-lib
-        librust jnigraphics libinspector log z android ${libssl} ${libcrypto} ${libv8})
+        librust jnigraphics log z android ${libssl} ${libcrypto} ${libv8})
