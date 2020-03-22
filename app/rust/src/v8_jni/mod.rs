@@ -5,7 +5,7 @@ use std::sync::{Arc, Once};
 use jni::sys::jlong;
 use jni::{AttachGuard, JNIEnv, JavaVM};
 
-mod util;
+pub mod util;
 
 extern "C" {
     fn get_java_vm() -> *mut jni::sys::JavaVM;

@@ -27,20 +27,6 @@ typedef struct value_t {
   uint8_t t;
 } value_t;
 
-typedef struct {
-    JNIClosure closure;
-    jlong callback_fn;
-    jlong callback_data;
-  bool jni_call_;
-  jlong ptr;
-  jlong name;
-  value_t *args;
-  uint32_t argc;
-  Isolate *isolate_;
-  Persistent<Context> *context_;
-  uint32_t uuid;
-} message_t;
-
 using namespace v8;
 using namespace std;
 
@@ -49,7 +35,6 @@ jlong _rust_new_string(const char *);
 jlong new_instance(string_t, const value_t *, uint32_t);
 void instance_call_args(jlong, jlong, const value_t *, uint32_t,
                         const FunctionCallbackInfo<Value> &);
-Local<Value> instance_call_callback(jlong, jlong, const value_t *, uint32_t);
 void adb_debug(const char *);
 }
 

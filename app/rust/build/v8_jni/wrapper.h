@@ -17,8 +17,6 @@ extern "C" {
 jlong get_current_activity();
 bool is_method(jlong, string_t);
 bool is_field(jlong, string_t);
-int looperCallback(int fd, int events, void *data);
-void send_message_to_looper(JNIClosure, jlong, jlong);
 }
 
 void java_register_callback(Isolate *isolate_, Local<Context> context);
@@ -52,7 +50,6 @@ private:
 
   jlong ptr_;
   std::string package_;
-  bool context_ = false;
 
   static Persistent<FunctionTemplate> constructor_;
   static Persistent<Function> registerUITask_;

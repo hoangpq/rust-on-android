@@ -76,8 +76,7 @@ pub extern "C" fn init_event_loop() {
                 function changeColor(context) {
                     setInterval(async () => {
                         const color = colorList[Math.ceil(Math.random() * colorList.length)];
-                        const colorCode = await context.setTextColor(color);
-                        console.log(colorCode);
+                        await context.setTextColor(color);
                     }, 2000);
                 }
                 

@@ -347,10 +347,12 @@ impl Isolate {
                   import(name) {
                     if (name === 'context') {
                         const context = new Java('context', []);
+                        context.name = 'activity';
                         return new Proxy(context, javaHandler);
                     }
                     return function wrapper() {
                         const instance = new Java(name, slice.call(arguments));
+                        instance.name = name;
                         return new Proxy(instance, javaHandler);
                     }
                   }

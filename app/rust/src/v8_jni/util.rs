@@ -224,15 +224,6 @@ pub unsafe extern "C" fn instance_call_args(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn instance_call_callback<'a>(
-    instance_ptr: jlong,
-    name: jlong,
-    args: *const value_t,
-    argc: u32,
-) -> Handle<'a, JsValue> {
-    internal_instance_call(instance_ptr, name, args, argc)
-}
-
 unsafe fn internal_instance_call<'a>(
     instance_ptr: jlong,
     name: jlong,

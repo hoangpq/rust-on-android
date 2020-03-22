@@ -18,13 +18,11 @@
 using namespace util;
 
 extern "C" void register_vm(JavaVM *vm);
+extern "C" void register_native(JNIEnv *env);
 
 NodeContext g_ctx;
 static ALooper *mainThreadLooper;
 static int messagePipe[2];
-
-extern "C" int looperCallback(int fd, int events, void *data);
-extern "C" void write_message(const void *, size_t count);
 
 void AndroidToast(const FunctionCallbackInfo<v8::Value> &args);
 

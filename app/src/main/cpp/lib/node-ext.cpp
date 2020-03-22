@@ -19,14 +19,14 @@ using v8::JSON;
 using v8::MaybeLocal;
 
 const char *ToCString(Local<String> str) {
-    Isolate *isolate = Isolate::GetCurrent();
-    String::Utf8Value value(isolate, str);
+  Isolate *isolate = Isolate::GetCurrent();
+  String::Utf8Value value(isolate, str);
   return *value ? *value : "<string conversion failed>";
 }
 
 void AndroidToast(const FunctionCallbackInfo<Value> &args) {
-    Isolate *isolate = args.GetIsolate();
-    Local<String> str = args[0]->ToString(isolate);
+  Isolate *isolate = args.GetIsolate();
+  Local<String> str = args[0]->ToString(isolate);
   const char *msg = ToCString(str);
 
   JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
@@ -70,7 +70,7 @@ extern "C" void JNICALL Java_com_node_sample_MainActivity_initVM(
 
   // init objects
   jclass clz = env->GetObjectClass(callback);
-    g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
+  g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
   g_ctx.mainActivityObj = env->NewGlobalRef(callback);
   g_ctx.mainActivity = env->NewGlobalRef(instance);
 }
@@ -88,10 +88,6 @@ Java_com_node_sample_MainActivity_releaseVM(JNIEnv *env, jobject instance) {
   g_ctx.mainActivity = nullptr;
 }
 
-void write_message(const void *what, size_t count) {
-  write(messagePipe[1], what, count);
-}
-
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   memset(&g_ctx, 0, sizeof(NodeContext));
   register_vm(vm);
@@ -99,22 +95,8 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   g_ctx.mainActivityObj = nullptr;
   Util::AttachCurrentThread(&g_ctx.env);
 
-  mainThreadLooper = ALooper_forThread();
-  ALooper_acquire(mainThreadLooper);
-  pipe(messagePipe);
-  ALooper_addFd(mainThreadLooper, messagePipe[0], 0, ALOOPER_EVENT_INPUT,
-                looperCallback, nullptr);
-
-  JNIEnv *env = g_ctx.env;
-  jclass jniHelperClass = env->FindClass("com/node/util/JNIHelper");
-
-  // Register your class' native methods.
-  static const JNINativeMethod methods[] = {
-          {"sqrt", "(D)D", reinterpret_cast<void *>(msqrt)},
-  };
-
-  env->RegisterNatives(jniHelperClass, methods,
-                       sizeof(methods) / sizeof(JNINativeMethod));
+  // register native methods
+  register_native(g_ctx.env);
 
   return JNI_VERSION_1_6;
 }

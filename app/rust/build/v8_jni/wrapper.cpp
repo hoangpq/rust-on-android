@@ -1,10 +1,6 @@
 #include "wrapper.h"
 #include <unistd.h>
 
-extern "C" {
-void write_message(const void *, size_t count);
-}
-
 Persistent<FunctionTemplate> JavaWrapper::constructor_;
 Persistent<Function> JavaWrapper::registerUITask_;
 Persistent<Function> JavaWrapper::resolverUITask_;
@@ -35,15 +31,14 @@ void JavaWrapper::SetContext(Local<Context> context_) {
 
 void JavaWrapper::New(const FunctionCallbackInfo<Value> &info) {
   assert(info[0]->IsString());
-    Isolate *isolate = Isolate::GetCurrent();
+  Isolate *isolate = Isolate::GetCurrent();
 
   if (info.IsConstructCall()) {
-      std::string package = v8str(info[0]->ToString(isolate));
+    std::string package = v8str(info[0]->ToString(isolate));
     auto *wrapper = new JavaWrapper(package);
 
     if (package == "context") {
       wrapper->ptr_ = get_current_activity();
-      wrapper->context_ = true;
     } else {
       uint32_t argc = 0;
       value_t *args = nullptr;
@@ -75,44 +70,6 @@ void JavaWrapper::IsField(const FunctionCallbackInfo<Value> &args) {
       Boolean::New(isolate_, is_field(wrapper->ptr_, v8string_t(args[0]))));
 }
 
-int looperCallback(int fd, int events, void *data) {
-  message_t msg;
-  read(fd, &msg, sizeof(message_t));
-
-  if (msg.jni_call_) {
-      (msg.closure)((void *) msg.closure, msg.callback_fn, msg.callback_data);
-  } else {
-    Isolate *isolate_ = msg.isolate_;
-
-    if (nullptr != isolate_) {
-      Locker locker(isolate_);
-      isolate_->Enter();
-
-      HandleScope scope(isolate_);
-      TryCatch tryCatch(isolate_);
-
-      Local<Context> context_ = JavaWrapper::resolverContext_.Get(isolate_);
-      Context::Scope contextScope(context_);
-
-      Local<Function> resolver_ = JavaWrapper::resolverUITask_.Get(isolate_);
-      Handle<Value> result =
-          instance_call_callback(msg.ptr, msg.name, msg.args, msg.argc);
-
-      const int argc = 2;
-      Local<Value> args[argc] = {Number::New(isolate_, msg.uuid), result};
-      MaybeLocal<Value> value =
-          resolver_->Call(context_, Null(isolate_), argc, args);
-
-      if (value.IsEmpty() && tryCatch.HasCaught()) {
-          String::Utf8Value exception(isolate_, tryCatch.Exception());
-        adb_debug(*exception);
-      }
-    }
-  }
-
-  return 1;
-}
-
 void JavaWrapper::Call(const FunctionCallbackInfo<Value> &info) {
   Isolate *isolate_ = info.GetIsolate();
   info.GetReturnValue().Set(Undefined(isolate_));
@@ -124,58 +81,39 @@ void JavaWrapper::InvokeJavaFunction(const FunctionCallbackInfo<Value> &info) {
   assert(info[2]->IsArray());
 
   Isolate *isolate_ = info.GetIsolate();
-    auto *wrapper =
-            rust::ObjectWrap::Unwrap<JavaWrapper>(info[0]->ToObject(isolate_));
-    std::string method(v8str(info[1]->ToString(isolate_)));
+  auto *wrapper =
+          rust::ObjectWrap::Unwrap<JavaWrapper>(info[0]->ToObject(isolate_));
+
+  std::string method(v8str(info[1]->ToString(isolate_)));
   Local<Array> array = Local<Array>::Cast(info[2]);
 
-    Local<Context> context = isolate_->GetCurrentContext();
+  Local<Context> context = isolate_->GetCurrentContext();
   uint32_t argc = array->Length();
   auto *args = new value_t[argc];
   for (unsigned int i = 0; i < argc; i++) {
-      if (array->Has(context, i).ToChecked()) {
+    if (array->Has(context, i).ToChecked()) {
       Local<Value> value = array->Get(i);
       if (value->IsInt32()) {
-          args[i] = _new_int_value(value->Uint32Value(context).ToChecked());
+        args[i] = _new_int_value(value->Uint32Value(context).ToChecked());
       }
       if (value->IsString()) {
-          String::Utf8Value val(isolate_, value->ToString(isolate_));
+        String::Utf8Value val(isolate_, value->ToString(isolate_));
         args[i] = _new_string_value(*val, val.length());
       }
     }
   }
 
+  Local<String> mainActivity = String::NewFromUtf8(isolate_, "activity");
+
+  Local<Object> javaContext = info[0]->ToObject(isolate_);
+  Local<String> contextName =
+          javaContext->Get(context, String::NewFromUtf8(isolate_, "name"))
+                  .ToLocalChecked()
+                  ->ToString(isolate_);
+
   jlong name = _rust_new_string(method.c_str());
-  if (!wrapper->context_) {
-    instance_call_args(wrapper->ptr_, name, args, argc, info);
-  } else {
-    Local<Context> context_ = resolverContext_.Get(isolate_);
-    Local<Function> register_ = registerUITask_.Get(isolate_);
 
-    Context::Scope contextScope(context_);
-
-    Local<Object> result = Local<Object>::Cast(
-        register_->Call(context_, Null(isolate_), 0, nullptr).ToLocalChecked());
-
-      uint32_t uuid = result->Get(String::NewFromUtf8(isolate_, "uiTaskId"))
-              ->Uint32Value(context_)
-              .ToChecked();
-
-    message_t msg;
-    msg.jni_call_ = false;
-    msg.ptr = wrapper->ptr_;
-    msg.name = name;
-    msg.argc = argc;
-    msg.args = args;
-    msg.isolate_ = isolate_;
-    msg.context_ = &resolverContext_;
-    msg.uuid = uuid;
-
-    info.GetReturnValue().Set(
-        result->Get(String::NewFromUtf8(isolate_, "promise")));
-
-    write_message(&msg, sizeof(message_t));
-  }
+  instance_call_args(wrapper->ptr_, name, args, argc, info);
 }
 
 void JavaWrapper::CallbackRegister(Isolate *isolate_, Local<Context> context) {
@@ -196,14 +134,4 @@ JavaWrapper::~JavaWrapper() { adb_debug("Destroyed"); }
 
 void java_register_callback(Isolate *isolate_, Local<Context> context) {
   JavaWrapper::CallbackRegister(isolate_, context);
-}
-
-void send_message_to_looper(JNIClosure closure, jlong callback_fn,
-                            jlong callback_data) {
-  message_t msg;
-  msg.closure = closure;
-  msg.callback_fn = callback_fn;
-  msg.callback_data = callback_data;
-  msg.jni_call_ = true;
-  write_message(&msg, sizeof(message_t));
 }

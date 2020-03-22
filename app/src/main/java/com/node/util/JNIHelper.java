@@ -1,5 +1,7 @@
 package com.node.util;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.support.annotation.Keep;
 import android.support.v7.app.AppCompatActivity;
 import android.util.SparseArray;
@@ -18,6 +20,7 @@ public class JNIHelper {
     private static SparseArray<Class> indexToClass = new SparseArray<>();
     private static HashMap<Class, Integer> classToIndex = new HashMap<>();
     private static WeakReference<AppCompatActivity> currentActivity;
+    private static Handler uiThreadHandler;
 
     static {
         // index to class
@@ -56,6 +59,17 @@ public class JNIHelper {
 
     public static void setCurrentActivity(AppCompatActivity activity) {
         currentActivity = new WeakReference<>(activity);
+    }
+
+    private static Handler getMainLooper() {
+        if (uiThreadHandler == null) {
+            uiThreadHandler = new Handler(Looper.getMainLooper());
+        }
+        return uiThreadHandler;
+    }
+
+    public static void runTask(long task) {
+        getMainLooper().post(new DenoRunnable(task));
     }
 
     public static long getLongValue(Object instance, String name) throws NoSuchFieldException, IllegalAccessException {

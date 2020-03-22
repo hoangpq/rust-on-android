@@ -52,7 +52,10 @@ pub fn unwrap<T>(env: &JNIEnv, res: Result<T>) -> T {
 pub fn unwrap_js<T>(env: &JNIEnv, res: Result<T>) -> Option<T> {
     match res {
         Ok(result) => Some(result),
-        Err(_) => None,
+        Err(err) => {
+            adb_debug!(err);
+            None
+        }
     }
 }
 
@@ -114,7 +117,7 @@ where
 
 pub fn call_method<'a, U, V>(
     env: &'a JNIEnv,
-    instance: JObject,
+    instance: JObject<'a>,
     name: U,
     sig: V,
     args: &[JValue],

@@ -22,15 +22,15 @@ value_t _new_string_value(char *bytes, int length) {
 }
 
 std::string v8str(Local<String> input) {
-    Isolate *isolate = Isolate::GetCurrent();
-    String::Utf8Value val(isolate, input);
+  Isolate *isolate = Isolate::GetCurrent();
+  String::Utf8Value val(isolate, input);
   std::string s(*val);
   return s;
 }
 
 string_t v8string_t(Local<Value> input) {
-    Isolate *isolate = Isolate::GetCurrent();
-    String::Utf8Value val(isolate, input);
+  Isolate *isolate = Isolate::GetCurrent();
+  String::Utf8Value val(isolate, input);
   std::string s(*val);
   return _new_string_t(s);
 }
