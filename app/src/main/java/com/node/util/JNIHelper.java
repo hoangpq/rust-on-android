@@ -132,6 +132,4 @@ public class JNIHelper {
         return new Response(result, classToIndex.get(method.getReturnType()));
     }
 
-    public static native double sqrt(double value);
-
 }

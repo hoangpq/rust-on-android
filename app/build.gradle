@@ -29,8 +29,8 @@ android {
     }
     buildTypes {
         debug {
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         release {
@@ -57,6 +57,7 @@ android {
     packagingOptions {
         doNotStrip "**/*.so"
     }
+    ndkVersion '21.0.6113669'
 
     preBuild.dependsOn(rootProject.cargo)
 
