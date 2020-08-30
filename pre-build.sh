@@ -2,7 +2,7 @@
 source ~/.bash_profile
 dir=`pwd`
 
-NDK_HOME=/Users/hoangpq/contribute/android-ndk-r20b
+NDK_HOME=$NDK20
 
 export AARCH64LINUX_ANDROID_OPENSSL_INCLUDE_DIR="`pwd`/app/rust/libnode/include"
 export AARCH64_LINUX_ANDROID_OPENSSL_LIB_DIR="`pwd`/app/rust/libnode/bin/arm64-v8a"
@@ -39,17 +39,17 @@ fi
 cd `pwd`/app/rust
 
 # rm -f ./target/arm64-v8a/librust.a
-rm -f ./target/armeabi-v7a/librust.a
+# rm -f ./target/armeabi-v7a/librust.a
 rm -f ./target/x86/librust.a
 
 # RUST_BACKTRACE=1 cargo +nightly build --target aarch64-linux-android --release
-RUST_BACKTRACE=1 cargo build --target armv7-linux-androideabi --release
+# RUST_BACKTRACE=1 cargo build --target armv7-linux-androideabi --release
 RUST_BACKTRACE=1 cargo build --target i686-linux-android --release
 
 # mkdir -p ./target/arm64-v8a
-mkdir -p ./target/armeabi-v7a
+# mkdir -p ./target/armeabi-v7a
 mkdir -p ./target/x86
 
 # cp ./target/aarch64-linux-android/release/librust.a ./target/arm64-v8a/librust.a
-cp ./target/armv7-linux-androideabi/release/librust.a ./target/armeabi-v7a/librust.a
+# cp ./target/armv7-linux-androideabi/release/librust.a ./target/armeabi-v7a/librust.a
 cp ./target/i686-linux-android/release/librust.a ./target/x86/librust.a

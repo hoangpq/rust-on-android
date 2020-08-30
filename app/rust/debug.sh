@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cd /Users/hoangpq/contribute/android-ndk-r20b/prebuilt/android-x86/gdbserver
+cd $NDK20/prebuilt/android-x86/gdbserver
 adb push gdbserver /data/local/tmp
 adb shell "chmod 777 /data/local/tmp/gdbserver"
 
