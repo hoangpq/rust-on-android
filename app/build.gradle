@@ -32,6 +32,14 @@ android {
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            // The doNotStrip option is not properly scoped to the "debug" build type
+            // See https://issuetracker.google.com/issues/155215248.
+            packagingOptions {
+                doNotStrip "**/*.so"
+            }
+            debuggable true
+            jniDebuggable true
         }
         release {
             minifyEnabled true
@@ -54,9 +62,6 @@ android {
         }
     }
 
-    packagingOptions {
-        doNotStrip "**/*.so"
-    }
     ndkVersion '21.0.6113669'
 
     preBuild.dependsOn(rootProject.cargo)
@@ -64,7 +69,7 @@ android {
 }
 
 dependencies {
-    implementation project(":inspector")
+    // implementation project(":inspector")
     implementation 'com.github.tbruyelle:rxpermissions:0.10.2'
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {

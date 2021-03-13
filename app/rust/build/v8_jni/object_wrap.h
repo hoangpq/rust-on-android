@@ -19,25 +19,26 @@ public:
     persistent().Reset();
   }
 
-  template <class T> static inline T *Unwrap(v8::Local<v8::Object> handle) {
+  template<class T>
+  static inline T* Unwrap(v8::Local<v8::Object> handle) {
     assert(!handle.IsEmpty());
     assert(handle->InternalFieldCount() > 0);
     // Cast to ObjectWrap before casting to T.  A direct cast from void
     // to T won't work right when T has more than one base class.
-    void *ptr = handle->GetAlignedPointerFromInternalField(0);
-    ObjectWrap *wrap = static_cast<ObjectWrap *>(ptr);
-    return static_cast<T *>(wrap);
+    void* ptr = handle->GetAlignedPointerFromInternalField(0);
+    ObjectWrap* wrap = static_cast<ObjectWrap*>(ptr);
+    return static_cast<T*>(wrap);
   }
 
   inline v8::Local<v8::Object> handle() {
     return handle(v8::Isolate::GetCurrent());
   }
 
-  inline v8::Local<v8::Object> handle(v8::Isolate *isolate) {
+  inline v8::Local<v8::Object> handle(v8::Isolate* isolate) {
     return v8::Local<v8::Object>::New(isolate, persistent());
   }
 
-  inline v8::Persistent<v8::Object> &persistent() { return handle_; }
+  inline v8::Persistent<v8::Object>& persistent() { return handle_; }
 
 protected:
   inline void Wrap(v8::Local<v8::Object> handle) {
@@ -79,11 +80,11 @@ protected:
       MakeWeak();
   }
 
-  int refs_; // ro
+  int refs_;  // ro
 
 private:
-  static void WeakCallback(const v8::WeakCallbackInfo<ObjectWrap> &data) {
-    ObjectWrap *wrap = data.GetParameter();
+  static void WeakCallback(const v8::WeakCallbackInfo<ObjectWrap>& data) {
+    ObjectWrap* wrap = data.GetParameter();
     assert(wrap->refs_ == 0);
     wrap->handle_.Reset();
     delete wrap;
@@ -92,6 +93,6 @@ private:
   v8::Persistent<v8::Object> handle_;
 };
 
-} // namespace rust
+}  // namespace rust
 
-#endif // OBJECT_WRAP_H_
+#endif  // OBJECT_WRAP_H_

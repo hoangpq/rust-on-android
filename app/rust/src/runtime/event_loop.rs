@@ -130,13 +130,13 @@ pub extern "C" fn init_event_loop() {
                     console.log(`timeout 3s: ${Date.now() - start}`);
                 }, 3000);
 
-                /*Promise.all(users.map(fetchUserInfo))
+                Promise.all(users.map(fetchUserInfo))
                     .then(data => {
                         const names = data.map(user => user.name).join(', ');
                         console.log(`Name: ${names}`);
                         console.log(`api call: ${Date.now() - start}`);
                     })
-                    .catch(e => console.log(e.message));*/
+                    .catch(e => console.log(e.message));
             "#,
             );
 

@@ -4,20 +4,20 @@
 
 namespace util {
 
-string Util::JavaToString(JNIEnv *env, jstring str) {
+string Util::JavaToString(JNIEnv* env, jstring str) {
   jclass objClazz = env->GetObjectClass(str);
   jmethodID methodId =
       env->GetMethodID(objClazz, "getBytes", "(Ljava/lang/String;)[B");
 
   jstring charsetName = env->NewStringUTF("UTF-8");
   auto byteArray =
-      (jbyteArray)env->CallObjectMethod(str, methodId, charsetName);
+      (jbyteArray) env->CallObjectMethod(str, methodId, charsetName);
   env->DeleteLocalRef(charsetName);
 
-  jbyte *pBytes = env->GetByteArrayElements(byteArray, nullptr);
+  jbyte* pBytes = env->GetByteArrayElements(byteArray, nullptr);
 
   const jsize length = env->GetArrayLength(byteArray);
-  std::string results((const char *)pBytes, (unsigned long)length);
+  std::string results((const char*) pBytes, (unsigned long) length);
 
   env->ReleaseByteArrayElements(byteArray, pBytes, JNI_ABORT);
   env->DeleteLocalRef(byteArray);
@@ -25,14 +25,14 @@ string Util::JavaToString(JNIEnv *env, jstring str) {
   return results;
 }
 
-Local<String> Util::ConvertToV8String(const string &s) {
+Local<String> Util::ConvertToV8String(const string& s) {
   auto isolate = Isolate::GetCurrent();
   return String::NewFromUtf8(isolate, s.c_str());
 }
 
-void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
+void Util::InitEnvironment(Isolate* isolate, JNIEnv** env) {
   jint res =
-      g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+      g_ctx.javaVM->GetEnv(reinterpret_cast<void**>(&(*env)), JNI_VERSION_1_6);
   if (res != JNI_OK) {
     res = g_ctx.javaVM->AttachCurrentThread(&(*env), nullptr);
     if (JNI_OK != res) {
@@ -42,9 +42,9 @@ void Util::InitEnvironment(Isolate *isolate, JNIEnv **env) {
   }
 }
 
-void Util::AttachCurrentThread(JNIEnv **env) {
+void Util::AttachCurrentThread(JNIEnv** env) {
   int res =
-      g_ctx.javaVM->GetEnv(reinterpret_cast<void **>(&(*env)), JNI_VERSION_1_6);
+      g_ctx.javaVM->GetEnv(reinterpret_cast<void**>(&(*env)), JNI_VERSION_1_6);
   if (res != JNI_OK) {
     res = g_ctx.javaVM->AttachCurrentThread(&(*env), nullptr);
     if (JNI_OK != res) {
@@ -53,4 +53,4 @@ void Util::AttachCurrentThread(JNIEnv **env) {
   }
 }
 
-} // namespace util
+}  // namespace util

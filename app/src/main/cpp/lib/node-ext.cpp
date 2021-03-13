@@ -18,18 +18,26 @@ using v8::Value;
 using v8::JSON;
 using v8::MaybeLocal;
 
-const char *ToCString(Local<String> str) {
-  Isolate *isolate = Isolate::GetCurrent();
+#define NATIVE_METHOD(className, functionName, signature)    \
+  {                                                          \
+#functionName, signature,                                \
+        reiterpret_cast < void*>(className##_##functionName) \
+  }
+
+#define CLASS_NAME "benchmarks/MicroNative/java/NativeMethods";
+
+const char* ToCString(Local<String> str) {
+  Isolate* isolate = Isolate::GetCurrent();
   String::Utf8Value value(isolate, str);
   return *value ? *value : "<string conversion failed>";
 }
 
-void AndroidToast(const FunctionCallbackInfo<Value> &args) {
-  Isolate *isolate = args.GetIsolate();
+void AndroidToast(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
   Local<String> str = args[0]->ToString(isolate);
-  const char *msg = ToCString(str);
+  const char* msg = ToCString(str);
 
-  JNIEnv *env_ = static_cast<JNIEnv *>(args.Data().As<External>()->Value());
+  JNIEnv* env_ = static_cast<JNIEnv*>(args.Data().As<External>()->Value());
   jmethodID methodId = env_->GetMethodID(g_ctx.mainActivityClz, "subscribe",
                                          "(Ljava/lang/String;)V");
 
@@ -39,35 +47,34 @@ void AndroidToast(const FunctionCallbackInfo<Value> &args) {
   args.GetReturnValue().Set(str);
 }
 
-void AndroidLog(const FunctionCallbackInfo<Value> &args) {
-  Isolate *isolate = args.GetIsolate();
+void AndroidLog(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
   Local<Context> context = isolate->GetCurrentContext();
 
   EscapableHandleScope handle_scope(isolate);
   Local<String> result = handle_scope.Escape(
-          JSON::Stringify(context, args[0]->ToObject(isolate)).ToLocalChecked());
-  const char *jsonString = ToCString(result);
+      JSON::Stringify(context, args[0]->ToObject(isolate)).ToLocalChecked());
+  const char* jsonString = ToCString(result);
   LOGD("%s", jsonString);
 }
 
-void AndroidError(const FunctionCallbackInfo<Value> &args) {
-  Isolate *isolate = args.GetIsolate();
+void AndroidError(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
   Local<Context> context = isolate->GetCurrentContext();
 
   EscapableHandleScope handle_scope(isolate);
   Local<String> result = handle_scope.Escape(
-          JSON::Stringify(context, args[0]->ToObject(isolate)).ToLocalChecked());
-  const char *jsonString = ToCString(result);
+      JSON::Stringify(context, args[0]->ToObject(isolate)).ToLocalChecked());
+  const char* jsonString = ToCString(result);
   LOGE("%s", jsonString);
 }
 
-static jdouble msqrt(JNIEnv *env, jclass clazz, jdouble value) {
+static jdouble msqrt(JNIEnv* env, jclass clazz, jdouble value) {
   return std::sqrt(value);
 }
 
 extern "C" void JNICALL Java_com_node_sample_MainActivity_initVM(
-        JNIEnv *env, jobject instance, jobject callback) {
-
+    JNIEnv* env, jobject instance, jobject callback) {
   // init objects
   jclass clz = env->GetObjectClass(callback);
   g_ctx.mainActivityClz = (jclass) env->NewGlobalRef(clz);
@@ -76,8 +83,7 @@ extern "C" void JNICALL Java_com_node_sample_MainActivity_initVM(
 }
 
 extern "C" void JNICALL
-Java_com_node_sample_MainActivity_releaseVM(JNIEnv *env, jobject instance) {
-
+Java_com_node_sample_MainActivity_releaseVM(JNIEnv* env, jobject instance) {
   // release allocated objects
   env->DeleteGlobalRef(g_ctx.mainActivityObj);
   env->DeleteGlobalRef(g_ctx.mainActivityClz);
@@ -88,7 +94,7 @@ Java_com_node_sample_MainActivity_releaseVM(JNIEnv *env, jobject instance) {
   g_ctx.mainActivity = nullptr;
 }
 
-JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
+JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
   memset(&g_ctx, 0, sizeof(NodeContext));
   register_vm(vm);
   g_ctx.javaVM = vm;
@@ -101,9 +107,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
   return JNI_VERSION_1_6;
 }
 
-JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *) {
-  JNIEnv *env;
-  if (vm->GetEnv((void **)&env, JNI_VERSION_1_6) != JNI_EDETACHED) {
+JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* /*reserved*/) {
+  JNIEnv* env;
+  if (vm->GetEnv((void**) &env, JNI_VERSION_1_6) != JNI_EDETACHED) {
     vm->DetachCurrentThread();
   }
 }
