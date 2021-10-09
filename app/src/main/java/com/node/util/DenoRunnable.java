@@ -1,6 +1,6 @@
 package com.node.util;
 
-import android.support.annotation.Keep;
+import androidx.annotation.Keep;
 
 @Keep
 public class DenoRunnable implements Runnable {

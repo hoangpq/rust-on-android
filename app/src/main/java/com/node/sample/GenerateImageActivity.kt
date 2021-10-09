@@ -5,15 +5,20 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.os.Bundle
-import android.support.annotation.Keep
-import android.support.v7.app.AppCompatActivity
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.annotation.Keep
+import androidx.appcompat.app.AppCompatActivity
 
 class GenerateImageActivity : AppCompatActivity(), View.OnClickListener {
-    private external fun blendBitmap(imageView: ImageView?, renderType: Int, callback: (String) -> Unit)
+
+    private external fun blendBitmap(
+        imageView: ImageView?,
+        renderType: Int,
+        callback: (String) -> Unit
+    )
 
     private var imageView: ImageView? = null
 

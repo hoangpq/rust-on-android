@@ -372,14 +372,14 @@ impl Isolate {
     }
 
     #[inline]
-    pub unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a mut Self {
+    pub unsafe fn from_raw_ptr<'a>(ptr: *const libc::c_void) -> &'a mut Self {
         let ptr = ptr as *mut _;
         &mut *ptr
     }
 
     #[inline]
-    fn as_raw_ptr(&self) -> *const c_void {
-        self as *const _ as *const c_void
+    fn as_raw_ptr(&self) -> *const libc::c_void {
+        self as *const _ as *const libc::c_void
     }
 
     extern "C" fn dispatch(data: *mut libc::c_void, promise_id: u32, delay: u32) {

@@ -1,7 +1,7 @@
 package com.node.util.v8;
 
-import android.support.annotation.Keep;
-import android.support.annotation.Nullable;
+import androidx.annotation.Keep;
+import androidx.annotation.Nullable;
 
 import com.node.util.JNIHelper;
 
@@ -9,7 +9,7 @@ import com.node.util.JNIHelper;
 public class Response {
     private Object internal;
     private int sig;
-    private boolean hasError;
+    private final boolean hasError;
 
     public Response(@Nullable Object internal, int sig) {
         this.internal = internal;

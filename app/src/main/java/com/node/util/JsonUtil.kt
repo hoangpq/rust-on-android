@@ -1,8 +1,8 @@
 package com.node.util
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
 
 @Serializable
 data class Version(
@@ -21,11 +21,9 @@ data class Version(
 class JsonUtil {
     companion object {
 
-        val JSON: Json by lazy { Json(JsonConfiguration.Stable) }
-
         @JvmStatic
         fun parseVersion(raw: String): Version {
-            return JSON.parse(Version.serializer(), raw)
+            return Json.decodeFromString(raw)
         }
     }
 }

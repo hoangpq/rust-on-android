@@ -3,13 +3,14 @@ package com.node.sample;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.support.annotation.Keep;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.Keep;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.node.util.JNIHelper;
 import com.node.util.ResourceUtil;

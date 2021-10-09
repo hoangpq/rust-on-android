@@ -2,9 +2,10 @@ package com.node.util;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.support.annotation.Keep;
-import android.support.v7.app.AppCompatActivity;
 import android.util.SparseArray;
+
+import androidx.annotation.Keep;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.node.util.v8.Response;
 

@@ -35,6 +35,8 @@ pub unsafe fn create_bitmap<'b>(
 }
 
 unsafe fn blend_bitmap<'a>(render_type: RenderType, image_view: JObject) -> Result<&'a str> {
+    let v = vec![1, 2, 3];
+
     // Attach current thread
     let env = v8_jni::jvm().attach_current_thread()?;
 

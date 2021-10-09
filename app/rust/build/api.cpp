@@ -2,6 +2,13 @@
 #include "util/util.h"
 #include "v8_jni/wrapper.h"
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_node_sample_GenerateImageActivity_blendBitmap(JNIEnv* env,
+                                                       jobject thiz,
+                                                       jobject image_view,
+                                                       jint render_type,
+                                                       jobject callback);
+
 extern "C" void __unused deno_lock(void* d_) {
   auto* d = Deno::unwrap(d_);
   d->locker_ = new Locker(d->isolate_);
@@ -37,8 +44,9 @@ const char* __unused jStringToChar(JNIEnv* env, jstring name) {
   return str;
 }
 
-extern "C" Local<Value> __unused v8_function_callback_info_get(
-    FunctionCallbackInfo<Value>* info, int32_t index) {
+extern "C" Local<Value> __unused
+v8_function_callback_info_get(FunctionCallbackInfo<Value>* info,
+                              int32_t index) {
   return (*info)[index];
 }
 
@@ -161,7 +169,8 @@ extern "C" void __unused fire_callback(void* d_, uint32_t promise_id) {
 }
 
 /* do not remove */
-extern "C" __unused void resolve(void* d_, uint32_t promise_id,
+extern "C" __unused void resolve(void* d_,
+                                 uint32_t promise_id,
                                  const char* value) {
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
@@ -254,7 +263,8 @@ extern "C" void* __unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
   return deno->Into();
 }
 
-extern "C" void __unused eval_script(void* deno_, const char* name_s,
+extern "C" void __unused eval_script(void* deno_,
+                                     const char* name_s,
                                      const char* script_s) {
   auto deno = Deno::unwrap(deno_);
   lock_isolate(deno->isolate_);
@@ -324,15 +334,18 @@ set_return_value(const FunctionCallbackInfo<Value>& args, Local<Value> value) {
   args.GetReturnValue().Set(value);
 }
 
-extern "C" void __unused new_array_buffer(Local<ArrayBuffer>* out, void* data,
+extern "C" void __unused new_array_buffer(Local<ArrayBuffer>* out,
+                                          void* data,
                                           size_t byte_length) {
   Isolate* isolate_ = Isolate::GetCurrent();
   *out = ArrayBuffer::New(isolate_, data, byte_length,
                           ArrayBufferCreationMode::kInternalized);
 }
 
-extern "C" bool __unused function_call(Local<Value>* out, Local<Function> fun,
-                                       Local<Value> self, uint32_t argc,
+extern "C" bool __unused function_call(Local<Value>* out,
+                                       Local<Function> fun,
+                                       Local<Value> self,
+                                       uint32_t argc,
                                        Local<Value> argv[]) {
   Isolate* isolate_ = Isolate::GetCurrent();
   MaybeLocal<Value> maybe_result =
@@ -362,7 +375,8 @@ extern "C" const char* __unused raw_value(Local<Value> val) {
 }
 
 extern "C" void __unused new_utf8_string(Local<String>* out,
-                                         const uint8_t* data, uint32_t len) {
+                                         const uint8_t* data,
+                                         uint32_t len) {
   MaybeLocal<String> maybe_local = String::NewFromUtf8(
       Isolate::GetCurrent(), (const char*) data, NewStringType::kNormal, len);
   maybe_local.ToLocal(out);
@@ -373,8 +387,10 @@ extern "C" void __unused new_object(Local<Object>* out) {
   *out = Object::New(isolate_);
 }
 
-extern "C" bool __unused object_set(bool* out, Local<Object> obj,
-                                    Local<Value> key, Local<Value> val) {
+extern "C" bool __unused object_set(bool* out,
+                                    Local<Object> obj,
+                                    Local<Value> key,
+                                    Local<Value> val) {
   Local<Context> context_ = Isolate::GetCurrent()->GetCurrentContext();
   Maybe<bool> maybe = obj->Set(context_, key, val);
   if (maybe.IsJust()) {
@@ -384,8 +400,10 @@ extern "C" bool __unused object_set(bool* out, Local<Object> obj,
   return false;
 }
 
-extern "C" bool __unused object_index_set(bool* out, Local<Object> obj,
-                                          uint32_t index, Local<Value> value) {
+extern "C" bool __unused object_index_set(bool* out,
+                                          Local<Object> obj,
+                                          uint32_t index,
+                                          Local<Value> value) {
   Local<Context> context_ = Isolate::GetCurrent()->GetCurrentContext();
   Maybe<bool> maybe = obj->Set(context_, index, value);
   return maybe.IsJust() && (*out = maybe.FromJust(), true);
@@ -398,8 +416,10 @@ bool string_get(Local<String>* key, const uint8_t* data, uint32_t len) {
   return maybe_key.ToLocal(key);
 }
 
-extern "C" bool __unused object_string_set(bool* out, Local<Object> obj,
-                                           const uint8_t* data, uint32_t len,
+extern "C" bool __unused object_string_set(bool* out,
+                                           Local<Object> obj,
+                                           const uint8_t* data,
+                                           uint32_t len,
                                            Local<Value> val) {
   Isolate* isolate_ = Isolate::GetCurrent();
   Local<String> key;
@@ -411,8 +431,10 @@ extern "C" bool __unused object_string_set(bool* out, Local<Object> obj,
   return maybe.IsJust() && (*out = maybe.FromJust(), true);
 }
 
-extern "C" bool __unused object_string_get(Local<Value>* out, Local<Object> obj,
-                                           const uint8_t* data, uint32_t len) {
+extern "C" bool __unused object_string_get(Local<Value>* out,
+                                           Local<Object> obj,
+                                           const uint8_t* data,
+                                           uint32_t len) {
   Isolate* isolate_ = Isolate::GetCurrent();
   Local<String> key;
   if (!string_get(&key, data, len)) {
@@ -447,7 +469,8 @@ extern "C" void __unused promise_then(Local<Promise>* promise,
 }
 
 extern "C" void callback_info_get(const FunctionCallbackInfo<Value>& args,
-                                  uint32_t index, Local<Value>* out) {
+                                  uint32_t index,
+                                  Local<Value>* out) {
   assert(args.Length() >= index);
   *out = args[index];
 }

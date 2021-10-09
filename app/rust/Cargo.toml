@@ -41,7 +41,10 @@ v8_macros = { path = "./v8_macros" }
 ndk_log = { path = "./ndk_log" }
 utf8_util = { path = "./utf8_util" }
 
+[profile.dev]
+debug = true
+opt-level = 0
+
 [profile.release]
-# debug = true
 codegen-units = 1
 lto = true

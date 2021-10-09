@@ -1,7 +1,7 @@
 package com.node.util
 
 import android.content.Context
-import android.support.annotation.Keep
+import androidx.annotation.Keep
 import java.lang.ref.WeakReference
 
 @Keep
