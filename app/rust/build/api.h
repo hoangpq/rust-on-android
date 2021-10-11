@@ -32,6 +32,7 @@ static JavaVM* vm;
 extern "C" {
 void adb_debug(const char*);
 void fetch(void* data, const char*, uint32_t);
+void timer(void* data, uint32_t, uint32_t);
 void test_fn(const FunctionCallbackInfo<Value>&);
 char* worker_send_bytes(void*, size_t, Local<Value> val);
 void attach_current_thread(JNIEnv** env);
@@ -45,6 +46,8 @@ public:
   Persistent<Context> context_;
   Persistent<ObjectTemplate> global_;
   Persistent<Function> resolver_;
+  Persistent<Function> timerResolver_;
+  Persistent<Function> getMinTimeout_;
   Locker* locker_;
   JNIEnv* env_;
 

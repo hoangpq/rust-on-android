@@ -38,6 +38,31 @@ extern "C" void __unused set_deno_resolver(void* d_) {
   d->resolver_.Reset(d->isolate_, resolver_);
 }
 
+extern "C" void __unused invoke_timer_callback(void* d_) {
+  auto d = Deno::unwrap(d_);
+  lock_isolate(d->isolate_);
+  Local<Context> context_ = d->context_.Get(d->isolate_);
+  Context::Scope scope(context_);
+
+  // resolver
+  Local<Function> timerResolver_ = d->timerResolver_.Get(d->isolate_);
+  timerResolver_->Call(context_, Null(d->isolate_), 0, NULL);
+}
+
+extern "C" uint32_t __unused get_min_timeout(void* d_) {
+  auto d = Deno::unwrap(d_);
+  lock_isolate(d->isolate_);
+  Local<Context> context_ = d->context_.Get(d->isolate_);
+  Context::Scope scope(context_);
+
+  // resolver
+  Local<Function> getMinTimeout_ = d->getMinTimeout_.Get(d->isolate_);
+  MaybeLocal<Value> maybeLocal = getMinTimeout_->Call(context_, Null(d->isolate_), 0, NULL);
+  Local<Value> value = maybeLocal.ToLocalChecked();
+
+  return value->Uint32Value(context_).FromJust();
+}
+
 const char* __unused jStringToChar(JNIEnv* env, jstring name) {
   const char* str = env->GetStringUTFChars(name, 0);
   env->ReleaseStringUTFChars(name, str);
@@ -138,16 +163,33 @@ void Toast(const FunctionCallbackInfo<Value>& args) {
 }
 
 void NewTimer(const FunctionCallbackInfo<Value>& args) {
-  assert(args[0]->IsUint32());  // promise_id
-  assert(args[1]->IsUint32());  // delay
+  assert(args[0]->IsUint32());  // delay
+  assert(args[1]->IsUint32());  // promise_id
 
   void* d_ = args.Data().As<External>()->Value();
   auto d = Deno::unwrap(d_);
   lock_isolate(d->isolate_);
 
   Local<Context> context = d->isolate_->GetCurrentContext();
-  d->recv_cb_(d->user_data_, args[0]->Uint32Value(context).ToChecked(),
-              args[1]->Uint32Value(context).ToChecked());
+
+  /*timer(d->user_data_, args[0]->Uint32Value(context).ToChecked(),
+        args[1]->Uint32Value(context).ToChecked());*/
+}
+
+void NewGlobalTimer(const FunctionCallbackInfo<Value>& args) {
+  assert(args[0]->IsFunction());
+  assert(args[1]->IsFunction());
+
+  void* d_ = args.Data().As<External>()->Value();
+  auto d = Deno::unwrap(d_);
+  lock_isolate(d->isolate_);
+
+  Local<Function> f = Local<Function>::Cast(args[0]);
+
+  d->getMinTimeout_.Reset(d->isolate_, Local<Function>::Cast(args[0]));
+  d->timerResolver_.Reset(d->isolate_, Local<Function>::Cast(args[1]));
+  Local<Context> context = d->isolate_->GetCurrentContext();
+  // timer(d->user_data_, val.ToLocalChecked()->Uint32Value(context).FromJust(), 1);
 }
 
 /* do not remove */
@@ -234,6 +276,9 @@ extern "C" void* __unused deno_init(deno_recv_cb recv_cb, uint32_t uuid) {
 
   global_->Set(String::NewFromUtf8(isolate_, "$newTimer"),
                FunctionTemplate::New(isolate_, NewTimer, env_));
+
+  global_->Set(String::NewFromUtf8(isolate_, "$newGlobalTimer"),
+               FunctionTemplate::New(isolate_, NewGlobalTimer, env_));
 
   global_->Set(String::NewFromUtf8(isolate_, "$toast"),
                FunctionTemplate::New(isolate_, Toast, env_));

@@ -10,7 +10,7 @@ android {
         minSdkVersion 21
         compileSdkVersion 30
         buildToolsVersion "30.0.3"
-        multiDexEnabled true
+        multiDexEnabled false
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
