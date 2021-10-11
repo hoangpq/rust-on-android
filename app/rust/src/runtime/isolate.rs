@@ -1,15 +1,18 @@
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::Duration;
 use std::{
     sync::atomic::{AtomicUsize, Ordering},
     sync::Once,
 };
 
+use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, Stream};
-use futures::Async::*;
-use futures::{task, Future, Poll};
-use libc::c_void;
+use futures::{task, Future, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
+use tokio::time::Sleep;
 
-use crate::runtime::timer::set_timeout;
-use crate::runtime::{eval_script, DenoC, OpAsyncFuture};
+use crate::runtime::timer::{invoke_timer_cb, min_timeout};
+use crate::runtime::{eval_script, Buf, DenoC, OpAsyncFuture, TimerFuture};
 
 #[allow(non_camel_case_types)]
 type deno_recv_cb = unsafe extern "C" fn(data: *mut libc::c_void, promise_id: u32, duration: u32);
@@ -28,15 +31,10 @@ pub struct Isolate {
     pub deno: *const DenoC,
     pub have_unpolled_ops: bool,
     pub pending_ops: FuturesUnordered<OpAsyncFuture>,
+    pub timer: Pin<Box<Sleep>>,
 }
 
 unsafe impl Send for Isolate {}
-
-impl Drop for Isolate {
-    fn drop(&mut self) {
-        adb_debug!(format!("Isolate {:p} dropped", &self));
-    }
-}
 
 // Locker
 struct LockerScope {
@@ -70,12 +68,23 @@ static ISOLATE_INIT: Once = Once::new();
 impl Isolate {
     pub fn new() -> Self {
         let uuid = next_uuid();
+
         return Self {
             uuid,
             deno: unsafe { deno_init(Self::dispatch, uuid) },
             have_unpolled_ops: false,
             pending_ops: FuturesUnordered::new(),
+            timer: Box::pin(tokio::time::sleep(Default::default())),
         };
+    }
+
+    pub fn reset(&mut self) {
+        let timeout = min_timeout(self);
+        adb_debug!(format!("Scheduling new timeout: {}ms", timeout));
+
+        self.timer
+            .as_mut()
+            .reset(tokio::time::Instant::now() + Duration::from_millis(timeout.into()));
     }
 
     pub unsafe fn initialize(&mut self) {
@@ -223,46 +232,34 @@ impl Isolate {
 
                 let timerMap = new Map();
                 let nextTimerId = 1;
-
+                
                 // timer implementation
-                async function setTimer(timerId, callback, delay, repeat, ...args) {
+                function setTimer(timerId, callback, delay, repeat, ...args) {
                   const timer = {
                     id: timerId,
                     callback,
                     repeat,
-                    delay
+                    delay,
+                    due: Date.now() + delay,
                   };
 
                   // Add promise to microtask queue
                   timerMap.set(timer.id, timer);
-                  const promise = createResolvable();
-
-                  // Send message to tokio backend
-                  $newTimer(promise.cmdId, timer.delay);
-
-                  // Wait util promise resolve
-                  await promise;
-                  Promise.resolve(timer.id).then(fire);
                 }
 
-                async function fire(id) {
+                function fire(id) {
                   if (!timerMap.has(id)) return;
-
                   const timer = timerMap.get(id);
-                  const callback = timer.callback;
-                  callback();
-
-                  if (!timer.repeat) {
-                    timeMap.delete(timer.id);
-                    return;
+                
+                  if (timer.due <= Date.now()) {
+                    const due = Date.now() + timer.delay;
+                    timer.callback();
+                    if (timer.repeat) {
+                      timer.due = due;
+                    } else {
+                      timerMap.delete(timer.id);
+                    }
                   }
-
-                  // Add new timer (setInterval fake)
-                  const promise = createResolvable();
-                  $newTimer(promise.cmdId, timer.delay, true);
-
-                  await promise;
-                  Promise.resolve(timer.id).then(fire);
                 }
 
                 function setTimeout(callback, delay) {
@@ -329,6 +326,24 @@ impl Isolate {
                   });
                 }
                 
+                // global timer callback
+                function globalTimerCallback() {
+                  if (timerMap.size > 0) {
+                    for (const key of timerMap.keys()) {
+                      Promise.resolve(key).then(fire);  
+                    }
+                  }
+                }
+                
+                // register global timer
+                $newGlobalTimer(() => {
+                  let minTimeout = Number.MAX_SAFE_INTEGER;
+                  for (const [key, value] of timerMap) {
+                    minTimeout = Math.min(minTimeout, value.delay);
+                  }
+                  return minTimeout;
+                }, globalTimerCallback);
+                
                 const slice = Array.prototype.slice;
                 
                 function javaFunction(target, prop) {
@@ -384,49 +399,37 @@ impl Isolate {
 
     extern "C" fn dispatch(data: *mut libc::c_void, promise_id: u32, delay: u32) {
         let isolate = unsafe { Isolate::from_raw_ptr(data) };
-        let (task, _trigger) = set_timeout(delay);
-
         let deno = unsafe { isolate.deno.as_ref() };
-        let task = task.and_then(move |_| {
-            let deno = deno.unwrap();
-            unsafe { fire_callback(deno, promise_id) };
-            Ok(vec![1u8].into_boxed_slice())
-        });
-
-        isolate.pending_ops.push(Box::new(task));
-        isolate.have_unpolled_ops = true;
     }
 }
 
 impl Future for Isolate {
-    type Item = ();
-    type Error = ();
+    type Output = std::io::Result<()>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Lock the current thread for V8.
         let _locker = LockerScope::new(self.deno);
+        self.have_unpolled_ops = false;
 
         loop {
-            self.have_unpolled_ops = false;
-            #[allow(clippy::match_wild_err_arm)]
-            match self.pending_ops.poll() {
-                Err(_) => panic!("unexpected op error"),
-                Ok(Ready(None)) => break,
-                Ok(NotReady) => break,
-                Ok(Ready(Some(_buf))) => {
+            match self.pending_ops.poll_next_unpin(cx) {
+                Poll::Ready(None) => break,
+                Poll::Pending => break,
+                Poll::Ready(Some(buf)) => {
+                    adb_debug!(format!("{:?}", String::from_utf8_lossy(&buf)));
+                    // TODO: refactor to dispatch
                     break;
                 }
             }
         }
 
-        // We're idle if pending_ops is empty.
-        if self.pending_ops.is_empty() {
-            Ok(Ready(()))
-        } else {
-            if self.have_unpolled_ops {
-                task::current().notify();
+        match self.timer.poll_unpin(cx) {
+            Poll::Ready(_) => {
+                invoke_timer_cb(&mut self);
+                self.reset();
+                Poll::Pending
             }
-            Ok(NotReady)
+            Poll::Pending => Poll::Pending,
         }
     }
 }

@@ -1,26 +1,35 @@
-use std::convert::Into;
+use std::os::raw::c_void;
+use std::pin::Pin;
 use std::time::{Duration, Instant};
 
-use futures::Future;
-use tokio_timer::Delay;
+use futures::FutureExt;
+use futures::{future, TryFutureExt};
+use num::one;
 
-use crate::runtime::stream_cancel::TimerCancel;
+use crate::runtime::isolate::Isolate;
+use crate::runtime::DenoC;
 
-pub(crate) fn panic_on_error<I, E, F>(f: F) -> impl Future<Item = I, Error = ()>
-where
-    F: Future<Item = I, Error = E>,
-    E: std::fmt::Debug,
-{
-    f.map_err(|err| adb_debug!(format!("Future got unexpected error: {:?}", err)))
+extern "C" {
+    fn resolve(d: *const DenoC, promise_id: u32, data: *const libc::c_char);
+    fn invoke_timer_callback(d: *const DenoC);
+    fn get_min_timeout(d: *const DenoC) -> u32;
 }
 
-pub fn set_timeout(delay: u32) -> (impl Future<Item = (), Error = ()>, TimerCancel) {
-    let (tx, _rx) = futures::sync::oneshot::channel::<()>();
-    let duration = Duration::from_millis(delay.into());
+pub fn invoke_timer_cb(isolate: &mut Isolate) {
+    unsafe {
+        let deno_ref = isolate.deno.as_ref();
+        invoke_timer_callback(deno_ref.unwrap());
+    }
+}
 
-    let delay_task = panic_on_error(Delay::new(Instant::now() + duration))
-        // .select(rx.map_err(|_| ()))
-        .then(|_| Ok(()));
+pub fn min_timeout(isolate: &mut Isolate) -> u32 {
+    unsafe {
+        let deno_ref = isolate.deno.as_ref();
+        get_min_timeout(deno_ref.unwrap())
+    }
+}
 
-    (delay_task, TimerCancel(Some(tx)))
+#[no_mangle]
+pub fn timer(isolate_ptr: *const c_void, timeout: u32, promise_id: u32) {
+    let isolate = unsafe { Isolate::from_raw_ptr(isolate_ptr) };
 }

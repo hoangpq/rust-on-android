@@ -1,11 +1,13 @@
+use std::pin::Pin;
+
 use futures::Future;
 use libc::c_char;
 use tokio::runtime;
+use tokio::time::Sleep;
 
 pub mod event_loop;
 pub mod fetch;
 pub mod isolate;
-pub mod stream_cancel;
 pub mod timer;
 pub mod ui_thread;
 pub mod util;
@@ -20,16 +22,7 @@ extern "C" {
     fn eval_script(d: *const DenoC, name: *const c_char, script: *const c_char);
 }
 
-fn create_thread_pool_runtime() -> tokio::runtime::Runtime {
-    use tokio_threadpool::Builder as ThreadPoolBuilder;
-    let mut thread_pool_builder = ThreadPoolBuilder::new();
-    thread_pool_builder.panic_handler(|err| std::panic::resume_unwind(err));
-    #[allow(deprecated)]
-    runtime::Builder::new()
-        .threadpool_builder(thread_pool_builder)
-        .build()
-        .unwrap()
-}
-
 pub type Buf = Box<[u8]>;
-pub type OpAsyncFuture = Box<dyn Future<Item = Buf, Error = ()> + Send>;
+
+pub type OpAsyncFuture = Pin<Box<dyn Future<Output = Buf> + Send>>;
+pub type TimerFuture = Pin<Box<dyn Future<Output = Buf>>>;

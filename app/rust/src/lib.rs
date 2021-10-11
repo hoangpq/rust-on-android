@@ -13,9 +13,8 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
+#[macro_use]
 extern crate tokio;
-extern crate tokio_threadpool;
-extern crate tokio_timer;
 extern crate utf8_util;
 #[macro_use]
 extern crate v8;
