@@ -5,4 +5,4 @@
   - [Rust for NDK development](https://hoangpq.github.io/posts/rust-ndk/)
 
 ## Dive into source code
-  - Checkout `app/rust/src/runtime/event_loop.rs` for more detail
+  - Checkout [entrypoint](https://github.com/hoangpq/rust-on-android-example/blob/master/app/rust/src/lib.rs#L55) for more detail
